@@ -2,7 +2,7 @@ module fetchtb
 
 go 1.25.7
 
-require modernc.org/sqlite v1.45.0
+require github.com/rkosegi/jdownloader-go v1.0.3
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -16,3 +16,13 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
+
+require (
+	github.com/joho/godotenv v1.5.1
+	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.27.0
+	modernc.org/sqlite v1.45.0
+	torbox-sdk-go/pkg v1.0.6
+)
+
+replace torbox-sdk-go => github.com/TorBox-App/torbox-sdk-go v1.0.6

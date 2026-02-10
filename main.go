@@ -1,42 +1,52 @@
 package main
 
 import (
-	"fetchtb/database"
-	"fetchtb/handlers"
-	"log/slog" // The new standard library
-	"net/http"
-	"os"
+	"fetchtb/services"
+	"fetchtb/utils"
+	"log"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	// Setup structured logger (Text format is best for CLI, JSON for cloud)
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	slog.SetDefault(logger)
-
-	slog.Info("Initializing FetchTB System...")
-
-	// 1. Initialize DB
-	if err := database.InitDB(); err != nil {
-		slog.Error("Database initialization failed", "error", err)
-		os.Exit(1)
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
 	}
-	slog.Info("Database loaded successfully", "path", "./fetchtb.db")
 
-	// 2. Register Routes
-	http.HandleFunc("/sabnzbd/api", handlers.SabHandler)
-	http.HandleFunc("/api", handlers.SabHandler)
-	http.HandleFunc("/api/v2/", handlers.QBitHandler)
+	utils.InitLogger()
+	defer utils.Sync()
+	utils.Logger.Info("Initializing FetchTB System...")
 
-	// 3. Start Server
-	port := ":8080"
-	slog.Info("Server starting",
-		"port", port,
-		"sabnzbd_url", "http://localhost"+port+"/sabnzbd/api",
-		"qbit_url", "http://localhost"+port+"/api/v2/",
-	)
+	// Testing Parts
 
-	if err := http.ListenAndServe(port, nil); err != nil {
-		slog.Error("Server crashed", "error", err)
-		os.Exit(1)
+	JdClient, err := services.NewJDClient()
+	if err != nil {
+		utils.Logger.Fatalw("Failed to initialize JDownloader client", "error", err)
 	}
+
+	downloads, err := JdClient.CheckPackageStatus()
+
+	utils.Logger.Infow("Current Downloads", "count", len(downloads))
+
+	//Testing Parts
+
+	//if err := database.InitDB(); err != nil {
+	//	utils.Logger.Fatalw("Database initialization failed", "error", err)
+	//}
+	//utils.Logger.Info("Database loaded successfully", "path", "./data/fetchtb.db")
+
+	//http.HandleFunc("/sabnzbd/api", handlers.SabHandler)
+	//http.HandleFunc("/qbittorrent/api", handlers.QBitHandler)
+
+	// port := ":9090"
+	// utils.Logger.Infow("Server starting",
+	// 	"port", port,
+	// 	"sabnzbd_url", "http://localhost"+port+"/sabnzbd/api",
+	// 	"qbit_url", "http://localhost"+port+"/api/v2/",
+	// )
+
+	//if err := http.ListenAndServe(port, nil); err != nil {
+	//	utils.Logger.Fatalw("Server crashed", "error", err)
+	//}
 }
