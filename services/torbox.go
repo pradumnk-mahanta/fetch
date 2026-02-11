@@ -69,7 +69,7 @@ func TorboxUsenetCreateDownload(localDownload models.LocalDownloadInstance) (str
 		return "", requestError
 	}
 
-	return strconv.FormatInt(*response.Data.DataClass.UsenetdownloadID, 10), nil
+	return strconv.FormatInt(*response.Data.DAT.UsenetdownloadID, 10), nil
 }
 
 func TorboxUsenetRequestDownloadLink(localDownload models.LocalDownloadInstance) (string, error) {
@@ -129,5 +129,46 @@ func TorboxUsenetRequestDownloadLink(localDownload models.LocalDownloadInstance)
 		return "", requestError
 	}
 
-	return strconv.FormatInt(*response.Data.DataClass.UsenetdownloadID, 10), nil
+	return strconv.FormatInt(*response.Data.DAT.UsenetdownloadID, 10), nil
+}
+
+func TorboxUsenetGetDownloadList() ([]models.DAT, error) {
+
+	client := &http.Client{Timeout: time.Second * 60}
+	request, requestError := http.NewRequest("GET", config.TB_API_BASE_URL+"/usenet/mylist", nil)
+
+	var tbDownloads []models.DAT
+
+	if requestError != nil {
+		utils.Logger.Errorw("Failed to create HTTP request", "error", requestError)
+		return tbDownloads, requestError
+	}
+
+	request.Header.Add("Authorization", "Bearer "+config.TB_API_KEY.GetValue())
+	request.Header.Set("Accept", "application/json")
+	requestResponse, requestError := client.Do(request)
+	if requestError != nil {
+		utils.Logger.Errorw("Failed to execute HTTP request", "error", requestError)
+		return tbDownloads, requestError
+	}
+	defer requestResponse.Body.Close()
+
+	body, requestError := io.ReadAll(requestResponse.Body)
+	if requestError != nil {
+		utils.Logger.Errorw("Failed to read HTTP response body", "error", requestError)
+		return tbDownloads, requestError
+	}
+
+	response, requestError := models.UnmarshalTorBoxAPIRespose(body)
+	if requestError != nil {
+		utils.Logger.Errorw("Failed to unmarshal Torbox API response", "error", requestError, "responseBody", string(body))
+		return tbDownloads, requestError
+	}
+
+	if response.Success != true {
+		utils.Logger.Errorw("Failed to create usenet download in Torbox", "responseBody", string(body))
+		return tbDownloads, requestError
+	}
+
+	return response.Data.DATArray, nil
 }

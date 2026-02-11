@@ -25,8 +25,7 @@ func InitDB() error {
 		return err
 	}
 
-	// Added 'category' column
-	createTable := `
+	createDownloadsTable := `
 	CREATE TABLE IF NOT EXISTS downloads (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		protocol TEXT,
@@ -40,7 +39,7 @@ func InitDB() error {
 		external_id_downloader TEXT, 
 		added_at DATETIME
 	);`
-	_, err = DB.Exec(createTable)
+	_, err = DB.Exec(createDownloadsTable)
 	return err
 }
 
@@ -80,28 +79,72 @@ func GetLocalDownloadDetails(id string) (models.LocalDownloadInstance, error) {
 	return download, nil
 }
 
-func UpdateLocalDownloadDetails(id string, externalIDProvider string, externalIDDownloader string, status string) error {
-	_, err := DB.Exec("UPDATE downloads SET external_id_provider = ?, external_id_downloader = ?, status = ? WHERE id = ?", externalIDProvider, externalIDDownloader, status, id)
+func UpdateLocalDownloadProviderId(id string, externalIDProvider string, status string) error {
+	_, err := DB.Exec("UPDATE downloads SET external_id_provider = ?, status = ? WHERE id = ?", externalIDProvider, status, id)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-// New function for Pause/Resume
-func UpdateStatus(externalID, newStatus string) bool {
-	res, err := DB.Exec("UPDATE downloads SET status = ? WHERE external_id = ?", newStatus, externalID)
+func UpdateLocalDownloadDownloaderId(id string, externalIDDownloader string, status string) error {
+	_, err := DB.Exec("UPDATE downloads SET external_id_downloader = ?, status = ? WHERE id = ?", externalIDDownloader, status, id)
 	if err != nil {
-		return false
+		return err
 	}
-	count, _ := res.RowsAffected()
-	return count > 0
+	return nil
 }
 
-func DeleteDownload(externalID string) bool {
-	res, _ := DB.Exec("DELETE FROM downloads WHERE external_id = ?", externalID)
-	count, _ := res.RowsAffected()
-	return count > 0
+func UpdateLocalDownloadStatus(id string, status string) error {
+	_, err := DB.Exec("UPDATE downloads SET status = ? WHERE id = ?", status, id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func GetLocalPendingDownloads() ([]models.LocalDownloadInstance, error) {
+	var downloads []models.LocalDownloadInstance
+
+	rows, err := DB.Query("SELECT id, protocol, provider, downloadname, original_download_url, original_download_file, category, status, external_id_provider, external_id_downloader, added_at FROM downloads WHERE status NOT IN (?, ?)", config.DOWNLOAD_STATUS_COMPLETED, config.DOWNLOAD_STATUS_FAILED)
+	if err != nil {
+		return downloads, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var download models.LocalDownloadInstance
+		rows.Scan(&download.ID, &download.Protocol, &download.Provider, &download.DownloadName, &download.OriginalDownloadURL, &download.OriginalDownloadFile, &download.Category, &download.Status, &download.ExternalIDProvider, &download.ExternalIDDownloader, &download.AddedAt)
+		downloads = append(downloads, download)
+	}
+
+	return downloads, nil
+}
+
+func GetLocalDownloads() ([]models.LocalDownloadInstance, error) {
+	var downloads []models.LocalDownloadInstance
+
+	rows, err := DB.Query("SELECT id, protocol, provider, downloadname, original_download_url, original_download_file, category, status, external_id_provider, external_id_downloader, added_at FROM downloads")
+	if err != nil {
+		return downloads, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var download models.LocalDownloadInstance
+		rows.Scan(&download.ID, &download.Protocol, &download.Provider, &download.DownloadName, &download.OriginalDownloadURL, &download.OriginalDownloadFile, &download.Category, &download.Status, &download.ExternalIDProvider, &download.ExternalIDDownloader, &download.AddedAt)
+		downloads = append(downloads, download)
+	}
+
+	return downloads, nil
+}
+
+func DeleteLocalDownload(id string) error {
+	_, err := DB.Exec("DELETE FROM downloads WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func GetSABNzbdQueue() []models.SabSlot {

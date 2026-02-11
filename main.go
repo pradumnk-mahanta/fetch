@@ -40,6 +40,7 @@ func main() {
 
 	http.HandleFunc("/sabnzbd/api", handlers.SABNzbdHandler)
 	http.HandleFunc("/qbittorrent/api", handlers.QBittorrentHandler)
+	http.HandleFunc("/tasks/api", handlers.TasksHandler)
 
 	port := config.APPLICATION_API_PORT.GetValue()
 	utils.Logger.Infow("Server Starting",

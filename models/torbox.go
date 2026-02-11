@@ -27,70 +27,72 @@ type TorBoxAPIRespose struct {
 	Success bool        `json:"success"`
 	Error   interface{} `json:"error"`
 	Detail  string      `json:"detail"`
-	Data    *DataUnion  `json:"data"`
+	Data    *Data       `json:"data"`
 }
 
-type DataClass struct {
-	ID                *int64        `json:"id,omitempty"`
-	CreatedAt         *time.Time    `json:"created_at,omitempty"`
-	UpdatedAt         *time.Time    `json:"updated_at,omitempty"`
-	AuthID            string        `json:"auth_id"`
-	Name              *string       `json:"name,omitempty"`
-	Hash              string        `json:"hash"`
-	DownloadState     *string       `json:"download_state,omitempty"`
-	DownloadSpeed     *int64        `json:"download_speed,omitempty"`
-	OriginalURL       *string       `json:"original_url,omitempty"`
-	Eta               *int64        `json:"eta,omitempty"`
-	Progress          *int64        `json:"progress,omitempty"`
-	Size              *int64        `json:"size,omitempty"`
-	DownloadID        *string       `json:"download_id,omitempty"`
-	Files             []File        `json:"files,omitempty"`
-	Active            *bool         `json:"active,omitempty"`
-	Cached            *bool         `json:"cached,omitempty"`
-	DownloadPresent   *bool         `json:"download_present,omitempty"`
-	DownloadFinished  *bool         `json:"download_finished,omitempty"`
-	ExpiresAt         *time.Time    `json:"expires_at,omitempty"`
-	Server            *int64        `json:"server,omitempty"`
-	CachedAt          *time.Time    `json:"cached_at,omitempty"`
-	AlternativeHashes []interface{} `json:"alternative_hashes,omitempty"`
-	UsenetdownloadID  *int64        `json:"usenetdownload_id,omitempty"`
+type DAT struct {
+	ID                *int64     `json:"id,omitempty"`
+	CreatedAt         *time.Time `json:"created_at,omitempty"`
+	UpdatedAt         *time.Time `json:"updated_at,omitempty"`
+	AuthID            string     `json:"auth_id"`
+	Name              *string    `json:"name,omitempty"`
+	Hash              string     `json:"hash"`
+	DownloadState     *string    `json:"download_state,omitempty"`
+	DownloadSpeed     *int64     `json:"download_speed,omitempty"`
+	OriginalURL       *string    `json:"original_url,omitempty"`
+	Eta               *int64     `json:"eta,omitempty"`
+	Progress          *int64     `json:"progress,omitempty"`
+	Size              *int64     `json:"size,omitempty"`
+	DownloadID        *string    `json:"download_id,omitempty"`
+	Files             []File     `json:"files,omitempty"`
+	Active            *bool      `json:"active,omitempty"`
+	Cached            *bool      `json:"cached,omitempty"`
+	DownloadPresent   *bool      `json:"download_present,omitempty"`
+	DownloadFinished  *bool      `json:"download_finished,omitempty"`
+	ExpiresAt         *time.Time `json:"expires_at,omitempty"`
+	Server            *int64     `json:"server,omitempty"`
+	CachedAt          *time.Time `json:"cached_at,omitempty"`
+	AlternativeHashes []string   `json:"alternative_hashes,omitempty"`
+	UsenetdownloadID  *int64     `json:"usenetdownload_id,omitempty"`
 }
 
 type File struct {
-	ID                int64   `json:"id"`
-	Md5               *string `json:"md5"`
-	Hash              string  `json:"hash"`
-	Name              string  `json:"name"`
-	Size              int64   `json:"size"`
-	Zipped            bool    `json:"zipped"`
-	S3Path            string  `json:"s3_path"`
-	Infected          bool    `json:"infected"`
-	Mimetype          string  `json:"mimetype"`
-	ShortName         string  `json:"short_name"`
-	AbsolutePath      string  `json:"absolute_path"`
-	OpensubtitlesHash *string `json:"opensubtitles_hash"`
+	ID                int64  `json:"id"`
+	Md5               string `json:"md5"`
+	Hash              string `json:"hash"`
+	Name              string `json:"name"`
+	Size              int64  `json:"size"`
+	Zipped            bool   `json:"zipped"`
+	S3Path            string `json:"s3_path"`
+	Infected          bool   `json:"infected"`
+	Mimetype          string `json:"mimetype"`
+	ShortName         string `json:"short_name"`
+	AbsolutePath      string `json:"absolute_path"`
+	OpensubtitlesHash string `json:"opensubtitles_hash"`
 }
 
-type DataUnion struct {
-	DataClass *DataClass
-	String    *string
+type Data struct {
+	DAT      *DAT
+	DATArray []DAT
+	String   *string
 }
 
-func (x *DataUnion) UnmarshalJSON(data []byte) error {
-	x.DataClass = nil
-	var c DataClass
-	object, err := unmarshalUnion(data, nil, nil, nil, &x.String, false, nil, true, &c, false, nil, false, nil, false)
+func (x *Data) UnmarshalJSON(data []byte) error {
+	x.DATArray = nil
+	x.DAT = nil
+	var c DAT
+	object, err := unmarshalUnion(data, nil, nil, nil, &x.String, true, &x.DATArray, true, &c, false, nil, false, nil, false)
 	if err != nil {
 		return err
 	}
 	if object {
-		x.DataClass = &c
+		x.DAT = &c
 	}
 	return nil
 }
 
-func (x *DataUnion) MarshalJSON() ([]byte, error) {
-	return marshalUnion(nil, nil, nil, x.String, false, nil, x.DataClass != nil, x.DataClass, false, nil, false, nil, false)
+func (x *Data) MarshalJSON() ([]byte, error) {
+	return marshalUnion(nil, nil, nil, x.String, x.DATArray != nil, x.DATArray, x.DAT != nil, x.DAT, false, nil, false, nil, false)
 }
 
 func unmarshalUnion(data []byte, pi **int64, pf **float64, pb **bool, ps **string, haveArray bool, pa interface{}, haveObject bool, pc interface{}, haveMap bool, pm interface{}, haveEnum bool, pe interface{}, nullable bool) (bool, error) {
