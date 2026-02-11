@@ -1,20 +1,19 @@
 package utils
 
 import (
+	"time"
+
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var Logger *zap.SugaredLogger
 
 func InitLogger() {
-	// Create a production logger (JSON format, Info level)
-	logger, _ := zap.NewProduction()
+	config := zap.NewProductionConfig()
+	config.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout(time.RFC3339)
 
-	// Flush buffer when program exits
-	// Note: We can't defer here effectively in a global init,
-	// but it's good practice in main()
-
-	// Create a "Sugared" logger for easier printf-style logging
+	logger, _ := config.Build()
 	Logger = logger.Sugar()
 }
 

@@ -15,6 +15,7 @@ require (
 	modernc.org/libc v1.67.6 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
+	torbox-sdk-go v0.0.0-00010101000000-000000000000 // indirect
 )
 
 require (
@@ -22,7 +23,6 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0
 	modernc.org/sqlite v1.45.0
-	torbox-sdk-go/pkg v1.0.6
 )
 
-replace torbox-sdk-go => github.com/TorBox-App/torbox-sdk-go v1.0.6
+replace torbox-sdk-go => ./internal/vendor/torbox-sdk-go

@@ -2,85 +2,81 @@ package handlers
 
 import (
 	"encoding/json"
-	"fetchtb/database"
+	"fetchtb/adapters"
 	"fetchtb/models"
-	"log/slog"
+	"fetchtb/utils"
 	"net/http"
 )
 
-func SabHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+const (
+	protocol = "usenet"
+)
 
-	query := r.URL.Query()
+func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
+	writer.Header().Set("Content-Type", "application/json")
+
+	query := request.URL.Query()
 	mode := query.Get("mode")
-	name := query.Get("name")   // 'delete', 'pause', 'resume' or filename for addurl
-	value := query.Get("value") // nzo_id for operations
-	cat := query.Get("cat")     // Category from URL
+	name := query.Get("name")
+	//nzo_id := query.Get("value") // nzo_id for operations
+	category := query.Get("cat")
 
-	// Fallback: if cat is empty, check "cat" parameter again (sometimes sent differently)
-	if cat == "" {
-		cat = "default"
+	if category == "" {
+		category = "default"
 	}
 
 	switch mode {
 	case "queue":
-		// Handle queue mutations inside the queue mode (SABnzbd quirk)
-		if name == "delete" {
-			database.DeleteDownload(value)
-			handleSabQueue(w)
-		} else if name == "pause" {
-			database.UpdateStatus(value, "Paused")
-			handleSabQueue(w)
-		} else if name == "resume" {
-			database.UpdateStatus(value, "Downloading")
-			handleSabQueue(w)
-		} else {
-			handleSabQueue(w)
+		switch name {
+		case "delete":
+			//database.DeleteDownload(nzo_id)
+			handleSabQueue(writer)
+		case "pause":
+			//database.UpdateStatus(nzo_id, "Paused")
+			handleSabQueue(writer)
+		case "resume":
+			//database.UpdateStatus(nzo_id, "Downloading")
+			handleSabQueue(writer)
+		default:
+			handleSabQueue(writer)
 		}
-
-	case "addurl":
-		filename := name
-		if filename == "" {
-			filename = "Unknown_NZB"
-		}
-
-		newID := database.AddDownload("usenet", filename, cat)
-		respondAdd(w, newID)
 
 	case "addfile":
-		// Handle Multipart Upload
-		err := r.ParseMultipartForm(32 << 20) // 32MB max
+		err := request.ParseMultipartForm(32 << 20)
 		if err != nil {
-			slog.Error("Failed to parse multipart form", "error", err)
+			utils.Logger.Errorw("Failed to parse multipart form", "error", err)
 			return
 		}
 
-		// Get category from form data
-		formCat := r.FormValue("cat")
+		formCat := request.FormValue("cat")
 		if formCat != "" {
-			cat = formCat
+			category = formCat
 		}
 
-		// Get the file
-		file, header, err := r.FormFile("nzbfile")
+		file, header, err := request.FormFile("nzbfile")
 		if err != nil {
-			slog.Error("No nzbfile found in request")
+			utils.Logger.Errorw("No nzbfile found in request", "error", err)
 			return
 		}
 		defer file.Close()
 
-		newID := database.AddDownload("usenet", header.Filename, cat)
-		respondAdd(w, newID)
+		utils.Logger.Infow("Received nzbfile", "filename", header.Filename, "size", header.Size)
+		id, err := adapters.CreateDownload(protocol, header.Filename, file, "", category)
+		if err != nil {
+			utils.Logger.Errorw("Failed to create download", "error", err)
+			return
+		}
+		respondAdd(writer, id)
 
 	case "version":
-		w.Write([]byte(`{"version": "4.2.0"}`))
+		writer.Write([]byte(`{"version": "4.2.0"}`))
 
 	default:
-		handleSabQueue(w)
+		handleSabQueue(writer)
 	}
 }
 
-func handleSabQueue(w http.ResponseWriter) {
+func handleSabQueue(writer http.ResponseWriter) {
 	resp := models.SabQueueResponse{
 		Queue: models.SabQueueData{
 			Status:   "Downloading",
@@ -88,10 +84,10 @@ func handleSabQueue(w http.ResponseWriter) {
 			Size:     "100 GB",
 			SizeLeft: "50 GB",
 			Version:  "4.2.0",
-			Slots:    database.GetSabQueue(),
+			Slots:    adapters.GetSABNzbdQueue(),
 		},
 	}
-	json.NewEncoder(w).Encode(resp)
+	json.NewEncoder(writer).Encode(resp)
 }
 
 func respondAdd(w http.ResponseWriter, id string) {

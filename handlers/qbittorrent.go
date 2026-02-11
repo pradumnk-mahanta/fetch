@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func QBitHandler(w http.ResponseWriter, r *http.Request) {
+func QBittorrentHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 
 	// Log the exact path requested
