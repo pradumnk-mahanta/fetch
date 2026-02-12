@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	"fetchtb/adapters"
-	"fetchtb/models"
-	"fetchtb/utils"
+	"fetch/adapters"
+	"fetch/models"
+	"fetch/utils"
 	"net/http"
 )
 

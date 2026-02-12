@@ -1,11 +1,11 @@
 package adapters
 
 import (
-	"fetchtb/config"
-	"fetchtb/databases"
-	"fetchtb/models"
-	"fetchtb/services"
-	"fetchtb/utils"
+	"fetch/config"
+	"fetch/databases"
+	"fetch/models"
+	"fetch/services"
+	"fetch/utils"
 	"mime/multipart"
 	"strconv"
 )

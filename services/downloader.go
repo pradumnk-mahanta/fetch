@@ -3,9 +3,9 @@ package services
 import (
 	"context"
 	"errors"
-	"fetchtb/config"
-	"fetchtb/databases"
-	"fetchtb/models"
+	"fetch/config"
+	"fetch/databases"
+	"fetch/models"
 	"fmt"
 	"log/slog"
 	"os"
@@ -59,6 +59,17 @@ type GDLService struct {
 func (s *GDLService) Download(localDownload models.LocalDownloadInstance) error {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	fileInfo, err := gdl.GetFileInfo(ctx, localDownload.ExternalDownloadProviderURL)
+	if err != nil {
+		cancel()
+		return errors.New("Unable to retrieve file metadata: " + err.Error())
+	}
+
+	fileName := fileInfo.Filename
+	if fileName == "" {
+		fileName = localDownload.DownloadName
+	}
+
 	databases.UpdateLocalDownloadStatus(localDownload.ID, config.DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING)
 
 	dir, err := buildDownloadPath(localDownload.Category, localDownload.DownloadName)
@@ -68,7 +79,7 @@ func (s *GDLService) Download(localDownload models.LocalDownloadInstance) error 
 		return err
 	}
 
-	outputPath := filepath.Join(dir, localDownload.DownloadName)
+	outputPath := filepath.Join(dir, fileName)
 	task := &DownloadTask{
 		ID:         localDownload.ID,
 		URL:        localDownload.ExternalDownloadProviderURL,
@@ -76,10 +87,18 @@ func (s *GDLService) Download(localDownload models.LocalDownloadInstance) error 
 		Ctx:        ctx,
 		CancelFunc: cancel,
 		Status:     config.DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING,
+		Stats: &gdl.DownloadStats{
+			TotalSize: fileInfo.Size,
+		},
 	}
 
 	s.mu.Lock()
-	s.tasks[localDownload.ID] = task
+	if _, exists := s.tasks[task.ID]; exists {
+		s.mu.Unlock()
+		cancel()
+		return errors.New("Download already exists")
+	}
+	s.tasks[task.ID] = task
 	s.mu.Unlock()
 
 	go s.startDownload(task)
@@ -91,7 +110,7 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 	options := &gdl.Options{
 		EnableResume:      true,
 		RetryAttempts:     1,
-		MaxConcurrency:    2,
+		MaxConcurrency:    4,
 		CreateDirs:        true,
 		OverwriteExisting: true,
 		ProgressCallback: func(p gdl.Progress) {

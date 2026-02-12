@@ -2,9 +2,9 @@ package databases
 
 import (
 	"database/sql"
-	"fetchtb/config"
-	"fetchtb/models"
-	"fetchtb/utils"
+	"fetch/config"
+	"fetch/models"
+	"fetch/utils"
 	"io"
 	"log/slog"
 	"mime/multipart"

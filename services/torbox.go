@@ -2,9 +2,9 @@ package services
 
 import (
 	"bytes"
-	"fetchtb/config"
-	"fetchtb/models"
-	"fetchtb/utils"
+	"fetch/config"
+	"fetch/models"
+	"fetch/utils"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -80,6 +80,7 @@ func TorboxUsenetRequestDownloadLink(localDownload models.LocalDownloadInstance)
 	queryParams := baseUrl.Query()
 	queryParams.Set("token", config.TB_API_KEY.GetValue())
 	queryParams.Set("usenet_id", localDownload.ExternalIDProvider)
+	queryParams.Set("zip_link", "true")
 
 	baseUrl.RawQuery = queryParams.Encode()
 

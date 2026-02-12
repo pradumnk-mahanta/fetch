@@ -1,11 +1,11 @@
 package main
 
 import (
-	"fetchtb/config"
-	"fetchtb/databases"
-	"fetchtb/handlers"
-	"fetchtb/services"
-	"fetchtb/utils"
+	"fetch/config"
+	"fetch/databases"
+	"fetch/handlers"
+	"fetch/services"
+	"fetch/utils"
 	"log/slog"
 	"net/http"
 
@@ -24,21 +24,6 @@ func main() {
 	slog.Info("Initializing FetchTB System...")
 
 	services.InitGDLService()
-
-	// Testing Parts
-
-	// jdClient, err := services.NewJDClient()
-	// if err != nil {
-	// 	utils.Logger.Fatalw("Failed to initialize JDownloader client", "error", err)
-	// }
-
-	// jdAddLinkError := jdClient.AddLink("https://store-041.wnam.tb-cdn.io/dld/09e76728-c8ef-4217-b778-a032a3d94fd6?token=abed62c9-6a99-470a-b282-d75c47b2d3ef", "Test Package", "prowlarr")
-	// if jdAddLinkError != nil {
-	// 	utils.Logger.Errorw("Failed to add download to JDownloader", "error", jdAddLinkError)
-	// }
-	// utils.Logger.Infow("Current Downloads", "count", len(downloads))
-
-	//Testing Parts
 
 	if err := databases.InitDB(); err != nil {
 		slog.Error("Database initialization failed", "error", err)

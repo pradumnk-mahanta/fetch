@@ -2,10 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
-	"fetchtb/adapters"
-	"fetchtb/databases"
-	"fetchtb/models"
-	"fetchtb/utils"
+	"fetch/adapters"
+	"fetch/databases"
+	"fetch/models"
+	"fetch/utils"
 	"net/http"
 )
 
