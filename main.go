@@ -1,10 +1,11 @@
 package main
 
 import (
-	"fetchtb/adapters"
 	"fetchtb/config"
+	"fetchtb/databases"
 	"fetchtb/handlers"
 	"fetchtb/utils"
+	"log/slog"
 	"net/http"
 
 	"github.com/joho/godotenv"
@@ -13,43 +14,45 @@ import (
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		utils.Logger.Errorw("Error loading .env file", "error", err)
+		slog.Error("Error loading .env file", "error", err)
 	}
 
 	utils.InitLogger()
 	defer utils.Sync()
-	utils.Logger.Infow("Initializing FetchTB System...")
+	slog.Info("Initializing FetchTB System...")
 
 	// Testing Parts
 
-	// JdClient, err := services.NewJDClient()
+	// jdClient, err := services.NewJDClient()
 	// if err != nil {
 	// 	utils.Logger.Fatalw("Failed to initialize JDownloader client", "error", err)
 	// }
 
-	// downloads, err := JdClient.CheckPackageStatus()
-
+	// jdAddLinkError := jdClient.AddLink("https://store-041.wnam.tb-cdn.io/dld/09e76728-c8ef-4217-b778-a032a3d94fd6?token=abed62c9-6a99-470a-b282-d75c47b2d3ef", "Test Package", "prowlarr")
+	// if jdAddLinkError != nil {
+	// 	utils.Logger.Errorw("Failed to add download to JDownloader", "error", jdAddLinkError)
+	// }
 	// utils.Logger.Infow("Current Downloads", "count", len(downloads))
 
 	//Testing Parts
 
-	if err := adapters.InitDB(); err != nil {
-		utils.Logger.Fatalw("Database initialization failed", "error", err)
+	if err := databases.InitDB(); err != nil {
+		slog.Error("Database initialization failed", "error", err)
 	}
-	utils.Logger.Infow("Database loaded successfully", "path", "./data/fetchtb.db")
+	slog.Info("Database loaded successfully", "path", "./data/fetchtb.db")
 
 	http.HandleFunc("/sabnzbd/api", handlers.SABNzbdHandler)
 	http.HandleFunc("/qbittorrent/api", handlers.QBittorrentHandler)
 	http.HandleFunc("/tasks/api", handlers.TasksHandler)
 
 	port := config.APPLICATION_API_PORT.GetValue()
-	utils.Logger.Infow("Server Starting",
+	slog.Info("Server Starting",
 		"port", port,
 		"sabnzbd_url", "http://localhost"+port+"/sabnzbd/api",
 		"qbit_url", "http://localhost"+port+"/qbittorrent/api",
 	)
 
 	if err := http.ListenAndServe(port, nil); err != nil {
-		utils.Logger.Fatalw("Server crashed", "error", err)
+		slog.Error("Server crashed", "error", err)
 	}
 }

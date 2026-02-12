@@ -1,4 +1,4 @@
-package adapters
+package databases
 
 import (
 	"database/sql"
@@ -36,7 +36,8 @@ func InitDB() error {
 		category TEXT,
 		status TEXT,
 		external_id_provider TEXT, 
-		external_id_downloader TEXT, 
+		external_id_downloader TEXT,
+		external_download_provider_url TEXT,
 		added_at DATETIME
 	);`
 	_, err = DB.Exec(createDownloadsTable)
@@ -52,8 +53,8 @@ func AddLocalDownload(protocol string, provider string, downloadname string, dow
 
 	name := strings.TrimSuffix(downloadname, filepath.Ext(downloadname))
 
-	stmt, _ := DB.Prepare("INSERT INTO downloads(protocol, provider, downloadname, original_download_url, original_download_file, category, status, external_id_provider, external_id_downloader, added_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-	result, err := stmt.Exec(protocol, provider, name, downloadUrl, fileBytes, category, config.DOWNLOAD_STATUS_ADDED, "", "", time.Now())
+	stmt, _ := DB.Prepare("INSERT INTO downloads(protocol, provider, downloadname, original_download_url, original_download_file, category, status, external_id_provider, external_id_downloader, external_download_provider_url, added_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	result, err := stmt.Exec(protocol, provider, name, downloadUrl, fileBytes, category, config.DOWNLOAD_STATUS_CLIENT_ADDED, "", "", "", time.Now())
 	if err != nil {
 		slog.Error("Failed to add download to db", "error", err)
 		return ""
@@ -71,7 +72,7 @@ func AddLocalDownload(protocol string, provider string, downloadname string, dow
 func GetLocalDownloadDetails(id string) (models.LocalDownloadInstance, error) {
 	var download models.LocalDownloadInstance
 
-	err := DB.QueryRow("SELECT id, protocol, provider, downloadname, original_download_url, original_download_file, category, status, external_id_provider, external_id_downloader, added_at FROM downloads WHERE id = ?", id).Scan(&download.ID, &download.Protocol, &download.Provider, &download.DownloadName, &download.OriginalDownloadURL, &download.OriginalDownloadFile, &download.Category, &download.Status, &download.ExternalIDProvider, &download.ExternalIDDownloader, &download.AddedAt)
+	err := DB.QueryRow("SELECT id, protocol, provider, downloadname, original_download_url, original_download_file, category, status, external_id_provider, external_id_downloader, external_download_provider_url, added_at FROM downloads WHERE id = ?", id).Scan(&download.ID, &download.Protocol, &download.Provider, &download.DownloadName, &download.OriginalDownloadURL, &download.OriginalDownloadFile, &download.Category, &download.Status, &download.ExternalIDProvider, &download.ExternalIDDownloader, &download.ExternalDownloadProviderURL, &download.AddedAt)
 	if err != nil {
 		return download, err
 	}
@@ -84,6 +85,15 @@ func UpdateLocalDownloadProviderId(id string, externalIDProvider string, status 
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func UpdateLocalDownloadProviderUrl(id string, externalDownloadProviderUrl string) error {
+	res, err := DB.Exec("UPDATE downloads SET external_download_provider_url = ? WHERE id = ?", externalDownloadProviderUrl, id)
+	if err != nil {
+		return err
+	}
+	slog.Debug("Updated download provider URL", "id", id, "url", externalDownloadProviderUrl, "rows_affected", res)
 	return nil
 }
 
@@ -106,7 +116,7 @@ func UpdateLocalDownloadStatus(id string, status string) error {
 func GetLocalPendingDownloads() ([]models.LocalDownloadInstance, error) {
 	var downloads []models.LocalDownloadInstance
 
-	rows, err := DB.Query("SELECT id, protocol, provider, downloadname, original_download_url, original_download_file, category, status, external_id_provider, external_id_downloader, added_at FROM downloads WHERE status NOT IN (?, ?)", config.DOWNLOAD_STATUS_COMPLETED, config.DOWNLOAD_STATUS_FAILED)
+	rows, err := DB.Query("SELECT id, protocol, provider, downloadname, original_download_url, original_download_file, category, status, external_id_provider, external_id_downloader, added_at FROM downloads WHERE status NOT IN (?, ?)", config.DOWNLOAD_STATUS_CLIENT_COMPLETED, config.DOWNLOAD_STATUS_CLIENT_FAILED)
 	if err != nil {
 		return downloads, err
 	}
@@ -124,7 +134,7 @@ func GetLocalPendingDownloads() ([]models.LocalDownloadInstance, error) {
 func GetLocalDownloads() ([]models.LocalDownloadInstance, error) {
 	var downloads []models.LocalDownloadInstance
 
-	rows, err := DB.Query("SELECT id, protocol, provider, downloadname, original_download_url, original_download_file, category, status, external_id_provider, external_id_downloader, added_at FROM downloads")
+	rows, err := DB.Query("SELECT id, protocol, provider, downloadname, original_download_url, original_download_file, category, status, external_id_provider, external_id_downloader, external_download_provider_url, added_at FROM downloads")
 	if err != nil {
 		return downloads, err
 	}
@@ -132,7 +142,7 @@ func GetLocalDownloads() ([]models.LocalDownloadInstance, error) {
 
 	for rows.Next() {
 		var download models.LocalDownloadInstance
-		rows.Scan(&download.ID, &download.Protocol, &download.Provider, &download.DownloadName, &download.OriginalDownloadURL, &download.OriginalDownloadFile, &download.Category, &download.Status, &download.ExternalIDProvider, &download.ExternalIDDownloader, &download.AddedAt)
+		rows.Scan(&download.ID, &download.Protocol, &download.Provider, &download.DownloadName, &download.OriginalDownloadURL, &download.OriginalDownloadFile, &download.Category, &download.Status, &download.ExternalIDProvider, &download.ExternalIDDownloader, &download.ExternalDownloadProviderURL, &download.AddedAt)
 		downloads = append(downloads, download)
 	}
 

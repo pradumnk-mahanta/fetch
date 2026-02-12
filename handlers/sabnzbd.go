@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fetchtb/adapters"
+	"fetchtb/databases"
 	"fetchtb/models"
 	"fetchtb/utils"
 	"net/http"
@@ -84,7 +85,7 @@ func handleSabQueue(writer http.ResponseWriter) {
 			Size:     "100 GB",
 			SizeLeft: "50 GB",
 			Version:  "4.2.0",
-			Slots:    adapters.GetSABNzbdQueue(),
+			Slots:    databases.GetSABNzbdQueue(),
 		},
 	}
 	json.NewEncoder(writer).Encode(resp)

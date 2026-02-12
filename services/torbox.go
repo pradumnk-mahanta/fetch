@@ -8,7 +8,9 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -73,29 +75,16 @@ func TorboxUsenetCreateDownload(localDownload models.LocalDownloadInstance) (str
 }
 
 func TorboxUsenetRequestDownloadLink(localDownload models.LocalDownloadInstance) (string, error) {
+	baseUrl, _ := url.Parse(config.TB_API_BASE_URL + "/usenet/requestdl")
 
-	payload := &bytes.Buffer{}
-	writer := multipart.NewWriter(payload)
+	queryParams := baseUrl.Query()
+	queryParams.Set("token", config.TB_API_KEY.GetValue())
+	queryParams.Set("usenet_id", localDownload.ExternalIDProvider)
 
-	part, errFileCreation := writer.CreateFormFile("file", localDownload.DownloadName+".nzb")
-	if errFileCreation != nil {
-		return "", errFileCreation
-	}
-
-	_, errWriteFile := part.Write(localDownload.OriginalDownloadFile)
-	if errWriteFile != nil {
-		return "", errWriteFile
-	}
-
-	_ = writer.WriteField("name", localDownload.DownloadName)
-
-	errWriterClose := writer.Close()
-	if errWriterClose != nil {
-		return "", errWriterClose
-	}
+	baseUrl.RawQuery = queryParams.Encode()
 
 	client := &http.Client{Timeout: time.Second * 60}
-	request, requestError := http.NewRequest("POST", config.TB_API_BASE_URL+"/usenet/createusenetdownload", payload)
+	request, requestError := http.NewRequest("GET", baseUrl.String(), nil)
 
 	if requestError != nil {
 		utils.Logger.Errorw("Failed to create HTTP request", "error", requestError)
@@ -103,7 +92,6 @@ func TorboxUsenetRequestDownloadLink(localDownload models.LocalDownloadInstance)
 	}
 
 	request.Header.Add("Authorization", "Bearer "+config.TB_API_KEY.GetValue())
-	request.Header.Set("Content-Type", writer.FormDataContentType())
 	request.Header.Set("Accept", "application/json")
 	requestResponse, requestError := client.Do(request)
 	if requestError != nil {
@@ -129,7 +117,7 @@ func TorboxUsenetRequestDownloadLink(localDownload models.LocalDownloadInstance)
 		return "", requestError
 	}
 
-	return strconv.FormatInt(*response.Data.DAT.UsenetdownloadID, 10), nil
+	return *response.Data.String, nil
 }
 
 func TorboxUsenetGetDownloadList() ([]models.DAT, error) {
@@ -171,4 +159,19 @@ func TorboxUsenetGetDownloadList() ([]models.DAT, error) {
 	}
 
 	return response.Data.DATArray, nil
+}
+
+func TorboxUsenetDownloadStatusTranslate(status string) string {
+	switch {
+	case strings.Contains(status, "processing"):
+		return config.DOWNLOAD_STATUS_PROVIDER_PROCESSING
+	case strings.Contains(status, "downloading"):
+		return config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING
+	case strings.Contains(status, "completed"):
+		return config.DOWNLOAD_STATUS_PROVIDER_COMPLETED
+	case strings.Contains(status, "failed"):
+		return config.DOWNLOAD_STATUS_PROVIDER_FAILED
+	default:
+		return config.DOWNLOAD_STATUS_PROVIDER_ADDED
+	}
 }

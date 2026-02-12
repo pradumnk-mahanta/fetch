@@ -42,12 +42,10 @@ func NewJDClient() (*JDClient, error) {
 
 func (c *JDClient) AddLink(link string, packageName string, category string) error {
 
-	downloadRoot := os.Getenv("JD_DOWNLOAD_ROOT")
-
 	opts := []jdownloader.AddLinksOptions{
 		jdownloader.AddLinksOptionAutostart(true),
 		jdownloader.AddLinksOptionPackage(packageName),
-		jdownloader.AddLinksOptionDestinationDir(downloadRoot + "/" + category), // Optional
+		jdownloader.AddLinksOptionDestinationDir(os.Getenv("JD_DOWNLOAD_ROOT") + "/" + category),
 	}
 
 	jdownloader.DefaultMyJdownloaderSettings()

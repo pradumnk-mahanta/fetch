@@ -2,18 +2,20 @@ package adapters
 
 import (
 	"fetchtb/config"
+	"fetchtb/databases"
 	"fetchtb/models"
 	"fetchtb/services"
 	"fetchtb/utils"
 	"mime/multipart"
+	"strconv"
 )
 
 func CreateDownload(protocol string, downloadName string, downloadFile multipart.File, downloadUrl string, category string) (string, error) {
 	// This is where you would implement the logic to create a download entry in the database
 	switch protocol {
 	case "usenet":
-		id := AddLocalDownload(protocol, config.USENET_DOWNLOAD_PROVIDER.GetValue(), downloadName, downloadUrl, downloadFile, category)
-		localDownload, err := GetLocalDownloadDetails(id)
+		id := databases.AddLocalDownload(protocol, config.USENET_DOWNLOAD_PROVIDER.GetValue(), downloadName, downloadUrl, downloadFile, category)
+		localDownload, err := databases.GetLocalDownloadDetails(id)
 		if err != nil {
 			return "", err
 		}
@@ -23,19 +25,19 @@ func CreateDownload(protocol string, downloadName string, downloadFile multipart
 			return "", error
 		}
 
-		errorUpdate := UpdateLocalDownloadProviderId(id, usenetdownload_id, config.DOWNLOAD_STATUS_PROVIDER_ADDED)
+		errorUpdate := databases.UpdateLocalDownloadProviderId(id, usenetdownload_id, config.DOWNLOAD_STATUS_PROVIDER_ADDED)
 		if errorUpdate != nil {
 			return "", errorUpdate
 		}
 
-		localDownloadUpdated, err := GetLocalDownloadDetails(id)
+		localDownloadUpdated, err := databases.GetLocalDownloadDetails(id)
 		if err != nil {
 			return "", err
 		}
 
 		utils.Logger.Debugw("Created download on provider", localDownloadUpdated)
 
-		return localDownload.ID, nil
+		return localDownloadUpdated.ID, nil
 	default:
 		// "torrent":
 		return "", nil
@@ -46,8 +48,8 @@ func DeleteDownload(protocol string, downloadName string, downloadFile multipart
 	// This is where you would implement the logic to create a download entry in the database
 	switch protocol {
 	case "usenet":
-		id := AddLocalDownload(protocol, config.USENET_DOWNLOAD_PROVIDER.GetValue(), downloadName, downloadUrl, downloadFile, category)
-		localDownload, err := GetLocalDownloadDetails(id)
+		id := databases.AddLocalDownload(protocol, config.USENET_DOWNLOAD_PROVIDER.GetValue(), downloadName, downloadUrl, downloadFile, category)
+		localDownload, err := databases.GetLocalDownloadDetails(id)
 		if err != nil {
 			return "", err
 		}
@@ -57,19 +59,19 @@ func DeleteDownload(protocol string, downloadName string, downloadFile multipart
 			return "", error
 		}
 
-		errorUpdate := UpdateLocalDownloadProviderId(id, usenetdownload_id, config.DOWNLOAD_STATUS_PROVIDER_ADDED)
+		errorUpdate := databases.UpdateLocalDownloadProviderId(id, usenetdownload_id, config.DOWNLOAD_STATUS_PROVIDER_ADDED)
 		if errorUpdate != nil {
 			return "", errorUpdate
 		}
 
-		localDownloadUpdated, err := GetLocalDownloadDetails(id)
+		localDownloadUpdated, err := databases.GetLocalDownloadDetails(id)
 		if err != nil {
 			return "", err
 		}
 
 		utils.Logger.Debugw("Created download on provider", localDownloadUpdated)
 
-		return localDownload.ID, nil
+		return localDownloadUpdated.ID, nil
 	default:
 		// "torrent":
 		return "", nil
@@ -77,7 +79,8 @@ func DeleteDownload(protocol string, downloadName string, downloadFile multipart
 }
 
 func UpdateDownloads() (string, error) {
-	downloads, err := GetLocalPendingDownloads()
+
+	downloads, err := databases.GetLocalPendingDownloads()
 	if err != nil {
 		return "", err
 	}
@@ -86,34 +89,54 @@ func UpdateDownloads() (string, error) {
 		switch download.Protocol {
 		case "usenet":
 			switch download.Status {
-			case config.DOWNLOAD_STATUS_PROVIDER_ADDED:
-				providerStatus, err := services.TorboxUsenetGetDownloadList()
+			case config.DOWNLOAD_STATUS_PROVIDER_ADDED, config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING, config.DOWNLOAD_STATUS_PROVIDER_PROCESSING:
+				providerDownloads, err := services.TorboxUsenetGetDownloadList()
 				if err != nil {
 					utils.Logger.Errorw("Failed to get download status from provider", "error", err)
 					continue
 				}
 
-				utils.Logger.Debugw("Updating download", "download", download, "providerStatus", providerStatus)
+				for _, providerDownload := range providerDownloads {
+					providerDownloadID := strconv.FormatInt(*providerDownload.ID, 10)
+					if providerDownloadID == download.ExternalIDProvider {
+						err := databases.UpdateLocalDownloadStatus(download.ID, services.TorboxUsenetDownloadStatusTranslate(*providerDownload.DownloadState))
+						if err != nil {
+							utils.Logger.Errorw("Failed to update download status", "error", err)
+						}
+					}
+				}
+				utils.Logger.Debugw("Updating download", "download", download, "providerStatus", providerDownloads)
+				continue
 
-				if err != nil {
-					utils.Logger.Errorw("Failed to update download", "error", err)
+			case config.DOWNLOAD_STATUS_PROVIDER_COMPLETED:
+				downloadLink, requestDownloadLinkError := services.TorboxUsenetRequestDownloadLink(download)
+				if requestDownloadLinkError != nil {
+					utils.Logger.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)
+					continue
+				}
+				utils.Logger.Debugw("Requested download link from provider", "downloadLink", downloadLink)
+
+				updateExternalLinkError := databases.UpdateLocalDownloadProviderUrl(download.ID, downloadLink)
+				if updateExternalLinkError != nil {
+					utils.Logger.Errorw("Failed to update download link in database", "error", updateExternalLinkError)
 					continue
 				}
 
-				return "Successfully updated downloads", nil
+				utils.Logger.Debugw("Updated download link in database", "downloadID", download.ID, "downloadLink", downloadLink)
+				continue
+
 			default:
-				return "", nil
+				continue
 			}
 		default:
-			return "", nil
+			continue
 		}
 	}
-
-	return "", nil
+	return "Successfully updated downloads", nil
 }
 
 func ListDownloads() ([]models.LocalDownloadInstance, error) {
-	downloads, err := GetLocalDownloads()
+	downloads, err := databases.GetLocalDownloads()
 	if err != nil {
 		return nil, err
 	}
