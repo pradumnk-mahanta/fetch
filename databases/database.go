@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"fetch/config"
 	"fetch/models"
-	"fetch/utils"
 	"io"
 	"log/slog"
 	"mime/multipart"
@@ -39,7 +38,26 @@ func InitDB() error {
 		external_id_downloader TEXT,
 		external_download_provider_url TEXT,
 		added_at DATETIME
-	);`
+	);
+	
+	CREATE TABLE IF NOT EXISTS downloadChilds (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		protocol TEXT,
+		provider TEXT,    
+		downloadname TEXT,
+		original_download_url TEXT,
+		original_download_file BLOB,
+		category TEXT,
+		status TEXT,
+		external_id_provider TEXT, 
+		external_id_downloader TEXT,
+		external_download_provider_url TEXT,
+		added_at DATETIME
+	);
+	
+	
+	
+	`
 	_, err = DB.Exec(createDownloadsTable)
 	return err
 }
@@ -65,7 +83,7 @@ func AddLocalDownload(protocol string, provider string, downloadname string, dow
 		slog.Error("Failed to get last insert id", "error", err)
 		return ""
 	}
-	utils.Logger.Infow("Download Added", "protocol", protocol, "cat", category, "name", name, "id", strconv.FormatInt(id, 10))
+	slog.Info("Download Added", "protocol", protocol, "cat", category, "name", name, "id", strconv.FormatInt(id, 10))
 	return strconv.FormatInt(id, 10)
 }
 

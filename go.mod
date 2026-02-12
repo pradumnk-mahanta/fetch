@@ -41,7 +41,5 @@ require (
 require (
 	github.com/forest6511/gdl v1.4.0
 	github.com/joho/godotenv v1.5.1
-	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.27.0
 	modernc.org/sqlite v1.45.0
 )

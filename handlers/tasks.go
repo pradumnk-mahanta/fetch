@@ -3,7 +3,7 @@ package handlers
 import (
 	"fetch/adapters"
 	"fetch/models"
-	"fetch/utils"
+	"log/slog"
 	"net/http"
 )
 
@@ -21,7 +21,7 @@ func TasksHandler(writer http.ResponseWriter, request *http.Request) {
 			writer.WriteHeader(http.StatusInternalServerError)
 		}
 
-		utils.Logger.Debugw("List downloads result", "result", downloads)
+		slog.Debug("List downloads result", "result", downloads)
 
 		writer.WriteHeader(http.StatusOK)
 		jsonResult, err := downloads.ToJSON()

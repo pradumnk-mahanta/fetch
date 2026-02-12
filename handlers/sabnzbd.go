@@ -5,7 +5,7 @@ import (
 	"fetch/adapters"
 	"fetch/databases"
 	"fetch/models"
-	"fetch/utils"
+	"log/slog"
 	"net/http"
 )
 
@@ -45,7 +45,7 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 	case "addfile":
 		err := request.ParseMultipartForm(32 << 20)
 		if err != nil {
-			utils.Logger.Errorw("Failed to parse multipart form", "error", err)
+			slog.Error("Failed to parse multipart form", "error", err)
 			return
 		}
 
@@ -56,15 +56,15 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 
 		file, header, err := request.FormFile("nzbfile")
 		if err != nil {
-			utils.Logger.Errorw("No nzbfile found in request", "error", err)
+			slog.Error("No nzbfile found in request", "error", err)
 			return
 		}
 		defer file.Close()
 
-		utils.Logger.Infow("Received nzbfile", "filename", header.Filename, "size", header.Size)
+		slog.Info("Received nzbfile", "filename", header.Filename, "size", header.Size)
 		id, err := adapters.CreateDownload(protocol, header.Filename, file, "", category)
 		if err != nil {
-			utils.Logger.Errorw("Failed to create download", "error", err)
+			slog.Error("Failed to create download", "error", err)
 			return
 		}
 		respondAdd(writer, id)

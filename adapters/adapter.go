@@ -5,7 +5,7 @@ import (
 	"fetch/databases"
 	"fetch/models"
 	"fetch/services"
-	"fetch/utils"
+	"log/slog"
 	"mime/multipart"
 	"strconv"
 )
@@ -35,7 +35,7 @@ func CreateDownload(protocol string, downloadName string, downloadFile multipart
 			return "", err
 		}
 
-		utils.Logger.Debugw("Created download on provider", localDownloadUpdated)
+		slog.Debug("Created download on provider", localDownloadUpdated)
 
 		return localDownloadUpdated.ID, nil
 	default:
@@ -69,7 +69,7 @@ func DeleteDownload(protocol string, downloadName string, downloadFile multipart
 			return "", err
 		}
 
-		utils.Logger.Debugw("Created download on provider", localDownloadUpdated)
+		slog.Debug("Created download on provider", localDownloadUpdated)
 
 		return localDownloadUpdated.ID, nil
 	default:
@@ -92,7 +92,7 @@ func UpdateDownloads() (string, error) {
 			case config.DOWNLOAD_STATUS_PROVIDER_ADDED, config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING, config.DOWNLOAD_STATUS_PROVIDER_PROCESSING:
 				providerDownloads, err := services.TorboxUsenetGetDownloadList()
 				if err != nil {
-					utils.Logger.Errorw("Failed to get download status from provider", "error", err)
+					slog.Error("Failed to get download status from provider", "error", err)
 					continue
 				}
 
@@ -101,24 +101,24 @@ func UpdateDownloads() (string, error) {
 					if providerDownloadID == download.ExternalIDProvider {
 						err := databases.UpdateLocalDownloadStatus(download.ID, services.TorboxUsenetDownloadStatusTranslate(*providerDownload.DownloadState))
 						if err != nil {
-							utils.Logger.Errorw("Failed to update download status", "error", err)
+							slog.Error("Failed to update download status", "error", err)
 						}
 					}
 				}
-				utils.Logger.Debugw("Updating download", "download", download, "providerStatus", providerDownloads)
+				slog.Debug("Updating download", "download", download, "providerStatus", providerDownloads)
 				continue
 
 			case config.DOWNLOAD_STATUS_PROVIDER_COMPLETED:
 				downloadLink, requestDownloadLinkError := services.TorboxUsenetRequestDownloadLink(download)
 				if requestDownloadLinkError != nil {
-					utils.Logger.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)
+					slog.Error("Failed to request download link from provider", "error", requestDownloadLinkError)
 					continue
 				}
-				utils.Logger.Debugw("Requested download link from provider", "downloadLink", downloadLink)
+				slog.Debug("Requested download link from provider", "downloadLink", downloadLink)
 
 				updateExternalLinkError := databases.UpdateLocalDownloadProviderUrl(download.ID, downloadLink)
 				if updateExternalLinkError != nil {
-					utils.Logger.Errorw("Failed to update download link in database", "error", updateExternalLinkError)
+					slog.Error("Failed to update download link in database", "error", updateExternalLinkError)
 					continue
 				}
 
@@ -126,11 +126,11 @@ func UpdateDownloads() (string, error) {
 				downloader := services.GetGDLService()
 				err := downloader.Download(download)
 				if err != nil {
-					utils.Logger.Errorw("Failed to start download in downloader", "error", err)
+					slog.Error("Failed to start download in downloader", "error", err)
 					continue
 				}
 
-				utils.Logger.Debugw("Updated download link in database and started download", "downloadID", download.ID, "downloadLink", downloadLink)
+				slog.Debug("Updated download link in database and started download", "downloadID", download.ID, "downloadLink", downloadLink)
 				continue
 
 			default:

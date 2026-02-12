@@ -5,7 +5,6 @@ import (
 	"fetch/databases"
 	"fetch/handlers"
 	"fetch/services"
-	"fetch/utils"
 	"log/slog"
 	"net/http"
 
@@ -17,9 +16,6 @@ func main() {
 	if err != nil {
 		slog.Error("Error loading .env file", "error", err)
 	}
-
-	utils.InitLogger()
-	defer utils.Sync()
 
 	slog.Info("Initializing FetchTB System...")
 
