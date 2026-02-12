@@ -122,7 +122,15 @@ func UpdateDownloads() (string, error) {
 					continue
 				}
 
-				utils.Logger.Debugw("Updated download link in database", "downloadID", download.ID, "downloadLink", downloadLink)
+				download.ExternalDownloadProviderURL = downloadLink
+				downloader := services.GetGDLService()
+				err := downloader.Download(download)
+				if err != nil {
+					utils.Logger.Errorw("Failed to start download in downloader", "error", err)
+					continue
+				}
+
+				utils.Logger.Debugw("Updated download link in database and started download", "downloadID", download.ID, "downloadLink", downloadLink)
 				continue
 
 			default:
@@ -135,11 +143,43 @@ func UpdateDownloads() (string, error) {
 	return "Successfully updated downloads", nil
 }
 
-func ListDownloads() ([]models.LocalDownloadInstance, error) {
+func LocalDownloadList() ([]models.LocalDownloadInstance, error) {
 	downloads, err := databases.GetLocalDownloads()
 	if err != nil {
 		return nil, err
 	}
 
 	return downloads, nil
+}
+
+func LocalDownloadUpdateStatus(id string, status string) error {
+	err := databases.UpdateLocalDownloadStatus(id, status)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func DownloaderListStatus() ([]models.GDLDownload, error) {
+	downloader := services.GetGDLService()
+	downloads := downloader.Status()
+	return downloads, nil
+}
+
+func DownloaderDeleteDownload(id string) (bool, error) {
+	downloader := services.GetGDLService()
+	err := downloader.Delete(id)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func DownloaderResumeDownload(id string) (bool, error) {
+	downloader := services.GetGDLService()
+	err := downloader.Resume(id)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }

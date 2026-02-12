@@ -31,6 +31,9 @@ func (l *LocalDownloadInstance) ToJSON() (string, error) {
 type LocalDownloadInstances []LocalDownloadInstance
 
 func (l LocalDownloadInstances) ToJSON() (string, error) {
+	if l == nil {
+		l = make(LocalDownloadInstances, 0)
+	}
 	bytes, err := json.Marshal(l)
 	if err != nil {
 		return "", err

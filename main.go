@@ -4,6 +4,7 @@ import (
 	"fetchtb/config"
 	"fetchtb/databases"
 	"fetchtb/handlers"
+	"fetchtb/services"
 	"fetchtb/utils"
 	"log/slog"
 	"net/http"
@@ -19,7 +20,10 @@ func main() {
 
 	utils.InitLogger()
 	defer utils.Sync()
+
 	slog.Info("Initializing FetchTB System...")
+
+	services.InitGDLService()
 
 	// Testing Parts
 
