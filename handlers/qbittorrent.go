@@ -1,7 +1,8 @@
 package handlers
 
 import (
-	"log/slog" // Updated import
+	// Updated import
+	"fetch/logger"
 	"net/http"
 	"strings"
 )
@@ -10,7 +11,7 @@ func QBittorrentHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 
 	// Log the exact path requested
-	slog.Info("qBittorrent Request",
+	logger.Log.Infow("qBittorrent Request",
 		"method", r.Method,
 		"path", path,
 	)

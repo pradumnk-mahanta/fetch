@@ -2,12 +2,12 @@ package handlers
 
 import (
 	"fetch/adapters"
+	"fetch/logger"
 	"fetch/models"
-	"log/slog"
 	"net/http"
 )
 
-func TasksHandler(writer http.ResponseWriter, request *http.Request) {
+func CommonHandler(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 
 	query := request.URL.Query()
@@ -21,7 +21,7 @@ func TasksHandler(writer http.ResponseWriter, request *http.Request) {
 			writer.WriteHeader(http.StatusInternalServerError)
 		}
 
-		slog.Debug("List downloads result", "result", downloads)
+		logger.Log.Debugw("List downloads result", "result", downloads)
 
 		writer.WriteHeader(http.StatusOK)
 		jsonResult, err := downloads.ToJSON()
@@ -43,9 +43,7 @@ func TasksHandler(writer http.ResponseWriter, request *http.Request) {
 		writer.Write([]byte(`{"result": "` + result + `"}`))
 
 	case "downloader_get_status":
-
 		var downloads models.GDLDownloads
-
 		downloads, err := adapters.DownloaderListStatus()
 		if err != nil {
 			writer.WriteHeader(http.StatusInternalServerError)

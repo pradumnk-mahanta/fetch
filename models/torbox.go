@@ -207,3 +207,15 @@ func marshalUnion(pi *int64, pf *float64, pb *bool, ps *string, haveArray bool, 
 	}
 	return nil, errors.New("Union must not be null")
 }
+
+func (l DAT) ToJSON() (string, error) {
+	bytes, err := json.Marshal(l)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
+}
+
+func (d *DAT) LoadJSON(jsonStr string) error {
+	return json.Unmarshal([]byte(jsonStr), d)
+}

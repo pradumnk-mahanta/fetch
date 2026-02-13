@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fetch/adapters"
 	"fetch/databases"
+	"fetch/logger"
 	"fetch/models"
-	"log/slog"
 	"net/http"
 )
 
@@ -45,7 +45,7 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 	case "addfile":
 		err := request.ParseMultipartForm(32 << 20)
 		if err != nil {
-			slog.Error("Failed to parse multipart form", "error", err)
+			logger.Log.Errorw("Failed to parse multipart form", "error", err)
 			return
 		}
 
@@ -56,18 +56,18 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 
 		file, header, err := request.FormFile("nzbfile")
 		if err != nil {
-			slog.Error("No nzbfile found in request", "error", err)
+			logger.Log.Errorw("No nzbfile found in request", "error", err)
 			return
 		}
 		defer file.Close()
 
-		slog.Info("Received nzbfile", "filename", header.Filename, "size", header.Size)
+		logger.Log.Infow("Received nzbfile", "filename", header.Filename, "size", header.Size)
 		id, err := adapters.CreateDownload(protocol, header.Filename, file, "", category)
 		if err != nil {
-			slog.Error("Failed to create download", "error", err)
+			logger.Log.Errorw("Failed to create download", "error", err)
 			return
 		}
-		respondAdd(writer, id)
+		respondAdd(writer, id) //Handle return gracefully
 
 	case "version":
 		writer.Write([]byte(`{"version": "4.2.0"}`))
@@ -75,6 +75,10 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 	default:
 		handleSabQueue(writer)
 	}
+}
+
+func handleNzbDownload() {
+
 }
 
 func handleSabQueue(writer http.ResponseWriter) {

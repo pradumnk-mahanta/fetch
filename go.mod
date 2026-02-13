@@ -30,6 +30,7 @@ require (
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/stretchr/testify v1.9.0 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/exp v0.0.0-20251023183803-a4bb9ffd2546 // indirect
 	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/time v0.12.0 // indirect
@@ -41,5 +42,6 @@ require (
 require (
 	github.com/forest6511/gdl v1.4.0
 	github.com/joho/godotenv v1.5.1
+	go.uber.org/zap v1.27.1
 	modernc.org/sqlite v1.45.0
 )

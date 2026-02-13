@@ -4,40 +4,43 @@ import (
 	"fetch/config"
 	"fetch/databases"
 	"fetch/handlers"
+	"fetch/logger"
 	"fetch/services"
-	"log/slog"
 	"net/http"
 
 	"github.com/joho/godotenv"
 )
 
 func main() {
+	logger.InitLogger()
+	defer logger.Sync()
+
 	err := godotenv.Load()
 	if err != nil {
-		slog.Error("Error loading .env file", "error", err)
+		logger.Log.Errorw("Error loading .env file", "error", err)
 	}
 
-	slog.Info("Initializing FetchTB System...")
+	logger.Log.Infow("Initializing FetchTB System...")
 
 	services.InitGDLService()
 
 	if err := databases.InitDB(); err != nil {
-		slog.Error("Database initialization failed", "error", err)
+		logger.Log.Errorw("Database initialization failed", "error", err)
 	}
-	slog.Info("Database loaded successfully", "path", "./data/fetchtb.db")
+	logger.Log.Infow("Database loaded successfully", "path", "./data/fetchtb.db")
 
 	http.HandleFunc("/sabnzbd/api", handlers.SABNzbdHandler)
 	http.HandleFunc("/qbittorrent/api", handlers.QBittorrentHandler)
-	http.HandleFunc("/tasks/api", handlers.TasksHandler)
+	http.HandleFunc("/fetch/api", handlers.CommonHandler)
 
 	port := config.APPLICATION_API_PORT.GetValue()
-	slog.Info("Server Starting",
+	logger.Log.Infow("Server Starting",
 		"port", port,
 		"sabnzbd_url", "http://localhost"+port+"/sabnzbd/api",
 		"qbit_url", "http://localhost"+port+"/qbittorrent/api",
 	)
 
 	if err := http.ListenAndServe(port, nil); err != nil {
-		slog.Error("Server crashed", "error", err)
+		logger.Log.Errorw("Server crashed", "error", err)
 	}
 }

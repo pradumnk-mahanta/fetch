@@ -6,18 +6,18 @@ import (
 )
 
 type LocalDownloadInstance struct {
-	ID                          string    `json:"id"`
-	Protocol                    string    `json:"protocol"`
-	Provider                    string    `json:"provider"`
-	DownloadName                string    `json:"download_name"`
-	OriginalDownloadURL         string    `json:"original_download_url"`
-	OriginalDownloadFile        []byte    `json:"-"`
-	Category                    string    `json:"category"`
-	Status                      string    `json:"status"`
-	ExternalIDProvider          string    `json:"external_id_provider"`
-	ExternalIDDownloader        string    `json:"external_id_downloader"`
-	ExternalDownloadProviderURL string    `json:"external_download_provider_url"`
-	AddedAt                     time.Time `json:"added_at"`
+	ID                         string                       `json:"id"`
+	Protocol                   string                       `json:"protocol"`
+	Provider                   string                       `json:"provider"`
+	DownloadName               string                       `json:"download_name"`
+	OriginalDownloadURL        string                       `json:"original_download_url"`
+	OriginalDownloadFile       []byte                       `json:"-"`
+	Category                   string                       `json:"category"`
+	Status                     string                       `json:"status"`
+	ExternalProviderID         string                       `json:"external_provider_id"`
+	ExternalProviderDataObject string                       `json:"external_provider_data_object"`
+	AddedAt                    time.Time                    `json:"added_at"`
+	DownloadItems              []LocalDownloadInstanceItems `json:"download_items"`
 }
 
 func (l *LocalDownloadInstance) ToJSON() (string, error) {
@@ -39,4 +39,17 @@ func (l LocalDownloadInstances) ToJSON() (string, error) {
 		return "", err
 	}
 	return string(bytes), nil
+}
+
+type LocalDownloadInstanceItems struct {
+	ID                          string    `json:"id"`
+	DownloadID                  string    `json:"download_id"`
+	DownloadType                string    `json:"download_type"`
+	FileName                    string    `json:"file_name"`
+	FilePath                    string    `json:"file_path"`
+	FileSize                    int64     `json:"file_size"`
+	Status                      string    `json:"status"`
+	ExternalProviderID          string    `json:"external_provider_id"`
+	ExternalProviderDownloadURL string    `json:"external_provider_download_url"`
+	AddedAt                     time.Time `json:"added_at"`
 }

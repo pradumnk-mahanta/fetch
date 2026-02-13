@@ -3,9 +3,9 @@ package services
 import (
 	"bytes"
 	"fetch/config"
+	"fetch/logger"
 	"fetch/models"
 	"io"
-	"log/slog"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -40,47 +40,50 @@ func TorboxUsenetCreateDownload(localDownload models.LocalDownloadInstance) (str
 	request, requestError := http.NewRequest("POST", config.TB_API_BASE_URL+"/usenet/createusenetdownload", payload)
 
 	if requestError != nil {
-		slog.Error("Failed to create HTTP request", "error", requestError)
+		logger.Log.Errorw("Failed to create HTTP request", "error", requestError)
 		return "", requestError
 	}
 
-	request.Header.Add("Authorization", "Bearer "+config.TB_API_KEY.GetValue())
+	request.Header.Add("Authorization", "Bearer "+config.TB_CONFIG_API_KEY.GetValue())
 	request.Header.Set("Content-Type", writer.FormDataContentType())
 	request.Header.Set("Accept", "application/json")
 	requestResponse, requestError := client.Do(request)
 	if requestError != nil {
-		slog.Error("Failed to execute HTTP request", "error", requestError)
+		logger.Log.Errorw("Failed to execute HTTP request", "error", requestError)
 		return "", requestError
 	}
 	defer requestResponse.Body.Close()
 
 	body, requestError := io.ReadAll(requestResponse.Body)
 	if requestError != nil {
-		slog.Error("Failed to read HTTP response body", "error", requestError)
+		logger.Log.Errorw("Failed to read HTTP response body", "error", requestError)
 		return "", requestError
 	}
 
 	response, requestError := models.UnmarshalTorBoxAPIRespose(body)
 	if requestError != nil {
-		slog.Error("Failed to unmarshal Torbox API response", "error", requestError, "responseBody", string(body))
+		logger.Log.Errorw("Failed to unmarshal Torbox API response", "error", requestError, "responseBody", string(body))
 		return "", requestError
 	}
 
 	if response.Success != true {
-		slog.Error("Failed to create usenet download in Torbox", "responseBody", string(body))
+		logger.Log.Errorw("Failed to create usenet download in Torbox", "responseBody", string(body))
 		return "", requestError
 	}
 
 	return strconv.FormatInt(*response.Data.DAT.UsenetdownloadID, 10), nil
 }
 
-func TorboxUsenetRequestDownloadLink(localDownload models.LocalDownloadInstance) (string, error) {
+func TorboxUsenetRequestDownloadLink(externalProviderId string, externalProviderItemId string) (string, error) {
 	baseUrl, _ := url.Parse(config.TB_API_BASE_URL + "/usenet/requestdl")
 
 	queryParams := baseUrl.Query()
-	queryParams.Set("token", config.TB_API_KEY.GetValue())
-	queryParams.Set("usenet_id", localDownload.ExternalIDProvider)
-	queryParams.Set("zip_link", "true")
+	queryParams.Set("token", config.TB_CONFIG_API_KEY.GetValue())
+	queryParams.Set("usenet_id", externalProviderId)
+	if externalProviderItemId != "-1" {
+		queryParams.Set("file_id", externalProviderItemId)
+	}
+	queryParams.Set("zip_link", config.TB_CONFIG_PREFER_ZIPPED_FOLDER.GetValue())
 
 	baseUrl.RawQuery = queryParams.Encode()
 
@@ -88,33 +91,33 @@ func TorboxUsenetRequestDownloadLink(localDownload models.LocalDownloadInstance)
 	request, requestError := http.NewRequest("GET", baseUrl.String(), nil)
 
 	if requestError != nil {
-		slog.Error("Failed to create HTTP request", "error", requestError)
+		logger.Log.Errorw("Failed to create HTTP request", "error", requestError)
 		return "", requestError
 	}
 
-	request.Header.Add("Authorization", "Bearer "+config.TB_API_KEY.GetValue())
+	request.Header.Add("Authorization", "Bearer "+config.TB_CONFIG_API_KEY.GetValue())
 	request.Header.Set("Accept", "application/json")
 	requestResponse, requestError := client.Do(request)
 	if requestError != nil {
-		slog.Error("Failed to execute HTTP request", "error", requestError)
+		logger.Log.Errorw("Failed to execute HTTP request", "error", requestError)
 		return "", requestError
 	}
 	defer requestResponse.Body.Close()
 
 	body, requestError := io.ReadAll(requestResponse.Body)
 	if requestError != nil {
-		slog.Error("Failed to read HTTP response body", "error", requestError)
+		logger.Log.Errorw("Failed to read HTTP response body", "error", requestError)
 		return "", requestError
 	}
 
 	response, requestError := models.UnmarshalTorBoxAPIRespose(body)
 	if requestError != nil {
-		slog.Error("Failed to unmarshal Torbox API response", "error", requestError, "responseBody", string(body))
+		logger.Log.Errorw("Failed to unmarshal Torbox API response", "error", requestError, "responseBody", string(body))
 		return "", requestError
 	}
 
 	if response.Success != true {
-		slog.Error("Failed to create usenet download in Torbox", "responseBody", string(body))
+		logger.Log.Errorw("Failed to create usenet download in Torbox", "responseBody", string(body))
 		return "", requestError
 	}
 
@@ -129,33 +132,33 @@ func TorboxUsenetGetDownloadList() ([]models.DAT, error) {
 	var tbDownloads []models.DAT
 
 	if requestError != nil {
-		slog.Error("Failed to create HTTP request", "error", requestError)
+		logger.Log.Errorw("Failed to create HTTP request", "error", requestError)
 		return tbDownloads, requestError
 	}
 
-	request.Header.Add("Authorization", "Bearer "+config.TB_API_KEY.GetValue())
+	request.Header.Add("Authorization", "Bearer "+config.TB_CONFIG_API_KEY.GetValue())
 	request.Header.Set("Accept", "application/json")
 	requestResponse, requestError := client.Do(request)
 	if requestError != nil {
-		slog.Error("Failed to execute HTTP request", "error", requestError)
+		logger.Log.Errorw("Failed to execute HTTP request", "error", requestError)
 		return tbDownloads, requestError
 	}
 	defer requestResponse.Body.Close()
 
 	body, requestError := io.ReadAll(requestResponse.Body)
 	if requestError != nil {
-		slog.Error("Failed to read HTTP response body", "error", requestError)
+		logger.Log.Errorw("Failed to read HTTP response body", "error", requestError)
 		return tbDownloads, requestError
 	}
 
 	response, requestError := models.UnmarshalTorBoxAPIRespose(body)
 	if requestError != nil {
-		slog.Error("Failed to unmarshal Torbox API response", "error", requestError, "responseBody", string(body))
+		logger.Log.Errorw("Failed to unmarshal Torbox API response", "error", requestError, "responseBody", string(body))
 		return tbDownloads, requestError
 	}
 
 	if response.Success != true {
-		slog.Error("Failed to create usenet download in Torbox", "responseBody", string(body))
+		logger.Log.Errorw("Failed to create usenet download in Torbox", "responseBody", string(body))
 		return tbDownloads, requestError
 	}
 

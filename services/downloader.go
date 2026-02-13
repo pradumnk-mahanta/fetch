@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fetch/config"
 	"fetch/databases"
+	"fetch/logger"
 	"fetch/models"
 	"fmt"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -22,7 +22,7 @@ var (
 
 func InitGDLService() {
 	once.Do(func() {
-		slog.Info("Initializing GDLService...")
+		logger.Log.Infow("Initializing GDLService...")
 		serviceInstance = &GDLService{
 			tasks: make(map[string]*DownloadTask),
 		}
@@ -45,7 +45,7 @@ type DownloadTask struct {
 
 func GetGDLService() *GDLService {
 	if serviceInstance == nil {
-		slog.Error("GDLService not initialized. Call InitGDLService() first.")
+		logger.Log.Errorw("GDLService not initialized. Call InitGDLService() first.")
 		panic("GDLService not initialized")
 	}
 	return serviceInstance
@@ -59,7 +59,7 @@ type GDLService struct {
 func (s *GDLService) Download(localDownload models.LocalDownloadInstance) error {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	fileInfo, err := gdl.GetFileInfo(ctx, localDownload.ExternalDownloadProviderURL)
+	fileInfo, err := gdl.GetFileInfo(ctx, localDownload.DownloadName) //CHANGE
 	if err != nil {
 		cancel()
 		return errors.New("Unable to retrieve file metadata: " + err.Error())
@@ -75,14 +75,14 @@ func (s *GDLService) Download(localDownload models.LocalDownloadInstance) error 
 	dir, err := buildDownloadPath(localDownload.Category, localDownload.DownloadName)
 	if err != nil {
 		cancel()
-		slog.Error("Failed to build download path", "error", err, "category", localDownload.Category, "packageName", localDownload.DownloadName)
+		logger.Log.Errorw("Failed to build download path", "error", err, "category", localDownload.Category, "packageName", localDownload.DownloadName)
 		return err
 	}
 
 	outputPath := filepath.Join(dir, fileName)
 	task := &DownloadTask{
 		ID:         localDownload.ID,
-		URL:        localDownload.ExternalDownloadProviderURL,
+		URL:        localDownload.DownloadName, //CHANGE
 		OutputPath: outputPath,
 		Ctx:        ctx,
 		CancelFunc: cancel,
@@ -139,7 +139,7 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 			task.mu.Unlock()
 
 			databases.UpdateLocalDownloadStatus(task.ID, config.DOWNLOAD_STATUS_DOWNLOADER_PAUSED)
-			slog.Info("Download paused", "id", task.ID)
+			logger.Log.Infow("Download paused", "id", task.ID)
 			return
 		}
 
@@ -147,7 +147,7 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 		task.mu.Unlock()
 
 		databases.UpdateLocalDownloadStatus(task.ID, config.DOWNLOAD_STATUS_DOWNLOADER_FAILED)
-		slog.Error("Failed to download", "error", err, "url", task.URL, "outputPath", task.OutputPath)
+		logger.Log.Errorw("Failed to download", "error", err, "url", task.URL, "outputPath", task.OutputPath)
 		return
 	}
 
@@ -157,7 +157,7 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 	task.mu.Unlock()
 
 	databases.UpdateLocalDownloadStatus(task.ID, config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED)
-	slog.Info("Download completed", "id", task.ID, "url", task.URL, "outputPath", task.OutputPath)
+	logger.Log.Infow("Download completed", "id", task.ID, "url", task.URL, "outputPath", task.OutputPath)
 
 	s.mu.Lock()
 	delete(s.tasks, task.ID)
@@ -204,7 +204,7 @@ func (s *GDLService) Delete(id string) error {
 
 	detail, err := databases.GetLocalDownloadDetails(id)
 	if err == nil {
-		root := os.Getenv("DOWNLOAD_ROOT")
+		root := config.APPLICATION_DOWNLOAD_ROOT.GetValue()
 		if root != "" {
 			dir := filepath.Join(root, detail.Category, detail.DownloadName)
 			_ = os.RemoveAll(dir)
@@ -256,7 +256,7 @@ func (s *GDLService) Status() []models.GDLDownload {
 }
 
 func buildDownloadPath(category string, packageName string) (string, error) {
-	root := os.Getenv("DOWNLOAD_ROOT")
+	root := config.APPLICATION_DOWNLOAD_ROOT.GetValue()
 	if root == "" {
 		return "", errors.New("DOWNLOAD_ROOT not set")
 	}
