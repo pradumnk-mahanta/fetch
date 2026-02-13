@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/forest6511/gdl"
@@ -31,6 +32,7 @@ func InitGDLService() {
 
 type DownloadTask struct {
 	ID         string
+	DownloadID string //Parent
 	URL        string
 	OutputPath string
 
@@ -56,39 +58,36 @@ type GDLService struct {
 	mu    sync.Mutex
 }
 
-func (s *GDLService) Download(localDownload models.LocalDownloadInstance) error {
-	ctx, cancel := context.WithCancel(context.Background())
+func (s *GDLService) Download(parentCtx context.Context, localDownloadItem models.LocalDownloadInstanceItem) error {
+	ctx, cancel := context.WithCancel(parentCtx)
 
-	fileInfo, err := gdl.GetFileInfo(ctx, localDownload.DownloadName) //CHANGE
+	localDownload, err := databases.GetLocalDownloadDetails(localDownloadItem.DownloadID)
 	if err != nil {
 		cancel()
-		return errors.New("Unable to retrieve file metadata: " + err.Error())
+		logger.Log.Errorw("Failed to get local download item", "error", err, "filename", localDownloadItem.FileName)
+		return err
 	}
 
-	fileName := fileInfo.Filename
-	if fileName == "" {
-		fileName = localDownload.DownloadName
-	}
+	databases.UpdateLocalDownloadItemStatus(localDownloadItem.ID, localDownloadItem.DownloadID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_DOWNLOADING)
 
-	databases.UpdateLocalDownloadStatus(localDownload.ID, config.DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING)
-
-	dir, err := buildDownloadPath(localDownload.Category, localDownload.DownloadName)
+	dir, err := GetDownloadRootPath(localDownload.Category)
 	if err != nil {
 		cancel()
 		logger.Log.Errorw("Failed to build download path", "error", err, "category", localDownload.Category, "packageName", localDownload.DownloadName)
 		return err
 	}
 
-	outputPath := filepath.Join(dir, fileName)
+	outputPath := filepath.Join(dir, localDownloadItem.FilePath)
 	task := &DownloadTask{
-		ID:         localDownload.ID,
-		URL:        localDownload.DownloadName, //CHANGE
+		ID:         localDownloadItem.ID,
+		DownloadID: localDownloadItem.DownloadID,
+		URL:        localDownloadItem.ExternalProviderDownloadURL,
 		OutputPath: outputPath,
 		Ctx:        ctx,
 		CancelFunc: cancel,
-		Status:     config.DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING,
+		Status:     config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_DOWNLOADING,
 		Stats: &gdl.DownloadStats{
-			TotalSize: fileInfo.Size,
+			TotalSize: localDownloadItem.FileSize,
 		},
 	}
 
@@ -138,25 +137,35 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 			task.Status = config.DOWNLOAD_STATUS_DOWNLOADER_PAUSED
 			task.mu.Unlock()
 
-			databases.UpdateLocalDownloadStatus(task.ID, config.DOWNLOAD_STATUS_DOWNLOADER_PAUSED)
+			databases.UpdateLocalDownloadItemStatus(task.ID, task.DownloadID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_PAUSED)
 			logger.Log.Infow("Download paused", "id", task.ID)
+
+			s.mu.Lock()
+			delete(s.tasks, task.ID)
+			s.mu.Unlock()
+
 			return
 		}
 
-		task.Status = config.DOWNLOAD_STATUS_DOWNLOADER_FAILED
+		task.Status = config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED
 		task.mu.Unlock()
 
-		databases.UpdateLocalDownloadStatus(task.ID, config.DOWNLOAD_STATUS_DOWNLOADER_FAILED)
+		databases.UpdateLocalDownloadItemStatus(task.ID, task.DownloadID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED)
 		logger.Log.Errorw("Failed to download", "error", err, "url", task.URL, "outputPath", task.OutputPath)
+
+		s.mu.Lock()
+		delete(s.tasks, task.ID)
+		s.mu.Unlock()
+
 		return
 	}
 
 	task.mu.Lock()
 	task.Stats = stats
-	task.Status = config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED
+	task.Status = config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED
 	task.mu.Unlock()
 
-	databases.UpdateLocalDownloadStatus(task.ID, config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED)
+	databases.UpdateLocalDownloadItemStatus(task.ID, task.DownloadID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED)
 	logger.Log.Infow("Download completed", "id", task.ID, "url", task.URL, "outputPath", task.OutputPath)
 
 	s.mu.Lock()
@@ -167,6 +176,9 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 func (s *GDLService) Pause(id string) error {
 	s.mu.Lock()
 	task, exists := s.tasks[id]
+	if exists {
+		task.CancelFunc()
+	}
 	s.mu.Unlock()
 
 	if !exists {
@@ -174,23 +186,24 @@ func (s *GDLService) Pause(id string) error {
 	}
 
 	task.CancelFunc()
-
-	// task.mu.Lock()
-	// task.Status = config.DOWNLOAD_STATUS_DOWNLOADER_PAUSED
-	// task.mu.Unlock()
-
-	// databases.UpdateLocalDownloadStatus(id, config.DOWNLOAD_STATUS_DOWNLOADER_PAUSED)
-
 	return nil
 }
 
-func (s *GDLService) Resume(id string) error {
-	detail, err := databases.GetLocalDownloadDetails(id)
+func (s *GDLService) Resume(prntCtx context.Context, id string) error {
+	s.mu.Lock()
+	_, running := s.tasks[id]
+	s.mu.Unlock()
+
+	if running {
+		return errors.New("Download already running")
+	}
+
+	detail, err := databases.GetLocalDownloadItemDetails(id)
 	if err != nil {
 		return err
 	}
 
-	return s.Download(detail)
+	return s.Download(prntCtx, detail)
 }
 
 func (s *GDLService) Delete(id string) error {
@@ -202,16 +215,21 @@ func (s *GDLService) Delete(id string) error {
 	}
 	s.mu.Unlock()
 
-	detail, err := databases.GetLocalDownloadDetails(id)
+	downloadItem, err := databases.GetLocalDownloadItemDetails(id)
 	if err == nil {
-		root := config.APPLICATION_DOWNLOAD_ROOT.GetValue()
-		if root != "" {
-			dir := filepath.Join(root, detail.Category, detail.DownloadName)
-			_ = os.RemoveAll(dir)
+		download, err2 := databases.GetLocalDownloadDetails(downloadItem.DownloadID)
+		if err2 == nil {
+			categoryDir, _ := GetDownloadRootPath(download.Category)
+			filePath := filepath.Join(categoryDir, downloadItem.FilePath)
+			cleanPath := filepath.Clean(filePath)
+
+			if strings.HasPrefix(cleanPath, categoryDir+string(os.PathSeparator)) {
+				_ = os.Remove(cleanPath)
+			}
 		}
 	}
 
-	return databases.DeleteLocalDownload(id)
+	return nil
 }
 
 func (s *GDLService) Status() []models.GDLDownload {
@@ -255,13 +273,13 @@ func (s *GDLService) Status() []models.GDLDownload {
 	return statuses
 }
 
-func buildDownloadPath(category string, packageName string) (string, error) {
+func GetDownloadRootPath(category string) (string, error) {
 	root := config.APPLICATION_DOWNLOAD_ROOT.GetValue()
 	if root == "" {
 		return "", errors.New("DOWNLOAD_ROOT not set")
 	}
 
-	finalDir := filepath.Join(root, category, packageName)
+	finalDir := filepath.Join(root, category)
 
 	err := os.MkdirAll(finalDir, os.ModePerm)
 	if err != nil {

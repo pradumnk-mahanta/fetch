@@ -81,14 +81,17 @@ func DeleteDownload(protocol string, downloadName string, downloadFile multipart
 	}
 }
 
-func UpdateDownloads() (string, error) {
-	localDownloads, err := databases.GetLocalPendingDownloads()
+func ProcessDownloads() (string, error) {
+	localDownloads, err := databases.GetLocalDownloads()
 	if err != nil {
 		logger.Log.Errorw("Unable to retrieve pending downloads at this time. Please try again later!")
 		return "Unable to retrieve pending downloads at this time. Please try again later!", err
 	}
 
 	for _, localDownload := range localDownloads {
+		if localDownload.Status == config.DOWNLOAD_STATUS_CLIENT_COMPLETED || localDownload.Status == config.DOWNLOAD_STATUS_CLIENT_FAILED {
+			continue
+		}
 		switch localDownload.Protocol {
 		case "usenet":
 			switch localDownload.Status {
@@ -156,6 +159,45 @@ func UpdateDownloads() (string, error) {
 		}
 	}
 	return "Successfully updated downloads", nil
+}
+
+func ProcessDownloadItems() (string, error) {
+	localDownloads, err := databases.GetLocalDownloads()
+	if err != nil {
+		logger.Log.Errorw("Unable to retrieve downloads at this time. Please try again later!")
+		return "Unable to retrieve downloads at this time. Please try again later!", err
+	}
+
+	for _, localDownload := range localDownloads {
+		if localDownload.Status == config.DOWNLOAD_STATUS_CLIENT_COMPLETED || localDownload.Status == config.DOWNLOAD_STATUS_CLIENT_FAILED {
+			continue
+		}
+
+		switch localDownload.Protocol {
+		case "usenet":
+			switch localDownload.Status {
+			case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_DOWNLOADING:
+
+				continue
+
+			case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED:
+
+				continue
+
+			case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_PROCESSING:
+				continue
+
+			case config.DOWNLOAD_STATUS_PROVIDER_COMPLETED:
+				continue
+
+			default:
+				continue
+			}
+		default:
+			continue
+		}
+	}
+	return "Successfully updated download Items", nil
 }
 
 func LocalDownloadList() ([]models.LocalDownloadInstance, error) {

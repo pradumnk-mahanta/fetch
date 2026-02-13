@@ -6,18 +6,18 @@ import (
 )
 
 type LocalDownloadInstance struct {
-	ID                         string                       `json:"id"`
-	Protocol                   string                       `json:"protocol"`
-	Provider                   string                       `json:"provider"`
-	DownloadName               string                       `json:"download_name"`
-	OriginalDownloadURL        string                       `json:"original_download_url"`
-	OriginalDownloadFile       []byte                       `json:"-"`
-	Category                   string                       `json:"category"`
-	Status                     string                       `json:"status"`
-	ExternalProviderID         string                       `json:"external_provider_id"`
-	ExternalProviderDataObject string                       `json:"external_provider_data_object"`
-	AddedAt                    time.Time                    `json:"added_at"`
-	DownloadItems              []LocalDownloadInstanceItems `json:"download_items"`
+	ID                         string                      `json:"id"`
+	Protocol                   string                      `json:"protocol"`
+	Provider                   string                      `json:"provider"`
+	DownloadName               string                      `json:"download_name"`
+	OriginalDownloadURL        string                      `json:"original_download_url"`
+	OriginalDownloadFile       []byte                      `json:"-"`
+	Category                   string                      `json:"category"`
+	Status                     string                      `json:"status"`
+	ExternalProviderID         string                      `json:"external_provider_id"`
+	ExternalProviderDataObject string                      `json:"external_provider_data_object"`
+	AddedAt                    time.Time                   `json:"added_at"`
+	DownloadItems              []LocalDownloadInstanceItem `json:"download_items"`
 }
 
 func (l *LocalDownloadInstance) ToJSON() (string, error) {
@@ -41,7 +41,7 @@ func (l LocalDownloadInstances) ToJSON() (string, error) {
 	return string(bytes), nil
 }
 
-type LocalDownloadInstanceItems struct {
+type LocalDownloadInstanceItem struct {
 	ID                          string    `json:"id"`
 	DownloadID                  string    `json:"download_id"`
 	DownloadType                string    `json:"download_type"`

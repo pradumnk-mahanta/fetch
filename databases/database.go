@@ -103,7 +103,7 @@ func AddLocalDownloadItem(downloadId string, downloadType string, fileName strin
 
 func GetLocalDownloadDetails(id string) (models.LocalDownloadInstance, error) {
 	var download models.LocalDownloadInstance
-	var downloadItems []models.LocalDownloadInstanceItems
+	var downloadItems []models.LocalDownloadInstanceItem
 	errDownload := DB.QueryRow("SELECT id, protocol, provider, download_name, original_download_url, original_download_file, category, status, external_provider_id, external_provider_data_object, added_at FROM downloads WHERE id = ?", id).Scan(&download.ID, &download.Protocol, &download.Provider, &download.DownloadName, &download.OriginalDownloadURL, &download.OriginalDownloadFile, &download.Category, &download.Status, &download.ExternalProviderID, &download.ExternalProviderDataObject, &download.AddedAt)
 	if errDownload != nil {
 		download.DownloadItems = downloadItems
@@ -116,13 +116,22 @@ func GetLocalDownloadDetails(id string) (models.LocalDownloadInstance, error) {
 	}
 
 	for dlItems.Next() {
-		var downloadItem models.LocalDownloadInstanceItems
+		var downloadItem models.LocalDownloadInstanceItem
 		dlItems.Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.AddedAt)
 		downloadItems = append(downloadItems, downloadItem)
 	}
 
 	download.DownloadItems = downloadItems
 	return download, nil
+}
+
+func GetLocalDownloadItemDetails(id string) (models.LocalDownloadInstanceItem, error) {
+	var downloadItem models.LocalDownloadInstanceItem
+	errDownload := DB.QueryRow("SELECT id, download_id, download_type, file_name, file_path, file_size, status, external_provider_id, external_provider_download_url, added_at FROM downloaditems WHERE download_id = ?", id).Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.AddedAt)
+	if errDownload != nil {
+		return downloadItem, errDownload
+	}
+	return downloadItem, nil
 }
 
 func UpdateLocalDownloadProviderId(id string, externalIDProvider string, status string) error {
@@ -158,29 +167,22 @@ func UpdateLocalDownloadStatus(id string, status string) error {
 	return nil
 }
 
+func UpdateLocalDownloadItemStatus(id string, downloadId string, status string) error {
+	_, err := DB.Exec("UPDATE downloaditems SET status = ? WHERE id = ?", status, id)
+	if err != nil {
+		return err
+	}
+
+	return nil
+	//	return UpdateLocalDownloadStatus(downloadId, GetTranslatedStatusforDownloadBasedonItemStatus(status))
+}
+
 func UpdateLocalDownloadProviderData(id string, providerData string) error {
 	_, err := DB.Exec("UPDATE downloads SET external_provider_data_object = ? WHERE id = ?", providerData, id)
 	if err != nil {
 		return err
 	}
 	return nil
-}
-
-func GetLocalPendingDownloads() ([]models.LocalDownloadInstance, error) {
-	var downloads []models.LocalDownloadInstance
-	rows, err := DB.Query("SELECT id, protocol, provider, download_name, original_download_url, original_download_file, category, status, external_provider_id, external_provider_data_object, added_at FROM downloads WHERE status NOT IN (?, ?)", config.DOWNLOAD_STATUS_CLIENT_COMPLETED, config.DOWNLOAD_STATUS_CLIENT_FAILED)
-	if err != nil {
-		return downloads, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var download models.LocalDownloadInstance
-		rows.Scan(&download.ID, &download.Protocol, &download.Provider, &download.DownloadName, &download.OriginalDownloadURL, &download.OriginalDownloadFile, &download.Category, &download.Status, &download.ExternalProviderID, &download.ExternalProviderDataObject, &download.AddedAt)
-		downloads = append(downloads, download)
-	}
-
-	return downloads, nil
 }
 
 func GetLocalDownloads() ([]models.LocalDownloadInstance, error) {
@@ -196,13 +198,13 @@ func GetLocalDownloads() ([]models.LocalDownloadInstance, error) {
 		var download models.LocalDownloadInstance
 		rows.Scan(&download.ID, &download.Protocol, &download.Provider, &download.DownloadName, &download.OriginalDownloadURL, &download.OriginalDownloadFile, &download.Category, &download.Status, &download.ExternalProviderID, &download.ExternalProviderDataObject, &download.AddedAt)
 
-		dlItems, errDownloadItems := DB.Query("SELECT id, download_id, download_type, file_name, file_path, file_size, status, external_provider_id, external_provider_download_url, added_at FROM downloaditems WHERE download_id = ?", download.ID)
+		dlItems, errDownloadItems := DB.Query("SELECT id, download_id, download_type, file_name, file_path, file_size, status, external_provider_id, external_provider_download_url, added_at FROM downloaditems WHERE download_id = ? ORDER BY added_at ASC", download.ID)
 		if errDownloadItems != nil {
 			continue
 		} else {
-			var downloadItems []models.LocalDownloadInstanceItems
+			var downloadItems []models.LocalDownloadInstanceItem
 			for dlItems.Next() {
-				var downloadItem models.LocalDownloadInstanceItems
+				var downloadItem models.LocalDownloadInstanceItem
 				dlItems.Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.AddedAt)
 				downloadItems = append(downloadItems, downloadItem)
 			}
@@ -213,8 +215,8 @@ func GetLocalDownloads() ([]models.LocalDownloadInstance, error) {
 	return downloads, nil
 }
 
-func DeleteLocalDownload(id string) error {
-	_, err := DB.Exec("DELETE FROM downloads WHERE id = ?", id)
+func DeleteLocalDownloadItem(id string) error {
+	_, err := DB.Exec("DELETE FROM downloaditems WHERE id = ?", id)
 	if err != nil {
 		return err
 	}
@@ -245,4 +247,8 @@ func GetSABNzbdQueue() []models.SabSlot {
 func GetQBitQueue() []models.QBitTorrent {
 	// Left as is for brevity, but you should update the SELECT to include category if needed for qBit
 	return []models.QBitTorrent{}
+}
+
+func GetTranslatedStatusforDownloadBasedonItemStatus(itemStatus string) string {
+	return ""
 }
