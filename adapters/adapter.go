@@ -40,12 +40,8 @@ func ProcessDownloads() (string, error) {
 		return "Unable to retrieve pending downloads at this time. Please try again later!", err
 	}
 
-	hasProviderProcessing := slices.ContainsFunc(localDownloads, func(item models.LocalDownloadInstance) bool {
-		return item.Status == config.DOWNLOAD_STATUS_PROVIDER_ADDED || item.Status == config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING || item.Status == config.DOWNLOAD_STATUS_PROVIDER_PROCESSING
-	})
-
 	var providerDownloads []models.DAT
-	if hasProviderProcessing {
+	if databases.GetLocalDownloadsAddedToProviderCount() > 0 {
 		provDl, err := services.TorboxUsenetGetDownloadList()
 		if err != nil {
 			logger.Log.Errorw("Failed to get download status from provider", "error", err)
@@ -74,7 +70,6 @@ func ProcessDownloads() (string, error) {
 
 					logger.Log.Debugw("Created download on provider", "download", localDownload.ID, "provider", usenetdownload_id)
 				}
-				continue
 
 			case config.DOWNLOAD_STATUS_PROVIDER_ADDED, config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING, config.DOWNLOAD_STATUS_PROVIDER_PROCESSING:
 				for _, providerDownload := range providerDownloads {
@@ -98,7 +93,6 @@ func ProcessDownloads() (string, error) {
 					}
 				}
 				logger.Log.Debugw("Updating download", "download", localDownload, "providerStatus", providerDownloads)
-				continue
 
 			case config.DOWNLOAD_STATUS_PROVIDER_COMPLETED:
 				if config.PROVIDER_TB_CONFIG_PREFER_ZIPPED_FOLDER.GetBoolValue() {
@@ -125,11 +119,9 @@ func ProcessDownloads() (string, error) {
 					}
 				}
 				databases.UpdateLocalDownloadStatus(localDownload.ID, config.DOWNLOAD_STATUS_DOWNLOADER_ADDED)
-				continue
 
 			case config.DOWNLOAD_STATUS_DOWNLOADER_ADDED, config.DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING, config.DOWNLOAD_STATUS_DOWNLOADER_PROCESSING:
 				databases.UpdateLocalDownloadStatus(localDownload.ID, GetLocalDownloadStatusBasedOnItems(localDownload.ID, config.DOWNLOAD_STATUS_DOWNLOADER_ADDED))
-				continue
 
 			case config.DOWNLOAD_STATUS_DOWNLOADER_FAILED:
 				localDownloadItems, err := databases.GetLocalDownloadItemsForDownload(localDownload.ID)
@@ -147,7 +139,7 @@ func ProcessDownloads() (string, error) {
 				}
 				continue
 
-			case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED:
+			case config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED:
 				databases.UpdateLocalDownloadStatus(localDownload.ID, config.DOWNLOAD_STATUS_CLIENT_COMPLETED)
 				continue
 
@@ -182,7 +174,13 @@ func ProcessDownloadItems() (string, error) {
 		case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_RETRY:
 			downloader := services.GetGDLService()
 			downloads := downloader.Status()
-			if len(downloads) < config.DOWNLOADER_MAX_PARALLEL_DOWNLOADS.GetIntValue() {
+			activeDownloads := 0
+			for _, download := range downloads {
+				if download.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_DOWNLOADING {
+					activeDownloads++
+				}
+			}
+			if activeDownloads < config.DOWNLOADER_MAX_PARALLEL_DOWNLOADS.GetIntValue() {
 				var downloadLink string
 				if localDownloadItem.ExternalProviderDownloadURL == "" {
 					providerDownloadLink, requestDownloadLinkError := services.TorboxUsenetRequestDownloadLink(localDownloadItem.ExternalProviderID, localDownloadItem.ExternalProviderItemID)

@@ -15,7 +15,7 @@ type LocalDownloadInstance struct {
 	Category                   string                      `json:"category"`
 	Status                     string                      `json:"status"`
 	ExternalProviderID         string                      `json:"external_provider_id"`
-	ExternalProviderDataObject string                      `json:"external_provider_data_object"`
+	ExternalProviderDataObject string                      `json:"-"`
 	AddedAt                    time.Time                   `json:"added_at"`
 	DownloadItems              []LocalDownloadInstanceItem `json:"download_items"`
 }

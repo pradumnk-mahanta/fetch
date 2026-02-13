@@ -42,7 +42,6 @@ require (
 require (
 	github.com/forest6511/gdl v1.4.0
 	github.com/joho/godotenv v1.5.1
-	github.com/robfig/cron/v3 v3.0.1
 	go.uber.org/zap v1.27.1
 	modernc.org/sqlite v1.45.0
 )
