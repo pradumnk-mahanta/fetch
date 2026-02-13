@@ -1,6 +1,8 @@
 package logger
 
 import (
+	"fetch/config"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -8,11 +10,19 @@ import (
 var Log *zap.SugaredLogger
 
 func InitLogger() {
-	config := zap.NewProductionConfig()
-	//config.Encoding = "console" //json
-	config.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	config.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	logger, err := config.Build()
+	var zapCionfig zap.Config
+	if config.APPLICATION_LOG_MODE.GetValue() == "DEBUG" {
+		zapCionfig = zap.NewDevelopmentConfig()
+		zapCionfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	} else {
+		zapCionfig = zap.NewProductionConfig()
+		zapCionfig.EncoderConfig.TimeKey = "timestamp"
+		zapCionfig.Encoding = "console"
+	}
+
+	zapCionfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	zapCionfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	logger, err := zapCionfig.Build()
 	if err != nil {
 		panic(err)
 	}

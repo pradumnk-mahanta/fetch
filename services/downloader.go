@@ -157,11 +157,11 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 
 	task.mu.Lock()
 	task.Stats = stats
-	task.Status = config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED
 	task.mu.Unlock()
 
 	downloadItem, err := databases.GetLocalDownloadItemDetails(task.ID)
 	if err == nil && downloadItem.DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
+		databases.UpdateLocalDownloadItemStatus(task.ID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_PROCESSING)
 		logger.Log.Infow("Extracting archive", "id", task.ID, "path", task.OutputPath)
 		extractDir := filepath.Dir(task.OutputPath)
 		if err := extractZip(task.OutputPath, extractDir); err != nil {
@@ -182,9 +182,13 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 		_ = os.Remove(task.OutputPath)
 	}
 
-	s.mu.Lock()
-	delete(s.tasks, task.ID)
-	s.mu.Unlock()
+	task.mu.Lock()
+	task.Status = config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED
+	task.mu.Unlock()
+
+	databases.UpdateLocalDownloadItemStatus(task.ID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED)
+
+	logger.Log.Infow("Download completed", "id", task.ID)
 }
 
 func (s *GDLService) Pause(id string) error {

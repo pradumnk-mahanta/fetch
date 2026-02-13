@@ -50,7 +50,8 @@ func InitDB() error {
 		status TEXT,
 		external_provider_id TEXT, 
 		external_provider_item_id TEXT, 
-		external_provider_download_url TEXT, 
+		external_provider_download_url TEXT,
+		retry_counter INTEGER,
 		added_at DATETIME
 	);
 	`
@@ -85,9 +86,9 @@ func AddLocalDownload(protocol string, provider string, downloadname string, dow
 }
 
 func AddLocalDownloadItem(downloadId string, downloadType string, category string, fileName string, filePath string, fileSize int64, providerId string, providerItemId string, providerDownloadUrl string) string {
-	stmt, _ := DB.Prepare("INSERT INTO downloaditems(download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, added_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	stmt, _ := DB.Prepare("INSERT INTO downloaditems(download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, retry_counter, added_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 
-	result, err := stmt.Exec(downloadId, downloadType, category, fileName, filePath, fileSize, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED, providerId, providerItemId, providerDownloadUrl, time.Now())
+	result, err := stmt.Exec(downloadId, downloadType, category, fileName, filePath, fileSize, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED, providerId, providerItemId, providerDownloadUrl, 0, time.Now())
 	if err != nil {
 		logger.Log.Errorw("Failed to add download item to db", "error", err)
 		return ""
@@ -111,14 +112,14 @@ func GetLocalDownloadDetails(id string) (models.LocalDownloadInstance, error) {
 		return download, errDownload
 	}
 
-	dlItems, errDownloadItems := DB.Query("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, added_at FROM downloaditems WHERE download_id = ?", id)
+	dlItems, errDownloadItems := DB.Query("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, retry_counter, added_at FROM downloaditems WHERE download_id = ?", id)
 	if errDownloadItems != nil {
 		return download, nil
 	}
 
 	for dlItems.Next() {
 		var downloadItem models.LocalDownloadInstanceItem
-		dlItems.Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.AddedAt)
+		dlItems.Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.RetryCounter, &downloadItem.AddedAt)
 		downloadItems = append(downloadItems, downloadItem)
 	}
 
@@ -128,7 +129,7 @@ func GetLocalDownloadDetails(id string) (models.LocalDownloadInstance, error) {
 
 func GetLocalDownloadItemDetails(id string) (models.LocalDownloadInstanceItem, error) {
 	var downloadItem models.LocalDownloadInstanceItem
-	errDownload := DB.QueryRow("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, added_at FROM downloaditems WHERE download_id = ?", id).Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.AddedAt)
+	errDownload := DB.QueryRow("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, retry_counter, added_at FROM downloaditems WHERE download_id = ?", id).Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.RetryCounter, &downloadItem.AddedAt)
 	if errDownload != nil {
 		return downloadItem, errDownload
 	}
@@ -181,9 +182,17 @@ func UpdateLocalDownloadItemStatus(id string, status string) error {
 	if err != nil {
 		return err
 	}
-
+	logger.Log.Debugw("Updated Download Item Status", "Item", id, "Status", status)
 	return nil
-	//	return UpdateLocalDownloadStatus(downloadId, GetTranslatedStatusforDownloadBasedonItemStatus(status))
+}
+
+func UpdateLocalDownloadItemRetryCounter(id string, retryCount int) error {
+	_, err := DB.Exec("UPDATE downloaditems SET retry_counter = ? WHERE id = ?", retryCount, id)
+	if err != nil {
+		return err
+	}
+	logger.Log.Debugw("Updated Download Item RetryCount", "Item", id, "RetryCount", retryCount)
+	return nil
 }
 
 func UpdateLocalDownloadProviderData(id string, providerData string) error {
@@ -207,14 +216,44 @@ func GetLocalDownloads() ([]models.LocalDownloadInstance, error) {
 		var download models.LocalDownloadInstance
 		rows.Scan(&download.ID, &download.Protocol, &download.Provider, &download.DownloadName, &download.OriginalDownloadURL, &download.OriginalDownloadFile, &download.Category, &download.Status, &download.ExternalProviderID, &download.ExternalProviderDataObject, &download.AddedAt)
 
-		dlItems, errDownloadItems := DB.Query("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, added_at FROM downloaditems WHERE download_id = ? ORDER BY added_at ASC", download.ID)
+		dlItems, errDownloadItems := DB.Query("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, retry_counter, added_at FROM downloaditems WHERE download_id = ? ORDER BY added_at ASC", download.ID)
 		if errDownloadItems != nil {
 			continue
 		} else {
 			var downloadItems []models.LocalDownloadInstanceItem
 			for dlItems.Next() {
 				var downloadItem models.LocalDownloadInstanceItem
-				dlItems.Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.AddedAt)
+				dlItems.Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.RetryCounter, &downloadItem.AddedAt)
+				downloadItems = append(downloadItems, downloadItem)
+			}
+			download.DownloadItems = downloadItems
+		}
+		downloads = append(downloads, download)
+	}
+	return downloads, nil
+}
+
+func GetLocalPendingDownloads() ([]models.LocalDownloadInstance, error) {
+	var downloads []models.LocalDownloadInstance
+
+	rows, err := DB.Query("SELECT id, protocol, provider, download_name, original_download_url, original_download_file, category, status, external_provider_id, external_provider_data_object, added_at FROM downloads WHERE status NOT IN (?, ?)", config.DOWNLOAD_STATUS_CLIENT_COMPLETED, config.DOWNLOAD_STATUS_CLIENT_FAILED)
+	if err != nil {
+		return downloads, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var download models.LocalDownloadInstance
+		rows.Scan(&download.ID, &download.Protocol, &download.Provider, &download.DownloadName, &download.OriginalDownloadURL, &download.OriginalDownloadFile, &download.Category, &download.Status, &download.ExternalProviderID, &download.ExternalProviderDataObject, &download.AddedAt)
+
+		dlItems, errDownloadItems := DB.Query("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, retry_counter, added_at FROM downloaditems WHERE download_id = ? ORDER BY added_at ASC", download.ID)
+		if errDownloadItems != nil {
+			continue
+		} else {
+			var downloadItems []models.LocalDownloadInstanceItem
+			for dlItems.Next() {
+				var downloadItem models.LocalDownloadInstanceItem
+				dlItems.Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.RetryCounter, &downloadItem.AddedAt)
 				downloadItems = append(downloadItems, downloadItem)
 			}
 			download.DownloadItems = downloadItems
@@ -235,7 +274,7 @@ func GetLocalDownloadsAddedToProviderCount() int {
 
 func GetLocalDownloadItems() ([]models.LocalDownloadInstanceItem, error) {
 	var downloadItems []models.LocalDownloadInstanceItem
-	dlItems, errDownloadItems := DB.Query("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, added_at FROM downloaditems ORDER BY added_at ASC")
+	dlItems, errDownloadItems := DB.Query("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, retry_counter, added_at FROM downloaditems ORDER BY added_at ASC")
 	if errDownloadItems != nil {
 		return downloadItems, errDownloadItems
 	}
@@ -243,10 +282,26 @@ func GetLocalDownloadItems() ([]models.LocalDownloadInstanceItem, error) {
 
 	for dlItems.Next() {
 		var downloadItem models.LocalDownloadInstanceItem
-		dlItems.Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.AddedAt)
+		dlItems.Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.RetryCounter, &downloadItem.AddedAt)
 		downloadItems = append(downloadItems, downloadItem)
 	}
 
+	return downloadItems, nil
+}
+
+func GetLocalDownloadItemsForDownload(downloadId string) ([]models.LocalDownloadInstanceItem, error) {
+	var downloadItems []models.LocalDownloadInstanceItem
+	dlItems, errDownloadItems := DB.Query("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, retry_counter, added_at FROM downloaditems WHERE download_id = ? ORDER BY added_at ASC", downloadId)
+	if errDownloadItems != nil {
+		return downloadItems, errDownloadItems
+	}
+	defer dlItems.Close()
+
+	for dlItems.Next() {
+		var downloadItem models.LocalDownloadInstanceItem
+		dlItems.Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.RetryCounter, &downloadItem.AddedAt)
+		downloadItems = append(downloadItems, downloadItem)
+	}
 	return downloadItems, nil
 }
 

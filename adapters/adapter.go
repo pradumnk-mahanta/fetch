@@ -8,6 +8,7 @@ import (
 	"fetch/models"
 	"fetch/services"
 	"mime/multipart"
+	"slices"
 	"strconv"
 
 	"github.com/forest6511/gdl"
@@ -31,22 +32,29 @@ func DeleteDownload(id string, downloadName string, downloadFile multipart.File,
 }
 
 func ProcessDownloads() (string, error) {
-	localDownloads, err := databases.GetLocalDownloads()
+	logger.Log.Debugw("Started Processing Downloads on Shedule!")
+
+	localDownloads, err := databases.GetLocalPendingDownloads()
 	if err != nil {
 		logger.Log.Errorw("Unable to retrieve pending downloads at this time. Please try again later!")
 		return "Unable to retrieve pending downloads at this time. Please try again later!", err
 	}
 
-	providerDownloads, err := services.TorboxUsenetGetDownloadList()
-	if err != nil {
-		logger.Log.Errorw("Failed to get download status from provider", "error", err)
-		return "Unable to retrieve pending downloads at this time. Please try again later!", err
+	hasProviderProcessing := slices.ContainsFunc(localDownloads, func(item models.LocalDownloadInstance) bool {
+		return item.Status == config.DOWNLOAD_STATUS_PROVIDER_ADDED || item.Status == config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING || item.Status == config.DOWNLOAD_STATUS_PROVIDER_PROCESSING
+	})
+
+	var providerDownloads []models.DAT
+	if hasProviderProcessing {
+		provDl, err := services.TorboxUsenetGetDownloadList()
+		if err != nil {
+			logger.Log.Errorw("Failed to get download status from provider", "error", err)
+			return "Unable to retrieve pending downloads at this time. Please try again later!", err
+		}
+		providerDownloads = provDl
 	}
 
 	for _, localDownload := range localDownloads {
-		if localDownload.Status == config.DOWNLOAD_STATUS_CLIENT_COMPLETED || localDownload.Status == config.DOWNLOAD_STATUS_CLIENT_FAILED {
-			continue
-		}
 		switch localDownload.Protocol {
 		case "usenet":
 			switch localDownload.Status {
@@ -93,7 +101,7 @@ func ProcessDownloads() (string, error) {
 				continue
 
 			case config.DOWNLOAD_STATUS_PROVIDER_COMPLETED:
-				if config.TB_CONFIG_PREFER_ZIPPED_FOLDER.GetBoolValue() {
+				if config.PROVIDER_TB_CONFIG_PREFER_ZIPPED_FOLDER.GetBoolValue() {
 					downloadLink, requestDownloadLinkError := services.TorboxUsenetRequestDownloadLink(localDownload.ExternalProviderID, "-1")
 					if requestDownloadLinkError != nil {
 						logger.Log.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)
@@ -118,7 +126,29 @@ func ProcessDownloads() (string, error) {
 				}
 				databases.UpdateLocalDownloadStatus(localDownload.ID, config.DOWNLOAD_STATUS_DOWNLOADER_ADDED)
 				continue
-			case config.DOWNLOAD_STATUS_DOWNLOADER_ADDED:
+
+			case config.DOWNLOAD_STATUS_DOWNLOADER_ADDED, config.DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING, config.DOWNLOAD_STATUS_DOWNLOADER_PROCESSING:
+				databases.UpdateLocalDownloadStatus(localDownload.ID, GetLocalDownloadStatusBasedOnItems(localDownload.ID, config.DOWNLOAD_STATUS_DOWNLOADER_ADDED))
+				continue
+
+			case config.DOWNLOAD_STATUS_DOWNLOADER_FAILED:
+				localDownloadItems, err := databases.GetLocalDownloadItemsForDownload(localDownload.ID)
+				if err != nil {
+					logger.Log.Errorw("Unable to get local download items")
+					continue
+				}
+				hasFailedMoreThanMaxAllowed := slices.ContainsFunc(localDownloadItems, func(item models.LocalDownloadInstanceItem) bool {
+					return item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED && item.RetryCounter >= config.DOWNLOADER_MAX_PARALLEL_DOWNLOADS.GetIntValue()
+				})
+
+				if hasFailedMoreThanMaxAllowed {
+					logger.Log.Debugw("Download failed due to no retry attempts left!")
+					databases.UpdateLocalDownloadStatus(localDownload.ID, config.DOWNLOAD_STATUS_CLIENT_FAILED)
+				}
+				continue
+
+			case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED:
+				databases.UpdateLocalDownloadStatus(localDownload.ID, config.DOWNLOAD_STATUS_CLIENT_COMPLETED)
 				continue
 
 			default:
@@ -132,6 +162,8 @@ func ProcessDownloads() (string, error) {
 }
 
 func ProcessDownloadItems() (string, error) {
+	logger.Log.Debugw("Started Processing Downloads Items on Shedule!")
+
 	localDownloadItems, err := databases.GetLocalDownloadItems()
 	if err != nil {
 		logger.Log.Errorw("Unable to retrieve downloads at this time. Please try again later!")
@@ -147,29 +179,36 @@ func ProcessDownloadItems() (string, error) {
 			}
 			continue
 
-		case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED:
+		case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_RETRY:
 			downloader := services.GetGDLService()
 			downloads := downloader.Status()
 			if len(downloads) < config.DOWNLOADER_MAX_PARALLEL_DOWNLOADS.GetIntValue() {
-				downloadLink, requestDownloadLinkError := services.TorboxUsenetRequestDownloadLink(localDownloadItem.ExternalProviderID, localDownloadItem.ExternalProviderItemID)
-				if requestDownloadLinkError != nil {
-					logger.Log.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)
-					continue
-				}
-				linkDbUpdErr := databases.UpdateLocalDownloadItemExternalUrl(localDownloadItem.ID, downloadLink)
-				if linkDbUpdErr != nil {
-					logger.Log.Errorw("Failed to save download link from provider", "error", linkDbUpdErr)
-					continue
+				var downloadLink string
+				if localDownloadItem.ExternalProviderDownloadURL == "" {
+					providerDownloadLink, requestDownloadLinkError := services.TorboxUsenetRequestDownloadLink(localDownloadItem.ExternalProviderID, localDownloadItem.ExternalProviderItemID)
+					if requestDownloadLinkError != nil {
+						logger.Log.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)
+						continue
+					}
+					linkDbUpdErr := databases.UpdateLocalDownloadItemExternalUrl(localDownloadItem.ID, downloadLink)
+					if linkDbUpdErr != nil {
+						logger.Log.Errorw("Failed to save download link from provider", "error", linkDbUpdErr)
+						continue
+					}
+					downloadLink = providerDownloadLink
+				} else {
+					downloadLink = localDownloadItem.ExternalProviderDownloadURL
 				}
 				localDownloadItem.ExternalProviderDownloadURL = downloadLink
 				downloader.Download(context.Background(), localDownloadItem)
 			}
 			continue
 
-		case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_PROCESSING:
-			continue
-
-		case config.DOWNLOAD_STATUS_PROVIDER_COMPLETED:
+		case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED:
+			if localDownloadItem.RetryCounter < config.DOWNLOADER_MAX_RETRY_DOWNLOADS.GetIntValue() {
+				localDownloadItem.RetryCounter++
+				databases.UpdateLocalDownloadItemRetryCounter(localDownloadItem.ID, localDownloadItem.RetryCounter)
+			}
 			continue
 
 		default:
@@ -177,6 +216,43 @@ func ProcessDownloadItems() (string, error) {
 		}
 	}
 	return "Successfully updated download Items", nil
+}
+
+func GetLocalDownloadStatusBasedOnItems(downloadId string, currentStatus string) string {
+	localDownloadItems, err := databases.GetLocalDownloadItemsForDownload(downloadId)
+	if err != nil {
+		logger.Log.Errorw("Unable to get local download items")
+		return currentStatus
+	}
+	hasAdded := slices.ContainsFunc(localDownloadItems, func(item models.LocalDownloadInstanceItem) bool {
+		return item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED
+	})
+	hasDownloading := slices.ContainsFunc(localDownloadItems, func(item models.LocalDownloadInstanceItem) bool {
+		return item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_DOWNLOADING
+	})
+	hasRetry := slices.ContainsFunc(localDownloadItems, func(item models.LocalDownloadInstanceItem) bool {
+		return item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_RETRY
+	})
+	hasFailed := slices.ContainsFunc(localDownloadItems, func(item models.LocalDownloadInstanceItem) bool {
+		return item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED
+	})
+	hasCompleted := slices.ContainsFunc(localDownloadItems, func(item models.LocalDownloadInstanceItem) bool {
+		return item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED
+	})
+	hasProcessing := slices.ContainsFunc(localDownloadItems, func(item models.LocalDownloadInstanceItem) bool {
+		return item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_PROCESSING
+	})
+	if hasDownloading || hasRetry || hasAdded {
+		return config.DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING
+	} else if hasFailed {
+		return config.DOWNLOAD_STATUS_DOWNLOADER_FAILED
+	} else if hasProcessing {
+		return config.DOWNLOAD_STATUS_DOWNLOADER_PROCESSING
+	} else if hasCompleted {
+		return config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED
+	} else {
+		return currentStatus
+	}
 }
 
 func LocalDownloadList() ([]models.LocalDownloadInstance, error) {

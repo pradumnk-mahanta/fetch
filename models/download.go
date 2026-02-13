@@ -53,5 +53,6 @@ type LocalDownloadInstanceItem struct {
 	ExternalProviderID          string    `json:"external_provider_id"`
 	ExternalProviderItemID      string    `json:"external_provider_item_id"`
 	ExternalProviderDownloadURL string    `json:"external_provider_download_url"`
+	RetryCounter                int       `json:"retry_counter"`
 	AddedAt                     time.Time `json:"added_at"`
 }
