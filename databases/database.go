@@ -60,29 +60,28 @@ func InitDB() error {
 	return err
 }
 
-func AddLocalDownload(protocol string, provider string, downloadname string, downloadUrl string, downloadfile multipart.File, category string) string {
+func AddLocalDownload(protocol string, provider string, downloadname string, downloadUrl string, downloadfile multipart.File, category string) (string, error) {
 	fileBytes, err := io.ReadAll(downloadfile)
 	if err != nil {
 		logger.Log.Errorw("Failed to read download file", "error", err)
-		return ""
+		return "", err
 	}
 
 	name := strings.TrimSuffix(downloadname, filepath.Ext(downloadname))
-
 	stmt, _ := DB.Prepare("INSERT INTO downloads(protocol, provider, download_name, original_download_url, original_download_file, category, status, external_provider_id, external_provider_data_object, added_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	result, err := stmt.Exec(protocol, provider, name, downloadUrl, fileBytes, category, config.DOWNLOAD_STATUS_CLIENT_ADDED, "", "", time.Now())
 	if err != nil {
 		logger.Log.Errorw("Failed to add download to db", "error", err)
-		return ""
+		return "", err
 	}
 
 	id, err := result.LastInsertId()
 	if err != nil {
 		logger.Log.Errorw("Failed to get last insert id", "error", err)
-		return ""
+		return "", err
 	}
 	logger.Log.Infow("Download Added", "protocol", protocol, "cat", category, "name", name, "id", strconv.FormatInt(id, 10))
-	return strconv.FormatInt(id, 10)
+	return strconv.FormatInt(id, 10), nil
 }
 
 func AddLocalDownloadItem(downloadId string, downloadType string, category string, fileName string, filePath string, fileSize int64, providerId string, providerItemId string, providerDownloadUrl string) string {
@@ -223,6 +222,15 @@ func GetLocalDownloads() ([]models.LocalDownloadInstance, error) {
 		downloads = append(downloads, download)
 	}
 	return downloads, nil
+}
+
+func GetLocalDownloadsAddedToProviderCount() int {
+	downloadsAdded := 0
+	errQry := DB.QueryRow("SELECT count(*) AS provider_downloads FROM downloads WHERE status IN (?, ?, ?)", config.DOWNLOAD_STATUS_PROVIDER_ADDED, config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING, config.DOWNLOAD_STATUS_PROVIDER_PROCESSING).Scan(&downloadsAdded)
+	if errQry != nil {
+		return 999
+	}
+	return downloadsAdded
 }
 
 func GetLocalDownloadItems() ([]models.LocalDownloadInstanceItem, error) {

@@ -14,71 +14,20 @@ import (
 )
 
 func CreateDownload(protocol string, downloadName string, downloadFile multipart.File, downloadUrl string, category string) (string, error) {
-	// This is where you would implement the logic to create a download entry in the database
 	switch protocol {
 	case "usenet":
-		id := databases.AddLocalDownload(protocol, config.APPLICATION_USENET_DOWNLOAD_PROVIDER.GetValue(), downloadName, downloadUrl, downloadFile, category)
-		localDownload, err := databases.GetLocalDownloadDetails(id)
+		id, err := databases.AddLocalDownload(protocol, config.APPLICATION_USENET_DOWNLOAD_PROVIDER.GetValue(), downloadName, downloadUrl, downloadFile, category)
 		if err != nil {
 			return "", err
 		}
-
-		usenetdownload_id, error := services.TorboxUsenetCreateDownload(localDownload)
-		if error != nil {
-			return "", error
-		}
-
-		errorUpdate := databases.UpdateLocalDownloadProviderId(id, usenetdownload_id, config.DOWNLOAD_STATUS_PROVIDER_ADDED)
-		if errorUpdate != nil {
-			return "", errorUpdate
-		}
-
-		localDownloadUpdated, err := databases.GetLocalDownloadDetails(id)
-		if err != nil {
-			return "", err
-		}
-
-		logger.Log.Debugw("Created download on provider", "download", localDownloadUpdated)
-
-		return localDownloadUpdated.ID, nil
+		return id, nil
 	default:
-		// "torrent":
 		return "", nil
 	}
 }
 
-func DeleteDownload(protocol string, downloadName string, downloadFile multipart.File, downloadUrl string, category string) (string, error) {
-	// This is where you would implement the logic to create a download entry in the database
-	switch protocol {
-	case "usenet":
-		id := databases.AddLocalDownload(protocol, config.APPLICATION_USENET_DOWNLOAD_PROVIDER.GetValue(), downloadName, downloadUrl, downloadFile, category)
-		localDownload, err := databases.GetLocalDownloadDetails(id)
-		if err != nil {
-			return "", err
-		}
-
-		usenetdownload_id, error := services.TorboxUsenetCreateDownload(localDownload)
-		if error != nil {
-			return "", error
-		}
-
-		errorUpdate := databases.UpdateLocalDownloadProviderId(id, usenetdownload_id, config.DOWNLOAD_STATUS_PROVIDER_ADDED)
-		if errorUpdate != nil {
-			return "", errorUpdate
-		}
-
-		localDownloadUpdated, err := databases.GetLocalDownloadDetails(id)
-		if err != nil {
-			return "", err
-		}
-
-		logger.Log.Debugw("Created download on provider", "download", localDownloadUpdated)
-
-		return localDownloadUpdated.ID, nil
-	default:
-		// "torrent":
-		return "", nil
-	}
+func DeleteDownload(id string, downloadName string, downloadFile multipart.File, downloadUrl string, category string) (string, error) {
+	return "", nil
 }
 
 func ProcessDownloads() (string, error) {
@@ -101,6 +50,24 @@ func ProcessDownloads() (string, error) {
 		switch localDownload.Protocol {
 		case "usenet":
 			switch localDownload.Status {
+			case config.DOWNLOAD_STATUS_CLIENT_ADDED:
+				if databases.GetLocalDownloadsAddedToProviderCount() < config.APPLICATION_MAX_DOWNLOAD_SEND_TO_PROVIDER.GetIntValue() {
+					usenetdownload_id, errAdd := services.TorboxUsenetCreateDownload(localDownload)
+					if errAdd != nil {
+						logger.Log.Errorw("Failed to add download to provider", "error", errAdd)
+						continue
+					}
+
+					errorUpdate := databases.UpdateLocalDownloadProviderId(localDownload.ID, usenetdownload_id, config.DOWNLOAD_STATUS_PROVIDER_ADDED)
+					if errorUpdate != nil {
+						logger.Log.Errorw("Failed to updated local download provider id", "error", errorUpdate)
+						continue
+					}
+
+					logger.Log.Debugw("Created download on provider", "download", localDownload.ID, "provider", usenetdownload_id)
+				}
+				continue
+
 			case config.DOWNLOAD_STATUS_PROVIDER_ADDED, config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING, config.DOWNLOAD_STATUS_PROVIDER_PROCESSING:
 				for _, providerDownload := range providerDownloads {
 					providerDownloadID := strconv.FormatInt(*providerDownload.ID, 10)
