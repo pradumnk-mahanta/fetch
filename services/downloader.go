@@ -1,12 +1,15 @@
 package services
 
 import (
+	"archive/zip"
 	"context"
 	"errors"
 	"fetch/config"
 	"fetch/databases"
 	"fetch/logger"
 	"fetch/models"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -157,8 +160,27 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 	task.Status = config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED
 	task.mu.Unlock()
 
-	databases.UpdateLocalDownloadItemStatus(task.ID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED)
-	logger.Log.Infow("Download completed", "id", task.ID, "url", task.URL, "outputPath", task.OutputPath)
+	downloadItem, err := databases.GetLocalDownloadItemDetails(task.ID)
+	if err == nil && downloadItem.DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
+		logger.Log.Infow("Extracting archive", "id", task.ID, "path", task.OutputPath)
+		extractDir := filepath.Dir(task.OutputPath)
+		if err := extractZip(task.OutputPath, extractDir); err != nil {
+			logger.Log.Errorw("Failed to extract archive", "error", err, "id", task.ID)
+
+			task.mu.Lock()
+			task.Status = config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED
+			task.mu.Unlock()
+
+			databases.UpdateLocalDownloadItemStatus(task.ID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED)
+
+			s.mu.Lock()
+			delete(s.tasks, task.ID)
+			s.mu.Unlock()
+
+			return
+		}
+		_ = os.Remove(task.OutputPath)
+	}
 
 	s.mu.Lock()
 	delete(s.tasks, task.ID)
@@ -288,4 +310,52 @@ func (s *GDLService) IsDownloading(id string) bool {
 	}
 
 	return true
+}
+
+func extractZip(source, destination string) error {
+	r, err := zip.OpenReader(source)
+	if err != nil {
+		return err
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+		fpath := filepath.Join(destination, f.Name)
+
+		if !strings.HasPrefix(fpath, filepath.Clean(destination)+string(os.PathSeparator)) {
+			return fmt.Errorf("illegal file path in zip: %s", fpath)
+		}
+
+		if f.FileInfo().IsDir() {
+			if err := os.MkdirAll(fpath, os.ModePerm); err != nil {
+				return err
+			}
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
+			return err
+		}
+
+		outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			return err
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			outFile.Close()
+			return err
+		}
+
+		_, err = io.Copy(outFile, rc)
+
+		outFile.Close()
+		rc.Close()
+
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
