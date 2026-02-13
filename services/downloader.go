@@ -7,7 +7,6 @@ import (
 	"fetch/databases"
 	"fetch/logger"
 	"fetch/models"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -61,19 +60,12 @@ type GDLService struct {
 func (s *GDLService) Download(parentCtx context.Context, localDownloadItem models.LocalDownloadInstanceItem) error {
 	ctx, cancel := context.WithCancel(parentCtx)
 
-	localDownload, err := databases.GetLocalDownloadDetails(localDownloadItem.DownloadID)
+	databases.UpdateLocalDownloadItemStatus(localDownloadItem.ID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_DOWNLOADING)
+
+	dir, err := GetDownloadRootPath(localDownloadItem.Category)
 	if err != nil {
 		cancel()
-		logger.Log.Errorw("Failed to get local download item", "error", err, "filename", localDownloadItem.FileName)
-		return err
-	}
-
-	databases.UpdateLocalDownloadItemStatus(localDownloadItem.ID, localDownloadItem.DownloadID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_DOWNLOADING)
-
-	dir, err := GetDownloadRootPath(localDownload.Category)
-	if err != nil {
-		cancel()
-		logger.Log.Errorw("Failed to build download path", "error", err, "category", localDownload.Category, "packageName", localDownload.DownloadName)
+		logger.Log.Errorw("Failed to build download path", "error", err, "category", localDownloadItem.Category, "packageName", localDownloadItem.FileName)
 		return err
 	}
 
@@ -137,7 +129,7 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 			task.Status = config.DOWNLOAD_STATUS_DOWNLOADER_PAUSED
 			task.mu.Unlock()
 
-			databases.UpdateLocalDownloadItemStatus(task.ID, task.DownloadID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_PAUSED)
+			databases.UpdateLocalDownloadItemStatus(task.ID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_PAUSED)
 			logger.Log.Infow("Download paused", "id", task.ID)
 
 			s.mu.Lock()
@@ -150,7 +142,7 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 		task.Status = config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED
 		task.mu.Unlock()
 
-		databases.UpdateLocalDownloadItemStatus(task.ID, task.DownloadID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED)
+		databases.UpdateLocalDownloadItemStatus(task.ID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED)
 		logger.Log.Errorw("Failed to download", "error", err, "url", task.URL, "outputPath", task.OutputPath)
 
 		s.mu.Lock()
@@ -165,7 +157,7 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 	task.Status = config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED
 	task.mu.Unlock()
 
-	databases.UpdateLocalDownloadItemStatus(task.ID, task.DownloadID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED)
+	databases.UpdateLocalDownloadItemStatus(task.ID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED)
 	logger.Log.Infow("Download completed", "id", task.ID, "url", task.URL, "outputPath", task.OutputPath)
 
 	s.mu.Lock()
@@ -195,7 +187,7 @@ func (s *GDLService) Resume(prntCtx context.Context, id string) error {
 	s.mu.Unlock()
 
 	if running {
-		return errors.New("Download already running")
+		return errors.New("Download already running!")
 	}
 
 	detail, err := databases.GetLocalDownloadItemDetails(id)
@@ -217,15 +209,12 @@ func (s *GDLService) Delete(id string) error {
 
 	downloadItem, err := databases.GetLocalDownloadItemDetails(id)
 	if err == nil {
-		download, err2 := databases.GetLocalDownloadDetails(downloadItem.DownloadID)
-		if err2 == nil {
-			categoryDir, _ := GetDownloadRootPath(download.Category)
-			filePath := filepath.Join(categoryDir, downloadItem.FilePath)
-			cleanPath := filepath.Clean(filePath)
+		categoryDir, _ := GetDownloadRootPath(downloadItem.Category)
+		filePath := filepath.Join(categoryDir, downloadItem.FilePath)
+		cleanPath := filepath.Clean(filePath)
 
-			if strings.HasPrefix(cleanPath, categoryDir+string(os.PathSeparator)) {
-				_ = os.Remove(cleanPath)
-			}
+		if strings.HasPrefix(cleanPath, categoryDir+string(os.PathSeparator)) {
+			_ = os.Remove(cleanPath)
 		}
 	}
 
@@ -252,7 +241,7 @@ func (s *GDLService) Status() []models.GDLDownload {
 			Status:          task.Status,
 			BytesDownloaded: 0,
 			Percentage:      0,
-			AverageSpeed:    "0 MB/s",
+			AverageSpeed:    0,
 			TotalSize:       0,
 		}
 
@@ -262,7 +251,7 @@ func (s *GDLService) Status() []models.GDLDownload {
 			if task.Stats.TotalSize > 0 {
 				status.Percentage = (float64(task.Stats.BytesDownloaded) / float64(task.Stats.TotalSize)) * 100
 			}
-			status.AverageSpeed = fmt.Sprintf("%.2f MB/s", float64(task.Stats.AverageSpeed)/1024/1024)
+			status.AverageSpeed = float64(task.Stats.AverageSpeed) / 1024
 		}
 
 		statuses = append(statuses, status)
@@ -287,4 +276,16 @@ func GetDownloadRootPath(category string) (string, error) {
 	}
 
 	return finalDir, nil
+}
+
+func (s *GDLService) IsDownloading(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	task, exists := s.tasks[id]
+	if !exists || task.Status != config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_DOWNLOADING {
+		return false
+	}
+
+	return true
 }

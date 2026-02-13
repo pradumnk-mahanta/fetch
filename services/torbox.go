@@ -83,7 +83,9 @@ func TorboxUsenetRequestDownloadLink(externalProviderId string, externalProvider
 	if externalProviderItemId != "-1" {
 		queryParams.Set("file_id", externalProviderItemId)
 	}
-	queryParams.Set("zip_link", config.TB_CONFIG_PREFER_ZIPPED_FOLDER.GetValue())
+	if config.TB_CONFIG_PREFER_ZIPPED_FOLDER.GetBoolValue() {
+		queryParams.Set("zip_link", config.TB_CONFIG_PREFER_ZIPPED_FOLDER.GetValue())
+	}
 
 	baseUrl.RawQuery = queryParams.Encode()
 

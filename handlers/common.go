@@ -62,7 +62,7 @@ func CommonHandler(writer http.ResponseWriter, request *http.Request) {
 	case "download_items":
 		switch task {
 		case "process":
-			result, err := adapters.ProcessDownloads()
+			result, err := adapters.ProcessDownloadItems()
 			if err != nil {
 				writer.WriteHeader(http.StatusInternalServerError)
 				writer.Write([]byte(`{"error": "Failed to update downloads"}`))
@@ -94,44 +94,24 @@ func CommonHandler(writer http.ResponseWriter, request *http.Request) {
 
 			writer.WriteHeader(http.StatusOK)
 			writer.Write([]byte(`{"result": ` + jsonResult + `}`))
-		// case "delete":
-		// 	id := query.Get("id")
-		// 	deleted, err := adapters.DownloaderDeleteDownload(id)
-		// 	if err != nil {
-		// 		writer.WriteHeader(http.StatusInternalServerError)
-		// 		writer.Write([]byte(`{"error": "Failed to delete download from downloader"}`))
-		// 		return
-		// 	}
-
-		// 	if !deleted {
-		// 		writer.WriteHeader(http.StatusNotFound)
-		// 		writer.Write([]byte(`{"error": "Download not found in downloader"}`))
-		// 		return
-		// 	}
-
-		// 	writer.WriteHeader(http.StatusOK)
-		// 	writer.Write([]byte(`{"result": "Downloader Download deleted with ID ` + id + `"}`))
+		case "resume", "retry":
+			id := query.Get("id")
+			resumed, err := adapters.DownloaderResumeDownload(id)
+			if err != nil {
+				writer.WriteHeader(http.StatusInternalServerError)
+				writer.Write([]byte(`{"error": "Failed to resume download in downloader"}`))
+				return
+			}
+			if !resumed {
+				writer.WriteHeader(http.StatusNotFound)
+				writer.Write([]byte(`{"error": "Download Item not found in downloader"}`))
+				return
+			}
+			writer.WriteHeader(http.StatusOK)
+			writer.Write([]byte(`{"result": "Downloader Download resumed with ID ` + id + `"}`))
 		default:
 			return
 		}
-
-	case "downloader_resume_download", "downloader_retry_download":
-		id := query.Get("id")
-		// deleted, err := adapters.DownloaderResumeDownload(id)
-		// if err != nil {
-		// 	writer.WriteHeader(http.StatusInternalServerError)
-		// 	writer.Write([]byte(`{"error": "Failed to resume download in downloader"}`))
-		// 	return
-		// }
-
-		// if !deleted {
-		// 	writer.WriteHeader(http.StatusNotFound)
-		// 	writer.Write([]byte(`{"error": "Download not found in downloader"}`))
-		// 	return
-		// }
-
-		writer.WriteHeader(http.StatusOK)
-		writer.Write([]byte(`{"result": "Downloader Download resumed with ID ` + id + `"}`))
 
 	default:
 		writer.WriteHeader(http.StatusBadRequest)

@@ -1,6 +1,9 @@
 package config
 
-import "os"
+import (
+	"os"
+	"strconv"
+)
 
 type EnvKey string
 
@@ -12,16 +15,25 @@ func (key EnvKey) GetBoolValue() bool {
 	return os.Getenv(string(key)) == "true"
 }
 
+func (key EnvKey) GetIntValue() int {
+	var intValue, error = strconv.Atoi(os.Getenv(string(key)))
+	if error != nil {
+		return 1
+	}
+	return intValue
+}
+
 const (
-	APPLICATION_API_PORT           EnvKey = "APPLICATION_API_PORT"
-	APPLICATION_DOWNLOAD_ROOT      EnvKey = "APPLICATION_DOWNLOAD_ROOT"
-	SABNZBD_API_KEY                EnvKey = "SABNZBD_API_KEY"
-	QBITTORRENT_USERNAME           EnvKey = "QBITTORRENT_USERNAME"
-	QBITTORRENT_PASSWORD           EnvKey = "QBITTORRENT_PASSWORD"
-	TB_CONFIG_API_KEY              EnvKey = "TB_CONFIG_API_KEY"
-	TB_CONFIG_PREFER_ZIPPED_FOLDER EnvKey = "TB_CONFIG_PREFER_ZIPPED_FOLDER"
-	TORRENTS_DOWNLOAD_PROVIDER     EnvKey = "TORRENTS_DOWNLOAD_PROVIDER"
-	USENET_DOWNLOAD_PROVIDER       EnvKey = "USENET_DOWNLOAD_PROVIDER"
+	APPLICATION_API_PORT                 EnvKey = "APPLICATION_API_PORT"
+	APPLICATION_DOWNLOAD_ROOT            EnvKey = "APPLICATION_DOWNLOAD_ROOT"
+	APPLICATION_USENET_DOWNLOAD_PROVIDER EnvKey = "APPLICATION_USENET_DOWNLOAD_PROVIDER"
+	SABNZBD_API_KEY                      EnvKey = "SABNZBD_API_KEY"
+	QBITTORRENT_USERNAME                 EnvKey = "QBITTORRENT_USERNAME"
+	QBITTORRENT_PASSWORD                 EnvKey = "QBITTORRENT_PASSWORD"
+	TB_CONFIG_API_KEY                    EnvKey = "TB_CONFIG_API_KEY"
+	TB_CONFIG_PREFER_ZIPPED_FOLDER       EnvKey = "TB_CONFIG_PREFER_ZIPPED_FOLDER"
+	TORRENTS_DOWNLOAD_PROVIDER           EnvKey = "TORRENTS_DOWNLOAD_PROVIDER"
+	DOWNLOADER_MAX_PARALLEL_DOWNLOADS    EnvKey = "DOWNLOADER_MAX_PARALLEL_DOWNLOADS"
 )
 
 const (

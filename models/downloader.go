@@ -10,7 +10,7 @@ type GDLDownload struct {
 	BytesDownloaded int64   `json:"bytes_downloaded"`
 	TotalSize       int64   `json:"total_size,omitempty"`
 	Percentage      float64 `json:"percentage"`
-	AverageSpeed    string  `json:"average_speed,omitempty"`
+	AverageSpeed    float64 `json:"average_speed,omitempty"`
 }
 
 func (l *GDLDownload) ToJSON() (string, error) {

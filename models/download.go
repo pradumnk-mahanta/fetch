@@ -45,11 +45,13 @@ type LocalDownloadInstanceItem struct {
 	ID                          string    `json:"id"`
 	DownloadID                  string    `json:"download_id"`
 	DownloadType                string    `json:"download_type"`
+	Category                    string    `json:"category"`
 	FileName                    string    `json:"file_name"`
 	FilePath                    string    `json:"file_path"`
 	FileSize                    int64     `json:"file_size"`
 	Status                      string    `json:"status"`
 	ExternalProviderID          string    `json:"external_provider_id"`
+	ExternalProviderItemID      string    `json:"external_provider_item_id"`
 	ExternalProviderDownloadURL string    `json:"external_provider_download_url"`
 	AddedAt                     time.Time `json:"added_at"`
 }
