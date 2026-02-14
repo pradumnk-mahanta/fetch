@@ -8,7 +8,10 @@ import (
 	"fetch/logger"
 	"fetch/models"
 	"fetch/services"
+	"io"
 	"net/http"
+
+	"github.com/forest6511/gdl"
 )
 
 const (
@@ -25,10 +28,7 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 
 	if apikey != config.SABNZBD_API_KEY.GetValue() {
 		writer.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(writer).Encode(map[string]interface{}{
-			"status": false,
-			"error":  "API Key Incorrect.",
-		})
+		json.NewEncoder(writer).Encode(GetSABNzbdError("API Key Incorrect."))
 		return
 	}
 
@@ -61,9 +61,35 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 	case "history":
 		HandleSabHistory(writer)
 
+	case "addurl":
+		nzbURL := query.Get("name")
+		if nzbURL == "" {
+			writer.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(writer).Encode(GetSABNzbdError("Missing NZB URL"))
+			return
+		}
+
+		fileBytes, fileStats, err := gdl.DownloadToMemory(request.Context(), nzbURL)
+
+		customName := query.Get("nzbname")
+		if customName == "" {
+			customName = fileStats.Filename
+		}
+
+		id, err := adapters.CreateDownload(protocol, customName, fileBytes, "", category)
+		if err != nil {
+			writer.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to create download"))
+			logger.Log.Errorw("Failed to create download", "error", err)
+			return
+		}
+		RespondAdd(writer, id)
+
 	case "addfile":
 		err := request.ParseMultipartForm(32 << 20)
 		if err != nil {
+			writer.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to parse multipart form"))
 			logger.Log.Errorw("Failed to parse multipart form", "error", err)
 			return
 		}
@@ -81,8 +107,19 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 		defer file.Close()
 
 		logger.Log.Infow("Received nzbfile", "filename", header.Filename, "size", header.Size)
-		id, err := adapters.CreateDownload(protocol, header.Filename, file, "", category)
+
+		fileBytes, err := io.ReadAll(file)
 		if err != nil {
+			writer.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to read download file"))
+			logger.Log.Errorw("Failed to read download file", "error", err)
+			return
+		}
+
+		id, err := adapters.CreateDownload(protocol, header.Filename, fileBytes, "", category)
+		if err != nil {
+			writer.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to create download"))
 			logger.Log.Errorw("Failed to create download", "error", err)
 			return
 		}
@@ -147,4 +184,11 @@ func DeleteLocalDownload(downloadId string) error {
 
 	databases.DeleteLocalDownload(downloadId)
 	return nil
+}
+
+func GetSABNzbdError(message string) map[string]interface{} {
+	return map[string]interface{}{
+		"status": false,
+		"error":  message,
+	}
 }

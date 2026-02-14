@@ -5,8 +5,6 @@ import (
 	"fetch/config"
 	"fetch/logger"
 	"fetch/models"
-	"io"
-	"mime/multipart"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -61,13 +59,7 @@ func InitDB() error {
 	return err
 }
 
-func AddLocalDownload(protocol string, provider string, downloadname string, downloadUrl string, downloadfile multipart.File, category string) (string, error) {
-	fileBytes, err := io.ReadAll(downloadfile)
-	if err != nil {
-		logger.Log.Errorw("Failed to read download file", "error", err)
-		return "", err
-	}
-
+func AddLocalDownload(protocol string, provider string, downloadname string, downloadUrl string, fileBytes []byte, category string) (string, error) {
 	name := strings.TrimSuffix(downloadname, filepath.Ext(downloadname))
 	stmt, _ := DB.Prepare("INSERT INTO downloads(protocol, provider, download_name, original_download_url, original_download_file, category, status, external_provider_id, external_provider_data_object, added_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 	result, err := stmt.Exec(protocol, provider, name, downloadUrl, fileBytes, category, config.DOWNLOAD_STATUS_CLIENT_ADDED, "", "", time.Now())

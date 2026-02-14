@@ -45,7 +45,7 @@ func main() {
 	http.HandleFunc("/qbittorrent/api", handlers.QBittorrentHandler)
 	http.HandleFunc("/fetch/api", handlers.CommonHandler)
 
-	port := config.APPLICATION_API_PORT.GetValue()
+	port := ":" + config.APPLICATION_API_PORT.GetValue()
 	logger.Log.Infow("Server Starting on", "port", port)
 
 	if err := http.ListenAndServe(port, nil); err != nil {

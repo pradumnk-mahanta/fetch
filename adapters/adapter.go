@@ -14,10 +14,10 @@ import (
 	"github.com/forest6511/gdl"
 )
 
-func CreateDownload(protocol string, downloadName string, downloadFile multipart.File, downloadUrl string, category string) (string, error) {
+func CreateDownload(protocol string, downloadName string, fileBytes []byte, downloadUrl string, category string) (string, error) {
 	switch protocol {
 	case "usenet":
-		id, err := databases.AddLocalDownload(protocol, config.APPLICATION_USENET_DOWNLOAD_PROVIDER.GetValue(), downloadName, downloadUrl, downloadFile, category)
+		id, err := databases.AddLocalDownload(protocol, config.APPLICATION_USENET_DOWNLOAD_PROVIDER.GetValue(), downloadName, downloadUrl, fileBytes, category)
 		if err != nil {
 			return "", err
 		}
