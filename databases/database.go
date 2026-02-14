@@ -263,6 +263,36 @@ func GetLocalPendingDownloads() ([]models.LocalDownloadInstance, error) {
 	return downloads, nil
 }
 
+func GetLocalCompletedDownloads() ([]models.LocalDownloadInstance, error) {
+	var downloads []models.LocalDownloadInstance
+
+	rows, err := DB.Query("SELECT id, protocol, provider, download_name, original_download_url, original_download_file, category, status, external_provider_id, external_provider_data_object, added_at FROM downloads WHERE status IN (?, ?)", config.DOWNLOAD_STATUS_CLIENT_COMPLETED, config.DOWNLOAD_STATUS_CLIENT_FAILED)
+	if err != nil {
+		return downloads, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var download models.LocalDownloadInstance
+		rows.Scan(&download.ID, &download.Protocol, &download.Provider, &download.DownloadName, &download.OriginalDownloadURL, &download.OriginalDownloadFile, &download.Category, &download.Status, &download.ExternalProviderID, &download.ExternalProviderDataObject, &download.AddedAt)
+
+		dlItems, errDownloadItems := DB.Query("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, retry_counter, added_at FROM downloaditems WHERE download_id = ? ORDER BY added_at ASC", download.ID)
+		if errDownloadItems != nil {
+			continue
+		} else {
+			var downloadItems []models.LocalDownloadInstanceItem
+			for dlItems.Next() {
+				var downloadItem models.LocalDownloadInstanceItem
+				dlItems.Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.RetryCounter, &downloadItem.AddedAt)
+				downloadItems = append(downloadItems, downloadItem)
+			}
+			download.DownloadItems = downloadItems
+		}
+		downloads = append(downloads, download)
+	}
+	return downloads, nil
+}
+
 func GetLocalDownloadsAddedToProviderCount() int {
 	downloadsAdded := 0
 	errQry := DB.QueryRow("SELECT count(*) AS provider_downloads FROM downloads WHERE status IN (?, ?, ?)", config.DOWNLOAD_STATUS_PROVIDER_ADDED, config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING, config.DOWNLOAD_STATUS_PROVIDER_PROCESSING).Scan(&downloadsAdded)
@@ -307,6 +337,14 @@ func GetLocalDownloadItemsForDownload(downloadId string) ([]models.LocalDownload
 
 func DeleteLocalDownloadItem(id string) error {
 	_, err := DB.Exec("DELETE FROM downloaditems WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func DeleteLocalDownload(id string) error {
+	_, err := DB.Exec("DELETE FROM downloads WHERE id = ?", id)
 	if err != nil {
 		return err
 	}

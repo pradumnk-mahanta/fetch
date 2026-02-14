@@ -10,19 +10,21 @@ import (
 var Log *zap.SugaredLogger
 
 func InitLogger() {
-	var zapCionfig zap.Config
-	if config.APPLICATION_LOG_MODE.GetValue() == "DEBUG" {
-		zapCionfig = zap.NewDevelopmentConfig()
-		zapCionfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	} else {
-		zapCionfig = zap.NewProductionConfig()
-		zapCionfig.EncoderConfig.TimeKey = "timestamp"
-		zapCionfig.Encoding = "console"
-	}
+	var zapConfig zap.Config
 
-	zapCionfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	zapCionfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	logger, err := zapCionfig.Build()
+	if config.APPLICATION_LOG_LEVEL.GetValue() == "DEBUG" {
+		zapConfig = zap.NewDevelopmentConfig()
+	} else {
+		zapConfig = zap.NewProductionConfig()
+	}
+	zapConfig.EncoderConfig.TimeKey = "Timestamp"
+	zapConfig.EncoderConfig.LevelKey = "Level"
+	zapConfig.EncoderConfig.MessageKey = "Message"
+	zapConfig.Encoding = "json"
+	zapConfig.DisableCaller = true
+	//	zapConfig.EncoderConfig.EncodeLevel = zapcore.COL
+	zapConfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	logger, err := zapConfig.Build()
 	if err != nil {
 		panic(err)
 	}

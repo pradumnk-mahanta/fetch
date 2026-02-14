@@ -15,15 +15,16 @@ import (
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		panic("Error loading .env file")
+	}
+
 	logger.InitLogger()
 	defer logger.Sync()
 
-	err := godotenv.Load()
-	if err != nil {
-		logger.Log.Errorw("Error loading .env file", "error", err)
-	}
-
 	logger.Log.Infow("Initializing FetchTB System...")
+	logger.Log.Debugw("Initializing FetchTB System...")
 
 	logger.Log.Infow("Initializing Downloader!")
 	services.InitGDLService()

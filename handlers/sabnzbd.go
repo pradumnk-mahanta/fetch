@@ -3,9 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"fetch/adapters"
+	"fetch/config"
 	"fetch/databases"
 	"fetch/logger"
 	"fetch/models"
+	"fetch/services"
 	"net/http"
 )
 
@@ -14,12 +16,25 @@ const (
 )
 
 func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
-	writer.Header().Set("Content-Type", "application/json")
 
+	writer.Header().Set("Content-Type", "application/json")
 	query := request.URL.Query()
+
+	apikey := query.Get("apikey")
+	logger.Log.Debugw("Received API key", "apikey", query.Get("apikey"))
+
+	if apikey != config.SABNZBD_API_KEY.GetValue() {
+		writer.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(writer).Encode(map[string]interface{}{
+			"status": false,
+			"error":  "API Key Incorrect.",
+		})
+		return
+	}
+
 	mode := query.Get("mode")
 	name := query.Get("name")
-	//nzo_id := query.Get("value") // nzo_id for operations
+	nzo_id := query.Get("value") // nzo_id for operations
 	category := query.Get("cat")
 
 	if category == "" {
@@ -30,17 +45,21 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 	case "queue":
 		switch name {
 		case "delete":
-			//database.DeleteDownload(nzo_id)
-			handleSabQueue(writer)
+			err := DeleteLocalDownload(nzo_id)
+			if err == nil {
+				logger.Log.Debugw("Unable to delete Local Download")
+			}
+			HandleSabQueue(writer)
 		case "pause":
-			//database.UpdateStatus(nzo_id, "Paused")
-			handleSabQueue(writer)
+			HandleSabQueue(writer)
 		case "resume":
-			//database.UpdateStatus(nzo_id, "Downloading")
-			handleSabQueue(writer)
+			HandleSabQueue(writer)
 		default:
-			handleSabQueue(writer)
+			HandleSabQueue(writer)
 		}
+
+	case "history":
+		HandleSabHistory(writer)
 
 	case "addfile":
 		err := request.ParseMultipartForm(32 << 20)
@@ -67,37 +86,65 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 			logger.Log.Errorw("Failed to create download", "error", err)
 			return
 		}
-		respondAdd(writer, id) //Handle return gracefully
+		RespondAdd(writer, id)
 
 	case "version":
 		writer.Write([]byte(`{"version": "4.2.0"}`))
 
 	default:
-		handleSabQueue(writer)
+		HandleSabQueue(writer)
 	}
 }
 
-func handleNzbDownload() {
+func HandleNzbDownload() {
 
 }
 
-func handleSabQueue(writer http.ResponseWriter) {
-	resp := models.SabQueueResponse{
-		Queue: models.SabQueueData{
-			Status:   "Downloading",
-			Speed:    "25 MB/s",
-			Size:     "100 GB",
-			SizeLeft: "50 GB",
-			Version:  "4.2.0",
-			Slots:    databases.GetSABNzbdQueue(),
-		},
+func HandleSabQueue(writer http.ResponseWriter) {
+	var sabQueueItems []models.SabQueueItem
+	var downloads []models.LocalDownloadInstance
+	localDownloads, localDownloadsError := databases.GetLocalPendingDownloads()
+	if localDownloadsError != nil {
+		logger.Log.Debugw("Unable to get Local Download Items. Defaulting to Empty Queue")
+
 	}
-	json.NewEncoder(writer).Encode(resp)
+	downloads = localDownloads
+
+	downloaderDownloads := services.GetGDLService().Status()
+	sabQueueItems = models.BuildSabQueueOutput(downloads, downloaderDownloads)
+	json.NewEncoder(writer).Encode(sabQueueItems)
 }
 
-func respondAdd(w http.ResponseWriter, id string) {
+func HandleSabHistory(writer http.ResponseWriter) {
+	var downloads []models.LocalDownloadInstance
+	localDownloads, localDownloadsError := databases.GetLocalCompletedDownloads()
+	if localDownloadsError != nil {
+		logger.Log.Debugw("Unable to get Local Download Items. Defaulting to Empty Queue")
+	}
+	downloads = localDownloads
+
+	sabHistoryItems := models.BuildSabHistoryResponse(downloads)
+	json.NewEncoder(writer).Encode(sabHistoryItems)
+}
+
+func RespondAdd(w http.ResponseWriter, id string) {
 	json.NewEncoder(w).Encode(models.SabAddResponse{
 		Status: true,
 		NzoIDs: []string{id},
 	})
+}
+
+func DeleteLocalDownload(downloadId string) error {
+	localDownlaodItems, err := databases.GetLocalDownloadItemsForDownload(downloadId)
+	if err != nil {
+		return err
+	}
+
+	downloader := services.GetGDLService()
+	for _, downloadItem := range localDownlaodItems {
+		downloader.Delete(downloadItem.ID)
+	}
+
+	databases.DeleteLocalDownload(downloadId)
+	return nil
 }
