@@ -44,7 +44,7 @@ func TorboxUsenetCreateDownload(localDownload models.LocalDownloadInstance) (str
 		return "", requestError
 	}
 
-	request.Header.Add("Authorization", "Bearer "+config.PROVIDER_TB_CONFIG_API_KEY.GetValue())
+	request.Header.Add("Authorization", "Bearer "+config.AppConfig.ProviderTBAPIKey)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
 	request.Header.Set("Accept", "application/json")
 	requestResponse, requestError := client.Do(request)
@@ -78,13 +78,13 @@ func TorboxUsenetRequestDownloadLink(externalProviderId string, externalProvider
 	baseUrl, _ := url.Parse(config.TB_API_BASE_URL + "/usenet/requestdl")
 
 	queryParams := baseUrl.Query()
-	queryParams.Set("token", config.PROVIDER_TB_CONFIG_API_KEY.GetValue())
+	queryParams.Set("token", config.AppConfig.ProviderTBAPIKey)
 	queryParams.Set("usenet_id", externalProviderId)
 	if externalProviderItemId != "-1" {
 		queryParams.Set("file_id", externalProviderItemId)
 	}
-	if config.PROVIDER_TB_CONFIG_PREFER_ZIPPED_FOLDER.GetBoolValue() {
-		queryParams.Set("zip_link", config.PROVIDER_TB_CONFIG_PREFER_ZIPPED_FOLDER.GetValue())
+	if config.AppConfig.ProviderTBPreferZippedFolder {
+		queryParams.Set("zip_link", "true")
 	}
 
 	baseUrl.RawQuery = queryParams.Encode()
@@ -97,7 +97,7 @@ func TorboxUsenetRequestDownloadLink(externalProviderId string, externalProvider
 		return "", requestError
 	}
 
-	request.Header.Add("Authorization", "Bearer "+config.PROVIDER_TB_CONFIG_API_KEY.GetValue())
+	request.Header.Add("Authorization", "Bearer "+config.AppConfig.ProviderTBAPIKey)
 	request.Header.Set("Accept", "application/json")
 	requestResponse, requestError := client.Do(request)
 	if requestError != nil {
@@ -138,7 +138,7 @@ func TorboxUsenetGetDownloadList() ([]models.DAT, error) {
 		return tbDownloads, requestError
 	}
 
-	request.Header.Add("Authorization", "Bearer "+config.PROVIDER_TB_CONFIG_API_KEY.GetValue())
+	request.Header.Add("Authorization", "Bearer "+config.AppConfig.ProviderTBAPIKey)
 	request.Header.Set("Accept", "application/json")
 	requestResponse, requestError := client.Do(request)
 	if requestError != nil {

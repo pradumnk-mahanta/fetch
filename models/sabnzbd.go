@@ -176,7 +176,7 @@ func BuildSabHistoryResponse(
 			}
 		}
 
-		root := config.APPLICATION_DOWNLOAD_ROOT.GetValue()
+		root := config.APPLICATION_DOWNLOAD_ROOT
 		storagePath := filepath.Join(root, download.Category, download.DownloadName)
 
 		slots = append(slots, SabHistoryItem{

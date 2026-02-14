@@ -10,14 +10,12 @@ import (
 	"fetch/services"
 
 	"net/http"
-
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		panic("Error loading .env file")
+	config.LoadConfig()
+	if err := config.LoadConfig(); err != nil {
+		panic("Unable to find config file. Please add a config file and restart the application!")
 	}
 
 	logger.InitLogger()
@@ -34,7 +32,6 @@ func main() {
 	if err := databases.InitDB(); err != nil {
 		logger.Log.Errorw("Database initialization failed", "error", err)
 	}
-	logger.Log.Infow("Database initialized successfully", "path", "./data/fetchtb.db")
 
 	logger.Log.Infow("Initializing Scheduler!")
 	scheduler := &scheduler.Scheduler{}
@@ -45,7 +42,7 @@ func main() {
 	http.HandleFunc("/qbittorrent/api", handlers.QBittorrentHandler)
 	http.HandleFunc("/fetch/api", handlers.CommonHandler)
 
-	port := ":" + config.APPLICATION_API_PORT.GetValue()
+	port := ":" + config.AppConfig.AppAPIPort
 	logger.Log.Infow("Server Starting on", "port", port)
 
 	if err := http.ListenAndServe(port, nil); err != nil {

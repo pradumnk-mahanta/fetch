@@ -1,45 +1,85 @@
 package config
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
-	"strconv"
+	"path/filepath"
 )
 
-type EnvKey string
+var AppConfig *Config
 
-func (key EnvKey) GetValue() string {
-	return os.Getenv(string(key))
+const configPath = "/data/config.json"
+
+type Config struct {
+	AppAPIPort                     string `json:"APPLICATION_API_PORT"`
+	AppLogLevel                    string `json:"APPLICATION_LOG_LEVEL"`
+	AppUsenetDownloadProvider      string `json:"APPLICATION_USENET_DOWNLOAD_PROVIDER"`
+	AppMaxDownloadSendToProvider   int    `json:"APPLICATION_MAX_DOWNLOAD_SEND_TO_PROVIDER"`
+	SabAPIKey                      string `json:"SABNZBD_API_KEY"`
+	DownloaderMaxParallelDownloads int    `json:"DOWNLOADER_MAX_PARALLEL_DOWNLOADS"`
+	DownloaderMaxRetryDownloads    int    `json:"DOWNLOADER_MAX_RETRY_DOWNLOADS"`
+	ProviderTBAPIKey               string `json:"PROVIDER_TB_CONFIG_API_KEY"`
+	ProviderTBPreferZippedFolder   bool   `json:"PROVIDER_TB_CONFIG_PREFER_ZIPPED_FOLDER"`
 }
 
-func (key EnvKey) GetBoolValue() bool {
-	return os.Getenv(string(key)) == "true"
-}
-
-func (key EnvKey) GetIntValue() int {
-	var intValue, error = strconv.Atoi(os.Getenv(string(key)))
-	if error != nil {
-		return 1
+func LoadConfig() error {
+	if _, err := os.Stat(configPath); os.IsExist(err) || err == nil {
+		return ReadConfig()
 	}
-	return intValue
+	return CreateDefaultConfig()
+}
+
+func ReadConfig() error {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("Failed to read config file: %w", err)
+	}
+
+	var cfg Config
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return fmt.Errorf("Failed to parse config JSON: %w", err)
+	}
+
+	AppConfig = &cfg
+	return nil
+}
+
+func CreateDefaultConfig() error {
+	//Default Values
+	AppConfig = &Config{
+		AppAPIPort:                     "9090",
+		AppLogLevel:                    "INFO",
+		AppUsenetDownloadProvider:      "",
+		AppMaxDownloadSendToProvider:   2,
+		SabAPIKey:                      "",
+		DownloaderMaxParallelDownloads: 2,
+		DownloaderMaxRetryDownloads:    2,
+		ProviderTBAPIKey:               "",
+		ProviderTBPreferZippedFolder:   false,
+	}
+
+	dir := filepath.Dir(configPath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("Failed to create config directory: %w", err)
+	}
+
+	data, err := json.MarshalIndent(AppConfig, "", "    ")
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(configPath, data, 0644); err != nil {
+		return fmt.Errorf("Failed to write default config: %w", err)
+	}
+
+	fmt.Printf("Default config created at %s, please add the respective required details and restart the application", configPath)
+	return ReadConfig()
 }
 
 const (
-	APPLICATION_API_PORT                      EnvKey = "APPLICATION_API_PORT"
-	APPLICATION_DOWNLOAD_ROOT                 EnvKey = "APPLICATION_DOWNLOAD_ROOT"
-	APPLICATION_LOG_LEVEL                     EnvKey = "APPLICATION_LOG_LEVEL"
-	APPLICATION_USENET_DOWNLOAD_PROVIDER      EnvKey = "APPLICATION_USENET_DOWNLOAD_PROVIDER"
-	APPLICATION_MAX_DOWNLOAD_SEND_TO_PROVIDER EnvKey = "APPLICATION_MAX_DOWNLOAD_SEND_TO_PROVIDER"
-	SABNZBD_API_KEY                           EnvKey = "SABNZBD_API_KEY"
-	QBITTORRENT_USERNAME                      EnvKey = "QBITTORRENT_USERNAME"
-	QBITTORRENT_PASSWORD                      EnvKey = "QBITTORRENT_PASSWORD"
-	DOWNLOADER_MAX_PARALLEL_DOWNLOADS         EnvKey = "DOWNLOADER_MAX_PARALLEL_DOWNLOADS"
-	DOWNLOADER_MAX_RETRY_DOWNLOADS            EnvKey = "DOWNLOADER_MAX_RETRY_DOWNLOADS"
-	PROVIDER_TB_CONFIG_API_KEY                EnvKey = "PROVIDER_TB_CONFIG_API_KEY"
-	PROVIDER_TB_CONFIG_PREFER_ZIPPED_FOLDER   EnvKey = "PROVIDER_TB_CONFIG_PREFER_ZIPPED_FOLDER"
-)
-
-const (
-	TB_API_BASE_URL = "https://api.torbox.app/v1/api"
+	TB_API_BASE_URL           = "https://api.torbox.app/v1/api"
+	APPLICATION_DOWNLOAD_ROOT = "/downloads"
 )
 
 const (

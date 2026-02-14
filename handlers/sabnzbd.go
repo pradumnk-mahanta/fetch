@@ -26,7 +26,7 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 	apikey := query.Get("apikey")
 	logger.Log.Debugw("Received API key", "apikey", query.Get("apikey"))
 
-	if apikey != config.SABNZBD_API_KEY.GetValue() {
+	if apikey != config.AppConfig.SabAPIKey {
 		writer.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(writer).Encode(GetSABNzbdError("API Key Incorrect."))
 		return

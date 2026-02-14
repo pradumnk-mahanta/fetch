@@ -12,7 +12,7 @@ var Log *zap.SugaredLogger
 func InitLogger() {
 	var zapConfig zap.Config
 
-	if config.APPLICATION_LOG_LEVEL.GetValue() == "DEBUG" {
+	if config.AppConfig.AppLogLevel == "DEBUG" {
 		zapConfig = zap.NewDevelopmentConfig()
 	} else {
 		zapConfig = zap.NewProductionConfig()

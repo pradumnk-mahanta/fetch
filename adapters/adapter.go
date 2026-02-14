@@ -17,7 +17,7 @@ import (
 func CreateDownload(protocol string, downloadName string, fileBytes []byte, downloadUrl string, category string) (string, error) {
 	switch protocol {
 	case "usenet":
-		id, err := databases.AddLocalDownload(protocol, config.APPLICATION_USENET_DOWNLOAD_PROVIDER.GetValue(), downloadName, downloadUrl, fileBytes, category)
+		id, err := databases.AddLocalDownload(protocol, config.AppConfig.AppUsenetDownloadProvider, downloadName, downloadUrl, fileBytes, category)
 		if err != nil {
 			return "", err
 		}
@@ -55,7 +55,7 @@ func ProcessDownloads() (string, error) {
 		case "usenet":
 			switch localDownload.Status {
 			case config.DOWNLOAD_STATUS_CLIENT_ADDED:
-				if databases.GetLocalDownloadsAddedToProviderCount() < config.APPLICATION_MAX_DOWNLOAD_SEND_TO_PROVIDER.GetIntValue() {
+				if databases.GetLocalDownloadsAddedToProviderCount() < config.AppConfig.AppMaxDownloadSendToProvider {
 					usenetdownload_id, errAdd := services.TorboxUsenetCreateDownload(localDownload)
 					if errAdd != nil {
 						logger.Log.Errorw("Failed to add download to provider", "error", errAdd)
@@ -95,7 +95,7 @@ func ProcessDownloads() (string, error) {
 				logger.Log.Debugw("Updating download", "download", localDownload, "providerStatus", providerDownloads)
 
 			case config.DOWNLOAD_STATUS_PROVIDER_COMPLETED:
-				if config.PROVIDER_TB_CONFIG_PREFER_ZIPPED_FOLDER.GetBoolValue() {
+				if config.AppConfig.ProviderTBPreferZippedFolder {
 					downloadLink, requestDownloadLinkError := services.TorboxUsenetRequestDownloadLink(localDownload.ExternalProviderID, "-1")
 					if requestDownloadLinkError != nil {
 						logger.Log.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)
@@ -130,7 +130,7 @@ func ProcessDownloads() (string, error) {
 					continue
 				}
 				hasFailedMoreThanMaxAllowed := slices.ContainsFunc(localDownloadItems, func(item models.LocalDownloadInstanceItem) bool {
-					return item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED && item.RetryCounter >= config.DOWNLOADER_MAX_PARALLEL_DOWNLOADS.GetIntValue()
+					return item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED && item.RetryCounter >= config.AppConfig.DownloaderMaxRetryDownloads
 				})
 
 				if hasFailedMoreThanMaxAllowed {
@@ -180,7 +180,7 @@ func ProcessDownloadItems() (string, error) {
 					activeDownloads++
 				}
 			}
-			if activeDownloads < config.DOWNLOADER_MAX_PARALLEL_DOWNLOADS.GetIntValue() {
+			if activeDownloads < config.AppConfig.DownloaderMaxParallelDownloads {
 				var downloadLink string
 				if localDownloadItem.ExternalProviderDownloadURL == "" {
 					providerDownloadLink, requestDownloadLinkError := services.TorboxUsenetRequestDownloadLink(localDownloadItem.ExternalProviderID, localDownloadItem.ExternalProviderItemID)
@@ -203,7 +203,7 @@ func ProcessDownloadItems() (string, error) {
 			continue
 
 		case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED:
-			if localDownloadItem.RetryCounter < config.DOWNLOADER_MAX_RETRY_DOWNLOADS.GetIntValue() {
+			if localDownloadItem.RetryCounter < config.AppConfig.DownloaderMaxRetryDownloads {
 				localDownloadItem.RetryCounter++
 				databases.UpdateLocalDownloadItemRetryCounter(localDownloadItem.ID, localDownloadItem.RetryCounter)
 			}

@@ -15,12 +15,15 @@ import (
 
 var DB *sql.DB
 
+const dbPath = "/data/fetchtb.db"
+
 func InitDB() error {
 	var err error
-	DB, err = sql.Open("sqlite", "./data/fetchtb.db")
+	DB, err = sql.Open("sqlite", dbPath)
 	if err != nil {
 		return err
 	}
+	logger.Log.Infow("Database initialized successfully", "path", dbPath)
 
 	createDownloadsTable := `
 	CREATE TABLE IF NOT EXISTS downloads (
