@@ -125,6 +125,9 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 		}
 		RespondAdd(writer, id)
 
+	case "get_config":
+		HandleConfig(writer, request)
+
 	case "version":
 		writer.Write([]byte(`{"version": "4.2.0"}`))
 
@@ -191,4 +194,54 @@ func GetSABNzbdError(message string) map[string]interface{} {
 		"status": false,
 		"error":  message,
 	}
+}
+
+func HandleConfig(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	apiKey := r.URL.Query().Get("apiKey")
+	if apiKey != config.AppConfig.SabAPIKey {
+		http.Error(w, `{"status": false, "error": "API Key Incorrect"}`, http.StatusUnauthorized)
+		return
+	}
+
+	downloadRoot := config.APPLICATION_DOWNLOAD_ROOT
+	port := config.AppConfig.AppAPIPort
+
+	resp := map[string]interface{}{
+		"config": map[string]interface{}{
+			"misc": map[string]interface{}{
+				"host":          "0.0.0.0",
+				"port":          port,
+				"api_key":       apiKey,
+				"download_dir":  downloadRoot,
+				"complete_dir":  downloadRoot,
+				"max_art_tries": 3,
+				"enable_https":  false,
+				"refresh_rate":  1,
+				"direct_unpack": true,
+				"pre_check":     true,
+				"flat_unpack":   0,
+			},
+			"categories": []map[string]interface{}{
+				{
+					"name":   "*",
+					"pp":     "3",
+					"script": "Default",
+					"dir":    downloadRoot,
+				},
+			},
+			"servers": []map[string]interface{}{
+				{
+					"name":        "Server 1",
+					"host":        "",
+					"port":        563,
+					"connections": 50,
+					"ssl":         1,
+					"enable":      1,
+				},
+			},
+		},
+	}
+	json.NewEncoder(w).Encode(resp)
 }

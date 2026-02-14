@@ -114,6 +114,7 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 				TotalSize:       p.TotalSize,
 				AverageSpeed:    p.Speed,
 			}
+			logger.Log.Debugw("Downloading Progress", "File", task.Stats.Filename, "Percentage", float64(p.BytesDownloaded/task.Stats.TotalSize*100))
 			task.mu.Unlock()
 		},
 	}
