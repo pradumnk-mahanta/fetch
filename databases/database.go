@@ -15,7 +15,7 @@ import (
 
 var DB *gorm.DB
 
-const dbPath = "/data/fetchtb.db"
+const dbPath = "/data/fetch.db"
 
 type LocalDownloadsInstanceItem struct {
 	ID                          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
