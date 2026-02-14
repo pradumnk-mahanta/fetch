@@ -17,6 +17,7 @@ type Config struct {
 	AppUsenetDownloadProvider      string `json:"APPLICATION_USENET_DOWNLOAD_PROVIDER"`
 	AppMaxDownloadSendToProvider   int    `json:"APPLICATION_MAX_DOWNLOAD_SEND_TO_PROVIDER"`
 	SabAPIKey                      string `json:"SABNZBD_API_KEY"`
+	SabCategories                  string `json:"SABNZBD_CATEGORIES"`
 	DownloaderMaxParallelDownloads int    `json:"DOWNLOADER_MAX_PARALLEL_DOWNLOADS"`
 	DownloaderMaxRetryDownloads    int    `json:"DOWNLOADER_MAX_RETRY_DOWNLOADS"`
 	ProviderTBAPIKey               string `json:"PROVIDER_TB_CONFIG_API_KEY"`
@@ -53,6 +54,7 @@ func CreateDefaultConfig() error {
 		AppUsenetDownloadProvider:      "",
 		AppMaxDownloadSendToProvider:   2,
 		SabAPIKey:                      "",
+		SabCategories:                  "sonarr,radarr",
 		DownloaderMaxParallelDownloads: 2,
 		DownloaderMaxRetryDownloads:    2,
 		ProviderTBAPIKey:               "",

@@ -9,7 +9,9 @@ import (
 	"fetch/models"
 	"fetch/services"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"strings"
 
 	"github.com/forest6511/gdl"
 )
@@ -34,7 +36,7 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 
 	mode := query.Get("mode")
 	name := query.Get("name")
-	nzo_id := query.Get("value") // nzo_id for operations
+	nzo_id := query.Get("value")
 	category := query.Get("cat")
 
 	if category == "" {
@@ -59,8 +61,16 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 		}
 
 	case "history":
-		HandleSabHistory(writer)
-
+		switch name {
+		case "delete":
+			err := DeleteLocalDownload(nzo_id)
+			if err != nil {
+				logger.Log.Debugw("Unable to delete Local Download")
+			}
+			HandleSabHistory(writer)
+		default:
+			HandleSabHistory(writer)
+		}
 	case "addurl":
 		nzbURL := query.Get("name")
 		if nzbURL == "" {
@@ -99,12 +109,25 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 			category = formCat
 		}
 
-		file, header, err := request.FormFile("nzbfile")
-		if err != nil {
-			logger.Log.Errorw("No nzbfile found in request", "error", err)
-			return
+		var file multipart.File
+		var header multipart.FileHeader
+
+		fromNzbFileKey, headerNzbFileKey, errNzbFile := request.FormFile("nzbfile")
+		if errNzbFile != nil {
+			logger.Log.Warnw("No nzbfile found in request for Key nzbfile", "error", err)
+			fromNameKey, headerNameKey, errName := request.FormFile("name")
+			if errName != nil {
+				logger.Log.Warnw("No nzbfile found in request for Key name", "error", err)
+				return
+			}
+			header = *headerNameKey
+			file = fromNameKey
+			defer fromNameKey.Close()
+		} else {
+			header = *headerNzbFileKey
+			file = fromNzbFileKey
+			defer fromNzbFileKey.Close()
 		}
-		defer file.Close()
 
 		logger.Log.Infow("Received nzbfile", "filename", header.Filename, "size", header.Size)
 
@@ -141,7 +164,7 @@ func HandleNzbDownload() {
 }
 
 func HandleSabQueue(writer http.ResponseWriter) {
-	var sabQueueItems []models.SabQueueItem
+	var sabQueueResponse models.SabQueueResponse
 	var downloads []models.LocalDownloadInstance
 	localDownloads, localDownloadsError := databases.GetLocalPendingDownloads()
 	if localDownloadsError != nil {
@@ -151,8 +174,8 @@ func HandleSabQueue(writer http.ResponseWriter) {
 	downloads = localDownloads
 
 	downloaderDownloads := services.GetGDLService().Status()
-	sabQueueItems = models.BuildSabQueueOutput(downloads, downloaderDownloads)
-	json.NewEncoder(writer).Encode(sabQueueItems)
+	sabQueueResponse = models.BuildSabQueueOutput(downloads, downloaderDownloads)
+	json.NewEncoder(writer).Encode(sabQueueResponse)
 }
 
 func HandleSabHistory(writer http.ResponseWriter) {
@@ -199,12 +222,6 @@ func GetSABNzbdError(message string) map[string]interface{} {
 func HandleConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	apiKey := r.URL.Query().Get("apiKey")
-	if apiKey != config.AppConfig.SabAPIKey {
-		http.Error(w, `{"status": false, "error": "API Key Incorrect"}`, http.StatusUnauthorized)
-		return
-	}
-
 	downloadRoot := config.APPLICATION_DOWNLOAD_ROOT
 	port := config.AppConfig.AppAPIPort
 
@@ -213,7 +230,7 @@ func HandleConfig(w http.ResponseWriter, r *http.Request) {
 			"misc": map[string]interface{}{
 				"host":          "0.0.0.0",
 				"port":          port,
-				"api_key":       apiKey,
+				"api_key":       config.AppConfig.SabAPIKey,
 				"download_dir":  downloadRoot,
 				"complete_dir":  downloadRoot,
 				"max_art_tries": 3,
@@ -223,14 +240,9 @@ func HandleConfig(w http.ResponseWriter, r *http.Request) {
 				"pre_check":     true,
 				"flat_unpack":   0,
 			},
-			"categories": []map[string]interface{}{
-				{
-					"name":   "*",
-					"pp":     "3",
-					"script": "Default",
-					"dir":    downloadRoot,
-				},
-			},
+
+			"categories": GetConfigCategories(downloadRoot),
+
 			"servers": []map[string]interface{}{
 				{
 					"name":        "Server 1",
@@ -244,4 +256,28 @@ func HandleConfig(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	json.NewEncoder(w).Encode(resp)
+}
+
+func GetConfigCategories(downloadRoot string) []map[string]interface{} {
+	appConfigCategoriesString := config.AppConfig.SabCategories
+	if appConfigCategoriesString == "" {
+		appConfigCategoriesString = "*"
+	}
+
+	categories := strings.Split(appConfigCategoriesString, ",")
+
+	var result []map[string]interface{}
+	for _, c := range categories {
+		c = strings.TrimSpace(c)
+		if c == "" {
+			continue
+		}
+		result = append(result, map[string]interface{}{
+			"name":   c,
+			"pp":     "3",
+			"script": "Default",
+			"dir":    downloadRoot + "/" + c,
+		})
+	}
+	return result
 }
