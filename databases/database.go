@@ -122,6 +122,8 @@ func InitDB() error {
 		return err
 	}
 
+	DB.Exec("PRAGMA foreign_keys = ON;")
+
 	err = DB.AutoMigrate(
 		&LocalDownloadsInstance{},
 		&LocalDownloadsInstanceItem{},

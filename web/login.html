@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fetch | Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-md p-8 bg-gray-800 rounded-2xl shadow-2xl border border-gray-700">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-blue-500">Fetch</h1>
+            <p class="text-gray-400 mt-2">Enter your credentials to access the dashboard</p>
+        </div>
+
+        <form action="/login" method="POST" class="space-y-6">
+            <div id="error-message" class="hidden p-3 bg-red-900/50 border border-red-500 text-red-200 text-sm rounded-lg text-center">
+                Invalid username or password.
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-2">Username</label>
+                <input type="text" name="username" required 
+                       class="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-400 mb-2">Password</label>
+                <input type="password" name="password" required 
+                       class="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition">
+            </div>
+
+            <button type="submit" 
+                    class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-lg transition duration-200 transform active:scale-95">
+                Sign In
+            </button>
+        </form>
+    </div>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('error')) {
+            document.getElementById('error-message').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

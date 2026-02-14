@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"fetch/adapters"
-	"fetch/databases"
 	"fetch/logger"
 	"fetch/models"
+	"fetch/services"
 	"net/http"
 )
 
@@ -28,16 +28,7 @@ func CommonHandler(writer http.ResponseWriter, request *http.Request) {
 			writer.WriteHeader(http.StatusOK)
 			writer.Write([]byte(`{"result": "` + result + `"}`))
 		case "list":
-			var downloads []databases.LocalDownloadsInstance
-			downloads, err := adapters.LocalDownloadList()
-			if err != nil {
-				writer.WriteHeader(http.StatusInternalServerError)
-			}
-
-			logger.Log.Debugw("List downloads result", "result", downloads)
-
-			writer.WriteHeader(http.StatusOK)
-			writer.Write([]byte(databases.LocalDownloadsInstancesToJSONArray(downloads)))
+			HandleDownlaodsList(writer)
 
 		case "update_status":
 			id := query.Get("id")
@@ -48,7 +39,6 @@ func CommonHandler(writer http.ResponseWriter, request *http.Request) {
 				writer.Write([]byte(`{"error": "Failed to update download status in database"}`))
 				return
 			}
-
 			writer.WriteHeader(http.StatusOK)
 			writer.Write([]byte(`{"result": "Downloader Download status updated to ` + status + ` with ID ` + id + `"}`))
 		default:
@@ -113,4 +103,20 @@ func CommonHandler(writer http.ResponseWriter, request *http.Request) {
 		writer.WriteHeader(http.StatusBadRequest)
 		writer.Write([]byte(`{"error": "Invalid task"}`))
 	}
+}
+
+func HandleDownlaodsList(writer http.ResponseWriter) {
+	var combinedDownloads []models.CombinedDownloadDetails
+	gdlDownloads := services.GetGDLService().Status()
+
+	combinedDownloads, combineError := models.GetCombinedDownloadDetails(gdlDownloads)
+	if combineError != nil {
+		logger.Log.Debugw("List downloads result", "result", combinedDownloads)
+		combinedDownloads = make([]models.CombinedDownloadDetails, 0)
+	}
+
+	logger.Log.Debugw("List downloads result", "result", combinedDownloads)
+
+	writer.WriteHeader(http.StatusOK)
+	writer.Write([]byte(models.CombinedDownloadsToJSONArray(combinedDownloads)))
 }

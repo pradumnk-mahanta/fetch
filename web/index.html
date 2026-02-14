@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fetch | Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 font-sans min-h-screen">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="flex justify-between items-center mb-10 pb-6 border-b border-gray-800">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight text-white">
+                    <span class="text-blue-500">Fetch</span> Dashboard
+                </h1>
+                <p class="text-gray-500 text-sm mt-1">Real-time synchronization active</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-right mr-4">
+                    <p class="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Auto-Refresh</p>
+                    <p class="text-sm font-mono text-blue-400"><span id="timer">10</span>s</p>
+                </div>
+                <a href="/logout" class="px-4 py-2 bg-gray-800 hover:bg-red-900/30 hover:text-red-400 rounded-lg text-sm font-medium transition">
+                    Logout
+                </a>
+            </div>
+        </header>
+
+        <div id="download-container" class="grid grid-cols-1 gap-6">
+            <div class="flex flex-col items-center justify-center py-20 text-gray-600">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+                <p>Pulling latest data from Go backend...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let countdown = 10;
+        const container = document.getElementById('download-container');
+        const timerEl = document.getElementById('timer');
+
+        async function fetchData() {
+            try {
+                const response = await fetch('/api/internal/stats');
+                
+                if (response.status === 401) {
+                    window.location.href = '/';
+                    return;
+                }
+
+                const data = await response.json();
+                renderUI(data);
+                countdown = 10;
+            } catch (err) {
+                console.error("Fetch error:", err);
+            }
+        }
+
+        function renderUI(downloads) {
+            if (!downloads || downloads.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-20 bg-gray-900 rounded-2xl border border-dashed border-gray-800">
+                        <p class="text-gray-500">No active downloads in the database.</p>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = downloads.map(dl => `
+                <div class="bg-gray-900 rounded-2xl border border-gray-800 shadow-xl overflow-hidden">
+                    <div class="p-6 bg-gray-900/50 border-b border-gray-800 flex justify-between items-start">
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="px-2 py-0.5 bg-blue-900/40 text-blue-400 text-[10px] font-bold rounded uppercase tracking-wider border border-blue-800/50">
+                                    ${dl.protocol}
+                                </span>
+                                <span class="text-xs text-gray-500">${dl.provider}</span>
+                            </div>
+                            <h2 class="text-xl font-bold text-white">${dl.download_name}</h2>
+                        </div>
+                        <div class="text-right">
+                            <span class="block text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1">Status</span>
+                            <span class="text-sm font-medium text-yellow-500">${dl.status}</span>
+                        </div>
+                    </div>
+
+                    <div class="p-4 space-y-3 bg-gray-950/30">
+                        ${dl.item_details.map(item => {
+                            const stats = item.downloader_stats || {};
+                            const progress = stats.percentage || 0;
+                            const speed = stats.average_speed ? (stats.average_speed / 1024 / 1024).toFixed(2) + " MB/s" : "0 MB/s";
+                            
+                            return `
+                            <div class="bg-gray-900/80 p-4 rounded-xl border border-gray-800 flex flex-col lg:flex-row lg:items-center gap-4">
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-semibold text-gray-200 truncate">${item.file_name}</p>
+                                    <div class="flex gap-4 mt-1">
+                                        <span class="text-[11px] text-gray-500 italic">${(item.file_size / 1024 / 1024).toFixed(1)} MB</span>
+                                        <span class="text-[11px] text-blue-500 font-bold">${speed}</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="w-full lg:w-72">
+                                    <div class="flex justify-between items-end mb-2">
+                                        <span class="text-[10px] uppercase font-bold text-gray-500">${stats.status || 'Pending'}</span>
+                                        <span class="text-xs font-mono text-blue-400">${progress}%</span>
+                                    </div>
+                                    <div class="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                                        <div class="bg-blue-600 h-full rounded-full transition-all duration-700 ease-out" style="width: ${progress}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;}).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        setInterval(() => {
+            countdown--;
+            timerEl.innerText = countdown;
+            if (countdown <= 0) fetchData();
+        }, 1000);
+
+        fetchData();
+    </script>
+</body>
+</html>

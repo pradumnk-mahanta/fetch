@@ -14,6 +14,8 @@ const configPath = "/data/config.json"
 type Config struct {
 	AppAPIPort                     string `json:"APPLICATION_API_PORT"`
 	AppLogLevel                    string `json:"APPLICATION_LOG_LEVEL"`
+	AppAuthUsername                string `json:"APPLICATION_AUTH_USERNAME"`
+	AppAuthPassword                string `json:"APPLICATION_AUTH_PASSWORD"`
 	AppUsenetDownloadProvider      string `json:"APPLICATION_USENET_DOWNLOAD_PROVIDER"`
 	AppMaxDownloadSendToProvider   int    `json:"APPLICATION_MAX_DOWNLOAD_SEND_TO_PROVIDER"`
 	SabAPIKey                      string `json:"SABNZBD_API_KEY"`
@@ -51,6 +53,8 @@ func CreateDefaultConfig() error {
 	AppConfig = &Config{
 		AppAPIPort:                     "9090",
 		AppLogLevel:                    "INFO",
+		AppAuthUsername:                "",
+		AppAuthPassword:                "",
 		AppUsenetDownloadProvider:      "",
 		AppMaxDownloadSendToProvider:   2,
 		SabAPIKey:                      "",
