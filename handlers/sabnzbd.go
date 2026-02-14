@@ -201,21 +201,6 @@ func RespondAdd(w http.ResponseWriter, id string) {
 	})
 }
 
-func DeleteLocalDownload(downloadId string) error {
-	localDownlaodItems, err := databases.GetLocalDownloadItemsForDownload(downloadId)
-	if err != nil {
-		return err
-	}
-
-	downloader := services.GetGDLService()
-	for _, downloadItem := range localDownlaodItems {
-		downloader.Delete(downloadItem.IDString())
-	}
-
-	databases.DeleteLocalDownload(downloadId)
-	return nil
-}
-
 func GetSABNzbdError(message string) map[string]interface{} {
 	return map[string]interface{}{
 		"status": false,
@@ -227,13 +212,12 @@ func HandleConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	downloadRoot := config.APPLICATION_DOWNLOAD_ROOT
-	port := config.AppConfig.AppAPIPort
 
 	resp := map[string]interface{}{
 		"config": map[string]interface{}{
 			"misc": map[string]interface{}{
 				"host":          "0.0.0.0",
-				"port":          port,
+				"port":          "9090",
 				"api_key":       "",
 				"download_dir":  downloadRoot,
 				"complete_dir":  downloadRoot,

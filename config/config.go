@@ -14,7 +14,6 @@ var AppConfig *Config
 const configPath = "/data/config.json"
 
 type Config struct {
-	AppAPIPort                     string `json:"APPLICATION_API_PORT"`
 	AppLogLevel                    string `json:"APPLICATION_LOG_LEVEL"`
 	AppAuthUsername                string `json:"APPLICATION_AUTH_USERNAME"`
 	AppAuthPassword                string `json:"APPLICATION_AUTH_PASSWORD"`
@@ -66,7 +65,6 @@ func SaveConfig() error {
 func CreateDefaultConfig() error {
 	//Default Values
 	AppConfig = &Config{
-		AppAPIPort:                     "9090",
 		AppLogLevel:                    "INFO",
 		AppAuthUsername:                "",
 		AppAuthPassword:                "",

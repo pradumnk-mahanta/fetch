@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fetch | Settings</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 font-sans min-h-screen">
+
+    <div class="container mx-auto px-4 py-12">
+        <div class="max-w-2xl mx-auto">
+            <header class="mb-10 flex justify-between items-end">
+                <div>
+                    <h1 class="text-3xl font-extrabold text-white">Application Settings</h1>
+                    <p class="text-gray-500 text-sm mt-1">Configure your Fetch instance and provider keys.</p>
+                </div>
+                <a href="/" class="text-sm text-blue-500 hover:text-blue-400 font-medium">← Back to Dashboard</a>
+            </header>
+
+            <form id="config-form" class="space-y-6 bg-gray-900 p-8 rounded-2xl border border-gray-800 shadow-2xl">
+                <div id="fields-container" class="space-y-6">
+                    <div class="animate-pulse flex space-y-4 flex-col">
+                        <div class="h-4 bg-gray-800 rounded w-1/4"></div>
+                        <div class="h-10 bg-gray-800 rounded w-full"></div>
+                    </div>
+                </div>
+
+                <div class="pt-6 border-t border-gray-800 flex justify-end gap-4">
+                    <div id="save-status" class="text-sm self-center hidden"></div>
+                    <button type="submit" class="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition shadow-lg transform active:scale-95">
+                        Save Configuration
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const container = document.getElementById('fields-container');
+        const statusEl = document.getElementById('save-status');
+
+        // Fetch the current config from your Go API
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/internal/config');
+                const config = await response.json();
+                renderFields(config);
+            } catch (err) {
+                container.innerHTML = `<p class="text-red-500">Error loading config: ${err.message}</p>`;
+            }
+        }
+
+        function renderFields(config) {
+            container.innerHTML = Object.keys(config).map(key => {
+                const val = config[key];
+                const label = key.replace(/_/g, ' '); // Human readable labels
+                
+                let inputHtml = '';
+                
+                if (typeof val === 'boolean') {
+                    inputHtml = `
+                        <select name="${key}" class="w-full p-3 bg-gray-950 border border-gray-800 rounded-lg text-white focus:border-blue-500 outline-none transition">
+                            <option value="true" ${val ? 'selected' : ''}>Enabled (True)</option>
+                            <option value="false" ${!val ? 'selected' : ''}>Disabled (False)</option>
+                        </select>`;
+                } else if (typeof val === 'number') {
+                    inputHtml = `<input type="number" name="${key}" value="${val}" class="w-full p-3 bg-gray-950 border border-gray-800 rounded-lg text-white focus:border-blue-500 outline-none transition">`;
+                } else {
+                    const isPassword = key.includes('PASSWORD') || key.includes('API_KEY');
+                    inputHtml = `<input type="${isPassword ? 'password' : 'text'}" name="${key}" value="${val}" class="w-full p-3 bg-gray-950 border border-gray-800 rounded-lg text-white focus:border-blue-500 outline-none transition">`;
+                }
+
+                return `
+                    <div class="flex flex-col gap-2">
+                        <label class="text-[10px] uppercase font-bold text-gray-500 tracking-widest">${label}</label>
+                        ${inputHtml}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        document.getElementById('config-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const updatedConfig = {};
+
+            // Re-map back to proper types
+            formData.forEach((value, key) => {
+                if (value === 'true') updatedConfig[key] = true;
+                else if (value === 'false') updatedConfig[key] = false;
+                else if (!isNaN(value) && value.trim() !== "") updatedConfig[key] = Number(value);
+                else updatedConfig[key] = value;
+            });
+
+            try {
+                const res = await fetch('/api/internal/config/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedConfig)
+                });
+
+                if (res.ok) {
+                    showStatus("Saved successfully!", "text-green-500");
+                } else {
+                    showStatus("Error saving.", "text-red-500");
+                }
+            } catch (err) {
+                showStatus("Network error.", "text-red-500");
+            }
+        };
+
+        function showStatus(text, colorClass) {
+            statusEl.innerText = text;
+            statusEl.className = `text-sm self-center ${colorClass}`;
+            statusEl.classList.remove('hidden');
+            setTimeout(() => statusEl.classList.add('hidden'), 3000);
+        }
+
+        loadConfig();
+    </script>
+</body>
+</html>

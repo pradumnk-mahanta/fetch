@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fetch/adapters"
+	"fetch/databases"
 	"fetch/logger"
 	"fetch/models"
 	"fetch/services"
@@ -119,4 +120,19 @@ func HandleDownlaodsList(writer http.ResponseWriter) {
 
 	writer.WriteHeader(http.StatusOK)
 	writer.Write([]byte(models.CombinedDownloadsToJSONArray(combinedDownloads)))
+}
+
+func DeleteLocalDownload(downloadId string) error {
+	localDownlaodItems, err := databases.GetLocalDownloadItemsForDownload(downloadId)
+	if err != nil {
+		return err
+	}
+
+	downloader := services.GetGDLService()
+	for _, downloadItem := range localDownlaodItems {
+		downloader.Delete(downloadItem.IDString())
+	}
+
+	databases.DeleteLocalDownload(downloadId)
+	return nil
 }
