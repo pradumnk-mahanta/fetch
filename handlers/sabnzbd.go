@@ -25,12 +25,14 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	query := request.URL.Query()
 
-	apikey := query.Get("apikey")
-	logger.Log.Debugw("Received API key", "apikey", query.Get("apikey"))
+	user := request.FormValue("ma_username")
+	pass := request.FormValue("ma_password")
 
-	if apikey != config.AppConfig.SabAPIKey {
+	logger.Log.Debugw("Received Credentials", "user", user, "pass", "Not Logged")
+
+	if user != config.AppConfig.AppAuthUsername || pass != config.AppConfig.AppAuthPassword {
 		writer.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(writer).Encode(GetSABNzbdError("API Key Incorrect."))
+		json.NewEncoder(writer).Encode(GetSABNzbdError("Credentials Incorrect!"))
 		return
 	}
 
@@ -232,7 +234,7 @@ func HandleConfig(w http.ResponseWriter, r *http.Request) {
 			"misc": map[string]interface{}{
 				"host":          "0.0.0.0",
 				"port":          port,
-				"api_key":       config.AppConfig.SabAPIKey,
+				"api_key":       "",
 				"download_dir":  downloadRoot,
 				"complete_dir":  downloadRoot,
 				"max_art_tries": 3,

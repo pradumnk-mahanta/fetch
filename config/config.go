@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -18,7 +20,6 @@ type Config struct {
 	AppAuthPassword                string `json:"APPLICATION_AUTH_PASSWORD"`
 	AppUsenetDownloadProvider      string `json:"APPLICATION_USENET_DOWNLOAD_PROVIDER"`
 	AppMaxDownloadSendToProvider   int    `json:"APPLICATION_MAX_DOWNLOAD_SEND_TO_PROVIDER"`
-	SabAPIKey                      string `json:"SABNZBD_API_KEY"`
 	SabCategories                  string `json:"SABNZBD_CATEGORIES"`
 	DownloaderMaxParallelDownloads int    `json:"DOWNLOADER_MAX_PARALLEL_DOWNLOADS"`
 	DownloaderMaxRetryDownloads    int    `json:"DOWNLOADER_MAX_RETRY_DOWNLOADS"`
@@ -48,6 +49,20 @@ func ReadConfig() error {
 	return nil
 }
 
+func SaveConfig() error {
+	data, err := json.MarshalIndent(AppConfig, "", "    ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal config to JSON: %w", err)
+	}
+
+	err = os.WriteFile(configPath, data, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
+}
+
 func CreateDefaultConfig() error {
 	//Default Values
 	AppConfig = &Config{
@@ -57,7 +72,6 @@ func CreateDefaultConfig() error {
 		AppAuthPassword:                "",
 		AppUsenetDownloadProvider:      "",
 		AppMaxDownloadSendToProvider:   2,
-		SabAPIKey:                      "",
 		SabCategories:                  "sonarr,radarr",
 		DownloaderMaxParallelDownloads: 2,
 		DownloaderMaxRetryDownloads:    2,
@@ -121,3 +135,9 @@ const (
 	DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE    = "Full Archive for Download"
 	DOWNLOAD_ITEM_TYPE_INDIVIDUAL_FILE = "Individual File for Download"
 )
+
+func GenerateSessionHash() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return hex.EncodeToString(b)
+}

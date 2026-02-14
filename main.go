@@ -56,6 +56,7 @@ func main() {
 	http.HandleFunc("/login", WebHandlerLogin)
 	http.HandleFunc("/", WebProtectedHandler)
 	http.HandleFunc("/api/internal/stats", WebProtectedHandler)
+	http.HandleFunc("/register", WebHandlerRegister)
 
 	port := ":" + config.AppConfig.AppAPIPort
 	logger.Log.Infow("Server Starting on", "port", port)
@@ -111,6 +112,18 @@ func GenerateSessionHash() string {
 }
 
 func WebProtectedHandler(w http.ResponseWriter, r *http.Request) {
+
+	if config.AppConfig.AppAuthUsername == "" {
+		if r.URL.Path != "/" {
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			return
+		}
+		content, _ := staticFiles.ReadFile("web/register.html")
+		w.Header().Set("Content-Type", "text/html")
+		w.Write(content)
+		return
+	}
+
 	if !isAuthenticated(r) {
 		if r.URL.Path == "/api/internal/stats" {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -135,7 +148,57 @@ func WebProtectedHandler(w http.ResponseWriter, r *http.Request) {
 	case "/api/internal/stats":
 		handlers.HandleDownlaodsList(w)
 
+	case "/logout":
+		cookie, err := r.Cookie(sessionCookieName)
+		if err == nil {
+			delete(activeSessions, cookie.Value)
+		}
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     sessionCookieName,
+			Value:    "",
+			Path:     "/",
+			MaxAge:   -1,
+			HttpOnly: true,
+		})
+
+		logger.Log.Debugw("User logged out successfully")
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+
 	default:
 		http.NotFound(w, r)
 	}
+}
+
+func WebHandlerRegister(w http.ResponseWriter, r *http.Request) {
+	if config.AppConfig.AppAuthUsername != "" {
+		http.Error(w, "Initial setup already completed.", http.StatusForbidden)
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	u := r.FormValue("username")
+	p := r.FormValue("password")
+
+	if u == "" || p == "" {
+		http.Redirect(w, r, "/?error=empty_fields", http.StatusSeeOther)
+		return
+	}
+
+	config.AppConfig.AppAuthUsername = u
+	config.AppConfig.AppAuthPassword = p
+
+	if err := config.SaveConfig(); err != nil {
+		logger.Log.Errorw("Failed to save credentials to config file", "error", err)
+		http.Error(w, "Failed to save configuration", http.StatusInternalServerError)
+		return
+	}
+
+	logger.Log.Infow("Admin user registered and app secured", "user", u)
+
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
