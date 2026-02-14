@@ -41,7 +41,7 @@ type DAT struct {
 	DownloadSpeed     *int64     `json:"download_speed,omitempty"`
 	OriginalURL       *string    `json:"original_url,omitempty"`
 	Eta               *int64     `json:"eta,omitempty"`
-	Progress          *int64     `json:"progress,omitempty"`
+	Progress          *float64   `json:"progress,omitempty"`
 	Size              *int64     `json:"size,omitempty"`
 	DownloadID        *string    `json:"download_id,omitempty"`
 	Files             []File     `json:"files,omitempty"`

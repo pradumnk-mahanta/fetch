@@ -147,7 +147,7 @@
                                 <div class="w-full lg:w-64">
                                     <div class="flex justify-between items-end mb-1.5">
                                         <span class="text-[10px] uppercase font-bold ${isFinished ? 'text-green-500' : 'text-gray-500'}">
-                                            ${isFinished ? 'Completed' : (stats.status || 'Downloading')}
+                                            ${isFinished ? 'Completed' : (item.status || 'Queued')}
                                         </span>
                                         <span class="text-xs font-mono text-blue-400">${progress}%</span>
                                     </div>
