@@ -286,9 +286,20 @@ func UpdateLocalDownloadStatus(id string, status string) error {
 		return err
 	}
 
+	updateData := map[string]interface{}{
+		"status": status,
+	}
+
+	if status == config.DOWNLOAD_STATUS_CLIENT_COMPLETED || status == config.DOWNLOAD_STATUS_CLIENT_FAILED {
+		now := time.Now()
+		updateData["completed_at"] = &now
+	} else {
+		updateData["completed_at"] = nil
+	}
+
 	result := DB.Model(&LocalDownloadsInstance{}).
 		Where("id = ?", uint(uID)).
-		Update("status", status)
+		Updates(updateData)
 
 	if result.Error != nil {
 		logger.Log.Errorw("Failed to update download status", "id", id, "error", result.Error)
