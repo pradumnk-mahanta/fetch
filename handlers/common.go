@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fetch/adapters"
+	"fetch/databases"
 	"fetch/logger"
 	"fetch/models"
 	"net/http"
@@ -27,7 +28,7 @@ func CommonHandler(writer http.ResponseWriter, request *http.Request) {
 			writer.WriteHeader(http.StatusOK)
 			writer.Write([]byte(`{"result": "` + result + `"}`))
 		case "list":
-			var downloads models.LocalDownloadInstances
+			var downloads []databases.LocalDownloadsInstance
 			downloads, err := adapters.LocalDownloadList()
 			if err != nil {
 				writer.WriteHeader(http.StatusInternalServerError)
@@ -36,13 +37,8 @@ func CommonHandler(writer http.ResponseWriter, request *http.Request) {
 			logger.Log.Debugw("List downloads result", "result", downloads)
 
 			writer.WriteHeader(http.StatusOK)
-			jsonResult, err := downloads.ToJSON()
-			if err != nil {
-				writer.WriteHeader(http.StatusInternalServerError)
-				writer.Write([]byte(`{"error": "Failed to convert result to JSON"}`))
-				return
-			}
-			writer.Write([]byte(jsonResult))
+			writer.Write([]byte(databases.LocalDownloadsInstancesToJSONArray(downloads)))
+
 		case "update_status":
 			id := query.Get("id")
 			status := query.Get("status")

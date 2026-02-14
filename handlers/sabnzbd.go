@@ -165,7 +165,7 @@ func HandleNzbDownload() {
 
 func HandleSabQueue(writer http.ResponseWriter) {
 	var sabQueueResponse models.SabQueueResponse
-	var downloads []models.LocalDownloadInstance
+	var downloads []databases.LocalDownloadsInstance
 	localDownloads, localDownloadsError := databases.GetLocalPendingDownloads()
 	if localDownloadsError != nil {
 		logger.Log.Debugw("Unable to get Local Download Items. Defaulting to Empty Queue")
@@ -179,7 +179,7 @@ func HandleSabQueue(writer http.ResponseWriter) {
 }
 
 func HandleSabHistory(writer http.ResponseWriter) {
-	var downloads []models.LocalDownloadInstance
+	var downloads []databases.LocalDownloadsInstance
 	localDownloads, localDownloadsError := databases.GetLocalCompletedDownloads()
 	if localDownloadsError != nil {
 		logger.Log.Debugw("Unable to get Local Download Items. Defaulting to Empty Queue")
@@ -205,7 +205,7 @@ func DeleteLocalDownload(downloadId string) error {
 
 	downloader := services.GetGDLService()
 	for _, downloadItem := range localDownlaodItems {
-		downloader.Delete(downloadItem.ID)
+		downloader.Delete(downloadItem.IDString())
 	}
 
 	databases.DeleteLocalDownload(downloadId)

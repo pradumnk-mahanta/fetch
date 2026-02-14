@@ -1,377 +1,549 @@
 package databases
 
 import (
-	"database/sql"
+	"encoding/json"
 	"fetch/config"
 	"fetch/logger"
-	"fetch/models"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 )
 
-var DB *sql.DB
+var DB *gorm.DB
 
 const dbPath = "/data/fetchtb.db"
 
+type LocalDownloadsInstanceItem struct {
+	ID                          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	DownloadID                  uint      `gorm:"index;column:download_id" json:"download_id"`
+	DownloadType                string    `gorm:"column:download_type" json:"download_type"`
+	Category                    string    `gorm:"column:category" json:"category"`
+	FileName                    string    `gorm:"column:file_name" json:"file_name"`
+	FilePath                    string    `gorm:"column:file_path" json:"file_path"`
+	FileSize                    int64     `gorm:"column:file_size" json:"file_size"`
+	Status                      string    `gorm:"column:status" json:"status"`
+	ExternalProviderID          string    `gorm:"column:external_provider_id" json:"external_provider_id"`
+	ExternalProviderItemID      string    `gorm:"column:external_provider_item_id" json:"external_provider_item_id"`
+	ExternalProviderDownloadURL string    `gorm:"column:external_provider_download_url" json:"external_provider_download_url"`
+	RetryCounter                int       `gorm:"column:retry_counter;default:0" json:"retry_counter"`
+	AddedAt                     time.Time `gorm:"column:added_at" json:"added_at"`
+}
+
+func (i *LocalDownloadsInstanceItem) ToJSON() string {
+	b, _ := json.Marshal(i)
+	return string(b)
+}
+
+func (i *LocalDownloadsInstanceItem) Add() error {
+	result := DB.Create(i)
+	return result.Error
+}
+
+func (i *LocalDownloadsInstanceItem) IDString() string {
+	return strconv.FormatUint(uint64(i.ID), 10)
+}
+
+func (i *LocalDownloadsInstanceItem) DownloadIDString() string {
+	return strconv.FormatUint(uint64(i.DownloadID), 10)
+}
+
+type LocalDownloadsInstance struct {
+	ID                         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Protocol                   string    `gorm:"column:protocol" json:"protocol"`
+	Provider                   string    `gorm:"column:provider" json:"provider"`
+	DownloadName               string    `gorm:"column:download_name" json:"download_name"`
+	OriginalDownloadUrl        string    `gorm:"column:original_download_url" json:"original_download_url"`
+	OriginalDownloadFile       []byte    `gorm:"column:original_download_file;type:blob" json:"-"`
+	Category                   string    `gorm:"column:category" json:"category"`
+	Status                     string    `gorm:"column:status" json:"status"`
+	ExternalProviderID         string    `gorm:"column:external_provider_id" json:"external_provider_id"`
+	ExternalProviderDataObject string    `gorm:"column:external_provider_data_object" json:"-"`
+	AddedAt                    time.Time `gorm:"column:added_at" json:"added_at"`
+	CompletedAt                time.Time `gorm:"column:completed_at" json:"completed_at"`
+
+	DownloadItems []LocalDownloadsInstanceItem `gorm:"foreignKey:DownloadID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"download_items,omitempty"`
+}
+
+func (d *LocalDownloadsInstance) ToJSON() string {
+	if d.DownloadItems == nil {
+		d.DownloadItems = []LocalDownloadsInstanceItem{}
+	}
+	b, _ := json.Marshal(d)
+	return string(b)
+}
+
+func (d *LocalDownloadsInstance) Add() error {
+	result := DB.Create(d)
+	return result.Error
+}
+
+func (d *LocalDownloadsInstance) IDString() string {
+	return strconv.FormatUint(uint64(d.ID), 10)
+}
+
+func LocalDownloadsInstancesToJSONArray(downloads []LocalDownloadsInstance) string {
+	if downloads == nil {
+		downloads = []LocalDownloadsInstance{}
+	}
+	for i := range downloads {
+		if downloads[i].DownloadItems == nil {
+			downloads[i].DownloadItems = []LocalDownloadsInstanceItem{}
+		}
+	}
+	b, _ := json.Marshal(downloads)
+	return string(b)
+}
+
+func LocalDownloadsInstanceItemsToJSONArray(items []LocalDownloadsInstanceItem) string {
+	if items == nil {
+		items = []LocalDownloadsInstanceItem{}
+	}
+	b, _ := json.Marshal(items)
+	return string(b)
+}
+
 func InitDB() error {
 	var err error
-	DB, err = sql.Open("sqlite", dbPath)
+	DB, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
 		return err
 	}
+
 	logger.Log.Infow("Database initialized successfully", "path", dbPath)
+	if err := DB.Exec("PRAGMA journal_mode=WAL;").Error; err != nil {
+		return err
+	}
 
-	createDownloadsTable := `
-	CREATE TABLE IF NOT EXISTS downloads (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		protocol TEXT,
-		provider TEXT,    
-		download_name TEXT,
-		original_download_url TEXT,
-		original_download_file BLOB,
-		category TEXT,
-		status TEXT,
-		external_provider_id TEXT, 
-		external_provider_data_object TEXT,
-		added_at DATETIME
-	);
+	if err := DB.Exec("PRAGMA busy_timeout = 5000;").Error; err != nil {
+		return err
+	}
 
-	CREATE TABLE IF NOT EXISTS downloaditems (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		download_id TEXT,
-		download_type TEXT,
-		category TEXT,
-		file_name TEXT,
-		file_path TEXT,
-		file_size INTEGER,
-		status TEXT,
-		external_provider_id TEXT, 
-		external_provider_item_id TEXT, 
-		external_provider_download_url TEXT,
-		retry_counter INTEGER,
-		added_at DATETIME
-	);
-	`
+	err = DB.AutoMigrate(
+		&LocalDownloadsInstance{},
+		&LocalDownloadsInstanceItem{},
+	)
 
-	//external_provider_id
-	_, err = DB.Exec(createDownloadsTable)
-	return err
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func AddLocalDownload(protocol string, provider string, downloadname string, downloadUrl string, fileBytes []byte, category string) (string, error) {
+
 	name := strings.TrimSuffix(downloadname, filepath.Ext(downloadname))
-	stmt, _ := DB.Prepare("INSERT INTO downloads(protocol, provider, download_name, original_download_url, original_download_file, category, status, external_provider_id, external_provider_data_object, added_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-	result, err := stmt.Exec(protocol, provider, name, downloadUrl, fileBytes, category, config.DOWNLOAD_STATUS_CLIENT_ADDED, "", "", time.Now())
-	if err != nil {
+
+	dl := &LocalDownloadsInstance{
+		Protocol:             protocol,
+		Provider:             provider,
+		DownloadName:         name,
+		OriginalDownloadUrl:  downloadUrl,
+		OriginalDownloadFile: fileBytes,
+		Category:             category,
+		Status:               config.DOWNLOAD_STATUS_CLIENT_ADDED,
+		AddedAt:              time.Now(),
+		DownloadItems:        []LocalDownloadsInstanceItem{},
+	}
+
+	if err := dl.Add(); err != nil {
 		logger.Log.Errorw("Failed to add download to db", "error", err)
 		return "", err
 	}
 
-	id, err := result.LastInsertId()
+	logger.Log.Infow("Download Added",
+		"protocol", protocol,
+		"cat", category,
+		"name", name,
+		"id", dl.IDString(),
+	)
+
+	return dl.IDString(), nil
+}
+
+func AddLocalDownloadItem(downloadId string, downloadType string, category string, fileName string, filePath string, fileSize int64, providerId string, providerItemId string, providerDownloadUrl string) (string, error) {
+
+	dlID, err := strconv.ParseUint(downloadId, 10, 64)
 	if err != nil {
-		logger.Log.Errorw("Failed to get last insert id", "error", err)
+		logger.Log.Errorw("Invalid ID format", "id", dlID, "error", err)
 		return "", err
 	}
-	logger.Log.Infow("Download Added", "protocol", protocol, "cat", category, "name", name, "id", strconv.FormatInt(id, 10))
-	return strconv.FormatInt(id, 10), nil
-}
 
-func AddLocalDownloadItem(downloadId string, downloadType string, category string, fileName string, filePath string, fileSize int64, providerId string, providerItemId string, providerDownloadUrl string) string {
-	stmt, _ := DB.Prepare("INSERT INTO downloaditems(download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, retry_counter, added_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+	item := &LocalDownloadsInstanceItem{
+		DownloadID:                  uint(dlID),
+		DownloadType:                downloadType,
+		Category:                    category,
+		FileName:                    fileName,
+		FilePath:                    filePath,
+		FileSize:                    fileSize,
+		Status:                      config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED,
+		ExternalProviderID:          providerId,
+		ExternalProviderItemID:      providerItemId,
+		ExternalProviderDownloadURL: providerDownloadUrl,
+		RetryCounter:                0,
+		AddedAt:                     time.Now(),
+	}
 
-	result, err := stmt.Exec(downloadId, downloadType, category, fileName, filePath, fileSize, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED, providerId, providerItemId, providerDownloadUrl, 0, time.Now())
-	if err != nil {
+	if err := item.Add(); err != nil {
 		logger.Log.Errorw("Failed to add download item to db", "error", err)
-		return ""
+		return "", err
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		logger.Log.Errorw("Failed to get last insert id", "error", err)
-		return ""
-	}
-	logger.Log.Infow("Download Item Added", "id", strconv.FormatInt(id, 10))
-	return strconv.FormatInt(id, 10)
+	logger.Log.Infow("Download Item Added", "id", item.IDString())
+	return item.IDString(), nil
 }
 
-func GetLocalDownloadDetails(id string) (models.LocalDownloadInstance, error) {
-	var download models.LocalDownloadInstance
-	var downloadItems []models.LocalDownloadInstanceItem
-	errDownload := DB.QueryRow("SELECT id, protocol, provider, download_name, original_download_url, original_download_file, category, status, external_provider_id, external_provider_data_object, added_at FROM downloads WHERE id = ?", id).Scan(&download.ID, &download.Protocol, &download.Provider, &download.DownloadName, &download.OriginalDownloadURL, &download.OriginalDownloadFile, &download.Category, &download.Status, &download.ExternalProviderID, &download.ExternalProviderDataObject, &download.AddedAt)
-	if errDownload != nil {
-		download.DownloadItems = downloadItems
-		return download, errDownload
+func GetLocalDownloadDetails(id string) (LocalDownloadsInstance, error) {
+
+	var download LocalDownloadsInstance
+	uID, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		logger.Log.Errorw("Invalid ID format", "id", id, "error", err)
+		return download, err
 	}
 
-	dlItems, errDownloadItems := DB.Query("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, retry_counter, added_at FROM downloaditems WHERE download_id = ?", id)
-	if errDownloadItems != nil {
-		return download, nil
+	result := DB.Preload("DownloadItems").First(&download, uint(uID))
+
+	if result.Error != nil {
+		return download, result.Error
 	}
 
-	for dlItems.Next() {
-		var downloadItem models.LocalDownloadInstanceItem
-		dlItems.Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.RetryCounter, &downloadItem.AddedAt)
-		downloadItems = append(downloadItems, downloadItem)
+	if download.DownloadItems == nil {
+		download.DownloadItems = []LocalDownloadsInstanceItem{}
 	}
 
-	download.DownloadItems = downloadItems
 	return download, nil
 }
 
-func GetLocalDownloadItemDetails(id string) (models.LocalDownloadInstanceItem, error) {
-	var downloadItem models.LocalDownloadInstanceItem
-	errDownload := DB.QueryRow("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, retry_counter, added_at FROM downloaditems WHERE download_id = ?", id).Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.RetryCounter, &downloadItem.AddedAt)
-	if errDownload != nil {
-		return downloadItem, errDownload
+func GetLocalDownloadItemDetails(id string) (LocalDownloadsInstanceItem, error) {
+	var downloadItem LocalDownloadsInstanceItem
+
+	uID, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		logger.Log.Errorw("Invalid Item ID format", "id", id, "error", err)
+		return downloadItem, err
 	}
+
+	result := DB.First(&downloadItem, uint(uID))
+
+	if result.Error != nil {
+		logger.Log.Errorw("Failed to fetch download item", "id", id, "error", result.Error)
+		return downloadItem, result.Error
+	}
+
 	return downloadItem, nil
 }
 
 func UpdateLocalDownloadItemExternalUrl(id string, externalDownloadUrl string) error {
-	_, err := DB.Exec("UPDATE downloaditems SET external_provider_download_url = ? WHERE id = ?", externalDownloadUrl, id)
+	uID, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
+		logger.Log.Errorw("Invalid ID format", "id", id, "error", err)
 		return err
 	}
+
+	result := DB.Model(&LocalDownloadsInstanceItem{}).
+		Where("id = ?", uint(uID)).
+		Update("external_provider_download_url", externalDownloadUrl)
+
+	if result.Error != nil {
+		logger.Log.Errorw("Failed to update external URL", "id", id, "error", result.Error)
+		return result.Error
+	}
+
 	return nil
 }
 
 func UpdateLocalDownloadProviderId(id string, externalIDProvider string, status string) error {
-	_, err := DB.Exec("UPDATE downloads SET external_provider_id = ?, status = ? WHERE id = ?", externalIDProvider, status, id)
+	uID, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
+		logger.Log.Errorw("Invalid ID for provider update", "id", id, "error", err)
 		return err
 	}
-	return nil
-}
 
-func UpdateLocalDownloadProviderUrl(id string, externalDownloadProviderUrl string) error {
-	res, err := DB.Exec("UPDATE downloads SET external_download_provider_url = ? WHERE id = ?", externalDownloadProviderUrl, id)
-	if err != nil {
-		return err
-	}
-	logger.Log.Debugw("Updated download provider URL", "id", id, "url", externalDownloadProviderUrl, "rows_affected", res)
-	return nil
-}
+	result := DB.Model(&LocalDownloadsInstance{}).
+		Where("id = ?", uint(uID)).
+		Updates(map[string]interface{}{
+			"external_provider_id": externalIDProvider,
+			"status":               status,
+		})
 
-func UpdateLocalDownloadDownloaderId(id string, externalIDDownloader string, status string) error {
-	_, err := DB.Exec("UPDATE downloads SET external_id_downloader = ?, status = ? WHERE id = ?", externalIDDownloader, status, id)
-	if err != nil {
-		return err
+	if result.Error != nil {
+		logger.Log.Errorw("Failed to update download provider info", "id", id, "error", result.Error)
+		return result.Error
 	}
+
 	return nil
 }
 
 func UpdateLocalDownloadStatus(id string, status string) error {
-	_, err := DB.Exec("UPDATE downloads SET status = ? WHERE id = ?", status, id)
+	uID, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
+		logger.Log.Errorw("Invalid ID for status update", "id", id, "error", err)
 		return err
 	}
+
+	result := DB.Model(&LocalDownloadsInstance{}).
+		Where("id = ?", uint(uID)).
+		Update("status", status)
+
+	if result.Error != nil {
+		logger.Log.Errorw("Failed to update download status", "id", id, "error", result.Error)
+		return result.Error
+	}
+
 	return nil
 }
 
 func UpdateLocalDownloadItemStatus(id string, status string) error {
-	_, err := DB.Exec("UPDATE downloaditems SET status = ? WHERE id = ?", status, id)
+	uID, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
+		logger.Log.Errorw("Invalid ID for item status update", "id", id, "error", err)
 		return err
 	}
+
+	result := DB.Model(&LocalDownloadsInstanceItem{}).
+		Where("id = ?", uint(uID)).
+		Update("status", status)
+
+	if result.Error != nil {
+		logger.Log.Errorw("Failed to update download item status", "id", id, "error", result.Error)
+		return result.Error
+	}
+
 	logger.Log.Debugw("Updated Download Item Status", "Item", id, "Status", status)
 	return nil
 }
 
 func UpdateLocalDownloadItemRetryCounter(id string, retryCount int) error {
-	_, err := DB.Exec("UPDATE downloaditems SET retry_counter = ? WHERE id = ?", retryCount, id)
+	uID, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
+		logger.Log.Errorw("Invalid ID for retry counter update", "id", id, "error", err)
 		return err
 	}
+
+	result := DB.Model(&LocalDownloadsInstanceItem{}).
+		Where("id = ?", uint(uID)).
+		Update("retry_counter", retryCount)
+
+	if result.Error != nil {
+		logger.Log.Errorw("Failed to update download item retry count", "id", id, "error", result.Error)
+		return result.Error
+	}
+
 	logger.Log.Debugw("Updated Download Item RetryCount", "Item", id, "RetryCount", retryCount)
 	return nil
 }
 
-func UpdateLocalDownloadProviderData(id string, providerData string) error {
-	_, err := DB.Exec("UPDATE downloads SET external_provider_data_object = ? WHERE id = ?", providerData, id)
+func GetLocalDownloads() ([]LocalDownloadsInstance, error) {
+	var downloads []LocalDownloadsInstance
+
+	logger.Log.Debugw("Fetching all local downloads from database")
+
+	result := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+		return db.Order("added_at ASC")
+	}).Find(&downloads)
+
+	if result.Error != nil {
+		logger.Log.Errorw("Failed to retrieve downloads", "error", result.Error)
+		return nil, result.Error
+	}
+
+	for i := range downloads {
+		if downloads[i].DownloadItems == nil {
+			downloads[i].DownloadItems = []LocalDownloadsInstanceItem{}
+		}
+	}
+
+	logger.Log.Debugw("Successfully retrieved downloads", "count", len(downloads))
+	return downloads, nil
+}
+
+func GetLocalPendingDownloads() ([]LocalDownloadsInstance, error) {
+	var downloads []LocalDownloadsInstance
+
+	logger.Log.Debugw("Fetching pending downloads from DB")
+
+	err := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+		return db.Order("added_at ASC")
+	}).Where("status NOT IN ?", []string{
+		config.DOWNLOAD_STATUS_CLIENT_COMPLETED,
+		config.DOWNLOAD_STATUS_CLIENT_FAILED,
+	}).Find(&downloads).Error
+
 	if err != nil {
+		logger.Log.Errorw("Failed to fetch pending downloads", "error", err)
+		return nil, err
+	}
+
+	for i := range downloads {
+		if downloads[i].DownloadItems == nil {
+			downloads[i].DownloadItems = []LocalDownloadsInstanceItem{}
+		}
+	}
+
+	logger.Log.Debugw("Pending downloads retrieved", "count", len(downloads))
+	return downloads, nil
+}
+
+func GetLocalCompletedDownloads() ([]LocalDownloadsInstance, error) {
+	var downloads []LocalDownloadsInstance
+
+	logger.Log.Debugw("Fetching completed/failed downloads from DB")
+
+	err := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+		return db.Order("added_at ASC")
+	}).Where("status IN ?", []string{
+		config.DOWNLOAD_STATUS_CLIENT_COMPLETED,
+		config.DOWNLOAD_STATUS_CLIENT_FAILED,
+	}).Find(&downloads).Error
+
+	if err != nil {
+		logger.Log.Errorw("Failed to fetch completed downloads", "error", err)
+		return nil, err
+	}
+
+	for i := range downloads {
+		if downloads[i].DownloadItems == nil {
+			downloads[i].DownloadItems = []LocalDownloadsInstanceItem{}
+		}
+	}
+
+	logger.Log.Debugw("Completed downloads retrieved", "count", len(downloads))
+	return downloads, nil
+}
+
+func UpdateLocalDownloadProviderData(id string, providerData string) error {
+	uID, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		logger.Log.Errorw("Invalid ID for provider data update", "id", id, "error", err)
 		return err
 	}
+
+	result := DB.Model(&LocalDownloadsInstance{}).
+		Where("id = ?", uint(uID)).
+		Update("external_provider_data_object", providerData)
+
+	if result.Error != nil {
+		logger.Log.Errorw("Failed to update provider data object", "id", id, "error", result.Error)
+		return result.Error
+	}
+
+	logger.Log.Debugw("Successfully updated provider data", "id", id)
 	return nil
 }
 
-func GetLocalDownloads() ([]models.LocalDownloadInstance, error) {
-	var downloads []models.LocalDownloadInstance
-
-	rows, err := DB.Query("SELECT id, protocol, provider, download_name, original_download_url, original_download_file, category, status, external_provider_id, external_provider_data_object, added_at FROM downloads")
-	if err != nil {
-		return downloads, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var download models.LocalDownloadInstance
-		rows.Scan(&download.ID, &download.Protocol, &download.Provider, &download.DownloadName, &download.OriginalDownloadURL, &download.OriginalDownloadFile, &download.Category, &download.Status, &download.ExternalProviderID, &download.ExternalProviderDataObject, &download.AddedAt)
-
-		dlItems, errDownloadItems := DB.Query("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, retry_counter, added_at FROM downloaditems WHERE download_id = ? ORDER BY added_at ASC", download.ID)
-		if errDownloadItems != nil {
-			continue
-		} else {
-			var downloadItems []models.LocalDownloadInstanceItem
-			for dlItems.Next() {
-				var downloadItem models.LocalDownloadInstanceItem
-				dlItems.Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.RetryCounter, &downloadItem.AddedAt)
-				downloadItems = append(downloadItems, downloadItem)
-			}
-			download.DownloadItems = downloadItems
-		}
-		downloads = append(downloads, download)
-	}
-	return downloads, nil
-}
-
-func GetLocalPendingDownloads() ([]models.LocalDownloadInstance, error) {
-	var downloads []models.LocalDownloadInstance
-
-	rows, err := DB.Query("SELECT id, protocol, provider, download_name, original_download_url, original_download_file, category, status, external_provider_id, external_provider_data_object, added_at FROM downloads WHERE status NOT IN (?, ?)", config.DOWNLOAD_STATUS_CLIENT_COMPLETED, config.DOWNLOAD_STATUS_CLIENT_FAILED)
-	if err != nil {
-		return downloads, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var download models.LocalDownloadInstance
-		rows.Scan(&download.ID, &download.Protocol, &download.Provider, &download.DownloadName, &download.OriginalDownloadURL, &download.OriginalDownloadFile, &download.Category, &download.Status, &download.ExternalProviderID, &download.ExternalProviderDataObject, &download.AddedAt)
-
-		dlItems, errDownloadItems := DB.Query("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, retry_counter, added_at FROM downloaditems WHERE download_id = ? ORDER BY added_at ASC", download.ID)
-		if errDownloadItems != nil {
-			continue
-		} else {
-			var downloadItems []models.LocalDownloadInstanceItem
-			for dlItems.Next() {
-				var downloadItem models.LocalDownloadInstanceItem
-				dlItems.Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.RetryCounter, &downloadItem.AddedAt)
-				downloadItems = append(downloadItems, downloadItem)
-			}
-			download.DownloadItems = downloadItems
-		}
-		downloads = append(downloads, download)
-	}
-	return downloads, nil
-}
-
-func GetLocalCompletedDownloads() ([]models.LocalDownloadInstance, error) {
-	var downloads []models.LocalDownloadInstance
-
-	rows, err := DB.Query("SELECT id, protocol, provider, download_name, original_download_url, original_download_file, category, status, external_provider_id, external_provider_data_object, added_at FROM downloads WHERE status IN (?, ?)", config.DOWNLOAD_STATUS_CLIENT_COMPLETED, config.DOWNLOAD_STATUS_CLIENT_FAILED)
-	if err != nil {
-		return downloads, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var download models.LocalDownloadInstance
-		rows.Scan(&download.ID, &download.Protocol, &download.Provider, &download.DownloadName, &download.OriginalDownloadURL, &download.OriginalDownloadFile, &download.Category, &download.Status, &download.ExternalProviderID, &download.ExternalProviderDataObject, &download.AddedAt)
-
-		dlItems, errDownloadItems := DB.Query("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, retry_counter, added_at FROM downloaditems WHERE download_id = ? ORDER BY added_at ASC", download.ID)
-		if errDownloadItems != nil {
-			continue
-		} else {
-			var downloadItems []models.LocalDownloadInstanceItem
-			for dlItems.Next() {
-				var downloadItem models.LocalDownloadInstanceItem
-				dlItems.Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.RetryCounter, &downloadItem.AddedAt)
-				downloadItems = append(downloadItems, downloadItem)
-			}
-			download.DownloadItems = downloadItems
-		}
-		downloads = append(downloads, download)
-	}
-	return downloads, nil
-}
-
 func GetLocalDownloadsAddedToProviderCount() int {
-	downloadsAdded := 0
-	errQry := DB.QueryRow("SELECT count(*) AS provider_downloads FROM downloads WHERE status IN (?, ?, ?)", config.DOWNLOAD_STATUS_PROVIDER_ADDED, config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING, config.DOWNLOAD_STATUS_PROVIDER_PROCESSING).Scan(&downloadsAdded)
-	if errQry != nil {
+	var count int64
+
+	targetStatuses := []string{
+		config.DOWNLOAD_STATUS_PROVIDER_ADDED,
+		config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING,
+		config.DOWNLOAD_STATUS_PROVIDER_PROCESSING,
+	}
+
+	logger.Log.Debugw("Counting downloads by provider status", "target_statuses", targetStatuses)
+
+	err := DB.Model(&LocalDownloadsInstance{}).
+		Where("status IN ?", targetStatuses).
+		Count(&count).Error
+
+	if err != nil {
+		logger.Log.Errorw("Database error while counting provider downloads", "error", err)
 		return 999
 	}
-	return downloadsAdded
+
+	logger.Log.Debugw("Provider download count retrieved", "count", count)
+	return int(count)
 }
 
-func GetLocalDownloadItems() ([]models.LocalDownloadInstanceItem, error) {
-	var downloadItems []models.LocalDownloadInstanceItem
-	dlItems, errDownloadItems := DB.Query("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, retry_counter, added_at FROM downloaditems ORDER BY added_at ASC")
-	if errDownloadItems != nil {
-		return downloadItems, errDownloadItems
-	}
-	defer dlItems.Close()
+func GetLocalDownloadItems() ([]LocalDownloadsInstanceItem, error) {
+	var items []LocalDownloadsInstanceItem
 
-	for dlItems.Next() {
-		var downloadItem models.LocalDownloadInstanceItem
-		dlItems.Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.RetryCounter, &downloadItem.AddedAt)
-		downloadItems = append(downloadItems, downloadItem)
+	logger.Log.Debugw("Fetching all local download items from DB")
+
+	result := DB.Order("added_at ASC").Find(&items)
+
+	if result.Error != nil {
+		logger.Log.Errorw("Failed to fetch all download items", "error", result.Error)
+		return nil, result.Error
 	}
 
-	return downloadItems, nil
+	if items == nil {
+		items = []LocalDownloadsInstanceItem{}
+	}
+
+	logger.Log.Debugw("Successfully retrieved all download items", "count", len(items))
+	return items, nil
 }
 
-func GetLocalDownloadItemsForDownload(downloadId string) ([]models.LocalDownloadInstanceItem, error) {
-	var downloadItems []models.LocalDownloadInstanceItem
-	dlItems, errDownloadItems := DB.Query("SELECT id, download_id, download_type, category, file_name, file_path, file_size, status, external_provider_id, external_provider_item_id, external_provider_download_url, retry_counter, added_at FROM downloaditems WHERE download_id = ? ORDER BY added_at ASC", downloadId)
-	if errDownloadItems != nil {
-		return downloadItems, errDownloadItems
-	}
-	defer dlItems.Close()
+func GetLocalDownloadItemsForDownload(downloadId string) ([]LocalDownloadsInstanceItem, error) {
+	var items []LocalDownloadsInstanceItem
 
-	for dlItems.Next() {
-		var downloadItem models.LocalDownloadInstanceItem
-		dlItems.Scan(&downloadItem.ID, &downloadItem.DownloadID, &downloadItem.DownloadType, &downloadItem.Category, &downloadItem.FileName, &downloadItem.FilePath, &downloadItem.FileSize, &downloadItem.Status, &downloadItem.ExternalProviderID, &downloadItem.ExternalProviderItemID, &downloadItem.ExternalProviderDownloadURL, &downloadItem.RetryCounter, &downloadItem.AddedAt)
-		downloadItems = append(downloadItems, downloadItem)
+	uID, err := strconv.ParseUint(downloadId, 10, 64)
+	if err != nil {
+		logger.Log.Errorw("Invalid downloadId for items fetch", "id", downloadId, "error", err)
+		return nil, err
 	}
-	return downloadItems, nil
+
+	logger.Log.Debugw("Fetching items for specific download", "download_id", uID)
+
+	result := DB.Where("download_id = ?", uint(uID)).
+		Order("added_at ASC").
+		Find(&items)
+
+	if result.Error != nil {
+		logger.Log.Errorw("Failed to fetch items for download", "download_id", uID, "error", result.Error)
+		return nil, result.Error
+	}
+
+	if items == nil {
+		items = []LocalDownloadsInstanceItem{}
+	}
+
+	logger.Log.Debugw("Retrieved items for download", "download_id", uID, "count", len(items))
+	return items, nil
 }
 
 func DeleteLocalDownloadItem(id string) error {
-	_, err := DB.Exec("DELETE FROM downloaditems WHERE id = ?", id)
+	uID, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
+		logger.Log.Errorw("Invalid ID for item deletion", "id", id, "error", err)
 		return err
 	}
+
+	result := DB.Delete(&LocalDownloadsInstanceItem{}, uint(uID))
+
+	if result.Error != nil {
+		logger.Log.Errorw("Failed to delete download item", "id", id, "error", result.Error)
+		return result.Error
+	}
+
+	logger.Log.Debugw("Deleted Download Item", "id", id, "rows_affected", result.RowsAffected)
 	return nil
 }
 
 func DeleteLocalDownload(id string) error {
-	_, err := DB.Exec("DELETE FROM downloads WHERE id = ?", id)
+
+	uID, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
+		logger.Log.Errorw("Invalid ID for download deletion", "id", id, "error", err)
 		return err
 	}
-	return nil
-}
 
-func GetSABNzbdQueue() []models.SabSlot {
-	rows, _ := DB.Query("SELECT external_id, filename, status, category FROM downloads WHERE protocol='usenet' ORDER BY added_at DESC")
-	defer rows.Close()
+	result := DB.Delete(&LocalDownloadsInstance{}, uint(uID))
 
-	var slots []models.SabSlot
-	index := 0
-	for rows.Next() {
-		var s models.SabSlot
-		var cat string
-		// Scan category too, though SABnzbd JSON usually puts it in a separate history field
-		// For queue, we primarily need status/filename
-		rows.Scan(&s.NzoID, &s.Filename, &s.Status, &cat)
-		s.Size = "2.0 GB"
-		s.Index = index
-		slots = append(slots, s)
-		index++
+	if result.Error != nil {
+		logger.Log.Errorw("Failed to delete download", "id", id, "error", result.Error)
+		return result.Error
 	}
-	return slots
-}
 
-// ... GetQBitQueue remains similar (you can update it to read category if needed) ...
-func GetQBitQueue() []models.QBitTorrent {
-	// Left as is for brevity, but you should update the SELECT to include category if needed for qBit
-	return []models.QBitTorrent{}
-}
-
-func GetTranslatedStatusforDownloadBasedonItemStatus(itemStatus string) string {
-	return ""
+	logger.Log.Debugw("Deleted Local Download and associated items",
+		"id", id,
+		"rows_affected", result.RowsAffected,
+	)
+	return nil
 }

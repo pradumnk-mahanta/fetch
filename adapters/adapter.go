@@ -8,7 +8,6 @@ import (
 	"fetch/models"
 	"fetch/services"
 	"mime/multipart"
-	"slices"
 	"strconv"
 
 	"github.com/forest6511/gdl"
@@ -62,7 +61,7 @@ func ProcessDownloads() (string, error) {
 						continue
 					}
 
-					errorUpdate := databases.UpdateLocalDownloadProviderId(localDownload.ID, usenetdownload_id, config.DOWNLOAD_STATUS_PROVIDER_ADDED)
+					errorUpdate := databases.UpdateLocalDownloadProviderId(localDownload.IDString(), usenetdownload_id, config.DOWNLOAD_STATUS_PROVIDER_ADDED)
 					if errorUpdate != nil {
 						logger.Log.Errorw("Failed to updated local download provider id", "error", errorUpdate)
 						continue
@@ -75,7 +74,7 @@ func ProcessDownloads() (string, error) {
 				for _, providerDownload := range providerDownloads {
 					providerDownloadID := strconv.FormatInt(*providerDownload.ID, 10)
 					if providerDownloadID == localDownload.ExternalProviderID {
-						errStatus := databases.UpdateLocalDownloadStatus(localDownload.ID, services.TorboxUsenetDownloadStatusTranslate(*providerDownload.DownloadState))
+						errStatus := databases.UpdateLocalDownloadStatus(localDownload.IDString(), services.TorboxUsenetDownloadStatusTranslate(*providerDownload.DownloadState))
 						if errStatus != nil {
 							logger.Log.Errorw("Failed to update download status", "error", errStatus)
 							continue
@@ -85,7 +84,7 @@ func ProcessDownloads() (string, error) {
 							logger.Log.Errorw("Failed to get provider data in json", "error", provDataErr)
 							continue
 						}
-						errProvData := databases.UpdateLocalDownloadProviderData(localDownload.ID, provData)
+						errProvData := databases.UpdateLocalDownloadProviderData(localDownload.IDString(), provData)
 						if errProvData != nil {
 							logger.Log.Errorw("Failed to update download status", "error", errProvData)
 							continue
@@ -103,44 +102,57 @@ func ProcessDownloads() (string, error) {
 					}
 					logger.Log.Debugw("Requested Zipped download link from provider", "downloadLink", downloadLink)
 
-					fileInfo, err := gdl.GetFileInfo(context.Background(), downloadLink)
-					if err != nil {
+					fileInfo, errFile := gdl.GetFileInfo(context.Background(), downloadLink)
+					if errFile != nil {
 						logger.Log.Errorw("Unable to retrieve file metadata: " + err.Error())
 						continue
 					}
-					downloadItemId := databases.AddLocalDownloadItem(localDownload.ID, config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE, localDownload.Category, fileInfo.Filename, fileInfo.Filename, fileInfo.Size, localDownload.ExternalProviderID, "-1", downloadLink)
+					downloadItemId, errAdd := databases.AddLocalDownloadItem(localDownload.IDString(), config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE, localDownload.Category, fileInfo.Filename, fileInfo.Filename, fileInfo.Size, localDownload.ExternalProviderID, "-1", downloadLink)
+					if errAdd != nil {
+						logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "item", downloadItemId)
+					}
 					logger.Log.Infow("Added download Item Id", "item", downloadItemId)
 				} else {
 					var providerDownloadFromStorage models.DAT
 					providerDownloadFromStorage.LoadJSON(localDownload.ExternalProviderDataObject)
 					for _, providerDownloadItem := range providerDownloadFromStorage.Files {
-						downloadItemId := databases.AddLocalDownloadItem(localDownload.ID, config.DOWNLOAD_ITEM_TYPE_INDIVIDUAL_FILE, localDownload.Category, providerDownloadItem.ShortName, providerDownloadItem.Name, providerDownloadItem.Size, localDownload.ExternalProviderID, strconv.FormatInt(providerDownloadItem.ID, 10), "")
+						downloadItemId, err := databases.AddLocalDownloadItem(localDownload.IDString(), config.DOWNLOAD_ITEM_TYPE_INDIVIDUAL_FILE, localDownload.Category, providerDownloadItem.ShortName, providerDownloadItem.Name, providerDownloadItem.Size, localDownload.ExternalProviderID, strconv.FormatInt(providerDownloadItem.ID, 10), "")
+						if err != nil {
+							logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "item", downloadItemId)
+						}
 						logger.Log.Infow("Added download Item Id", "download", localDownload.ID, "item", downloadItemId)
 					}
 				}
-				databases.UpdateLocalDownloadStatus(localDownload.ID, config.DOWNLOAD_STATUS_DOWNLOADER_ADDED)
+				databases.UpdateLocalDownloadStatus(localDownload.IDString(), config.DOWNLOAD_STATUS_DOWNLOADER_ADDED)
 
 			case config.DOWNLOAD_STATUS_DOWNLOADER_ADDED, config.DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING, config.DOWNLOAD_STATUS_DOWNLOADER_PROCESSING:
-				databases.UpdateLocalDownloadStatus(localDownload.ID, GetLocalDownloadStatusBasedOnItems(localDownload.ID, config.DOWNLOAD_STATUS_DOWNLOADER_ADDED))
+				databases.UpdateLocalDownloadStatus(localDownload.IDString(), GetLocalDownloadStatusBasedOnItems(localDownload.IDString(), config.DOWNLOAD_STATUS_DOWNLOADER_ADDED))
 
 			case config.DOWNLOAD_STATUS_DOWNLOADER_FAILED:
-				localDownloadItems, err := databases.GetLocalDownloadItemsForDownload(localDownload.ID)
+				localDownloadItems, err := databases.GetLocalDownloadItemsForDownload(localDownload.IDString())
 				if err != nil {
 					logger.Log.Errorw("Unable to get local download items")
 					continue
 				}
-				hasFailedMoreThanMaxAllowed := slices.ContainsFunc(localDownloadItems, func(item models.LocalDownloadInstanceItem) bool {
-					return item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED && item.RetryCounter >= config.AppConfig.DownloaderMaxRetryDownloads
-				})
+
+				var hasFailedMoreThanMaxAllowed bool
+
+				for _, item := range localDownloadItems {
+					if item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED &&
+						item.RetryCounter >= config.AppConfig.DownloaderMaxRetryDownloads {
+						hasFailedMoreThanMaxAllowed = true
+						break
+					}
+				}
 
 				if hasFailedMoreThanMaxAllowed {
 					logger.Log.Debugw("Download failed due to no retry attempts left!")
-					databases.UpdateLocalDownloadStatus(localDownload.ID, config.DOWNLOAD_STATUS_CLIENT_FAILED)
+					databases.UpdateLocalDownloadStatus(localDownload.IDString(), config.DOWNLOAD_STATUS_CLIENT_FAILED)
 				}
 				continue
 
 			case config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED:
-				databases.UpdateLocalDownloadStatus(localDownload.ID, config.DOWNLOAD_STATUS_CLIENT_COMPLETED)
+				databases.UpdateLocalDownloadStatus(localDownload.IDString(), config.DOWNLOAD_STATUS_CLIENT_COMPLETED)
 				continue
 
 			default:
@@ -166,8 +178,8 @@ func ProcessDownloadItems() (string, error) {
 		switch localDownloadItem.Status {
 		case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_DOWNLOADING:
 			downloader := services.GetGDLService()
-			if !downloader.IsDownloading(localDownloadItem.ID) {
-				databases.UpdateLocalDownloadItemStatus(localDownloadItem.ID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED)
+			if !downloader.IsDownloading(localDownloadItem.IDString()) {
+				databases.UpdateLocalDownloadItemStatus(localDownloadItem.IDString(), config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED)
 			}
 			continue
 
@@ -188,7 +200,7 @@ func ProcessDownloadItems() (string, error) {
 						logger.Log.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)
 						continue
 					}
-					linkDbUpdErr := databases.UpdateLocalDownloadItemExternalUrl(localDownloadItem.ID, downloadLink)
+					linkDbUpdErr := databases.UpdateLocalDownloadItemExternalUrl(localDownloadItem.IDString(), downloadLink)
 					if linkDbUpdErr != nil {
 						logger.Log.Errorw("Failed to save download link from provider", "error", linkDbUpdErr)
 						continue
@@ -205,7 +217,7 @@ func ProcessDownloadItems() (string, error) {
 		case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED:
 			if localDownloadItem.RetryCounter < config.AppConfig.DownloaderMaxRetryDownloads {
 				localDownloadItem.RetryCounter++
-				databases.UpdateLocalDownloadItemRetryCounter(localDownloadItem.ID, localDownloadItem.RetryCounter)
+				databases.UpdateLocalDownloadItemRetryCounter(localDownloadItem.IDString(), localDownloadItem.RetryCounter)
 			}
 			continue
 
@@ -222,24 +234,25 @@ func GetLocalDownloadStatusBasedOnItems(downloadId string, currentStatus string)
 		logger.Log.Errorw("Unable to get local download items")
 		return currentStatus
 	}
-	hasAdded := slices.ContainsFunc(localDownloadItems, func(item models.LocalDownloadInstanceItem) bool {
-		return item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED
-	})
-	hasDownloading := slices.ContainsFunc(localDownloadItems, func(item models.LocalDownloadInstanceItem) bool {
-		return item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_DOWNLOADING
-	})
-	hasRetry := slices.ContainsFunc(localDownloadItems, func(item models.LocalDownloadInstanceItem) bool {
-		return item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_RETRY
-	})
-	hasFailed := slices.ContainsFunc(localDownloadItems, func(item models.LocalDownloadInstanceItem) bool {
-		return item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED
-	})
-	hasCompleted := slices.ContainsFunc(localDownloadItems, func(item models.LocalDownloadInstanceItem) bool {
-		return item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED
-	})
-	hasProcessing := slices.ContainsFunc(localDownloadItems, func(item models.LocalDownloadInstanceItem) bool {
-		return item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_PROCESSING
-	})
+
+	var hasAdded, hasDownloading, hasRetry, hasFailed, hasCompleted, hasProcessing bool
+	for _, item := range localDownloadItems {
+		switch item.Status {
+		case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED:
+			hasAdded = true
+		case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_DOWNLOADING:
+			hasDownloading = true
+		case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_RETRY:
+			hasRetry = true
+		case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED:
+			hasFailed = true
+		case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED:
+			hasCompleted = true
+		case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_PROCESSING:
+			hasProcessing = true
+		}
+	}
+
 	if hasDownloading || hasRetry || hasAdded {
 		return config.DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING
 	} else if hasFailed {
@@ -253,7 +266,7 @@ func GetLocalDownloadStatusBasedOnItems(downloadId string, currentStatus string)
 	}
 }
 
-func LocalDownloadList() ([]models.LocalDownloadInstance, error) {
+func LocalDownloadList() ([]databases.LocalDownloadsInstance, error) {
 	downloads, err := databases.GetLocalDownloads()
 	if err != nil {
 		return nil, err

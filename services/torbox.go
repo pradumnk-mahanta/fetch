@@ -3,6 +3,7 @@ package services
 import (
 	"bytes"
 	"fetch/config"
+	"fetch/databases"
 	"fetch/logger"
 	"fetch/models"
 	"io"
@@ -14,7 +15,7 @@ import (
 	"time"
 )
 
-func TorboxUsenetCreateDownload(localDownload models.LocalDownloadInstance) (string, error) {
+func TorboxUsenetCreateDownload(localDownload databases.LocalDownloadsInstance) (string, error) {
 
 	payload := &bytes.Buffer{}
 	writer := multipart.NewWriter(payload)

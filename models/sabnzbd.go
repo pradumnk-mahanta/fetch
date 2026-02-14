@@ -2,6 +2,7 @@ package models
 
 import (
 	"fetch/config"
+	"fetch/databases"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -29,7 +30,7 @@ type SabQueueItem struct {
 	SizeLeft   int64   `json:"sizeleft"`
 	MB         float64 `json:"mb"`
 	MBLeft     float64 `json:"mbleft"`
-	Percentage float64 `json:"percentage"`
+	Percentage int64   `json:"percentage"`
 	Speed      float64 `json:"speed"`
 }
 
@@ -55,16 +56,8 @@ type SabAddResponse struct {
 	NzoIDs []string `json:"nzo_ids"`
 }
 
-type Download struct {
-	ID            string
-	DownloadName  string
-	Status        string
-	Category      string
-	DownloadItems []LocalDownloadInstanceItem `json:"download_items"`
-}
-
 func BuildSabQueueOutput(
-	downloads []LocalDownloadInstance,
+	downloads []databases.LocalDownloadsInstance,
 	downloaderItems []GDLDownload,
 ) SabQueueResponse {
 
@@ -89,7 +82,7 @@ func BuildSabQueueOutput(
 
 			totalSize += item.FileSize
 
-			if runtime, exists := downloaderMap[item.ID]; exists {
+			if runtime, exists := downloaderMap[item.IDString()]; exists {
 				totalDownloaded += int64(runtime.BytesDownloaded)
 				totalSpeed += runtime.AverageSpeed
 				continue
@@ -109,13 +102,13 @@ func BuildSabQueueOutput(
 			sizeLeft = 0
 		}
 
-		var percentage float64
+		var percentage int64
 		if totalSize > 0 {
-			percentage = (float64(totalDownloaded) / float64(totalSize)) * 100
+			percentage = int64((float64(totalDownloaded) / float64(totalSize)) * 100)
 		}
 
 		slots = append(slots, SabQueueItem{
-			NzoID:      download.ID,
+			NzoID:      download.IDString(),
 			Filename:   download.DownloadName,
 			Status:     TransaltedClientStatusforSABNzbd(download.Status),
 			Category:   download.Category,
@@ -160,7 +153,7 @@ func formatBytes(b int64) string {
 }
 
 func formatSpeed(speed float64) string {
-	mb := speed / 1024 / 1024
+	mb := speed / 1024
 	return fmt.Sprintf("%.2f MB/s", mb)
 }
 
@@ -234,7 +227,7 @@ type StageLog struct {
 }
 
 func BuildSabHistoryResponse(
-	downloads []LocalDownloadInstance,
+	downloads []databases.LocalDownloadsInstance,
 ) SabHistoryResponse {
 
 	slots := make([]SabHistoryItem, 0)
@@ -263,7 +256,7 @@ func BuildSabHistoryResponse(
 		root := config.APPLICATION_DOWNLOAD_ROOT
 		storagePath := filepath.Join(root, download.Category, download.DownloadName)
 
-		completedUnix := download.AddedAt.Unix()
+		completedUnix := download.CompletedAt.Unix()
 		addedUnix := download.AddedAt.Unix()
 
 		totalBytes += totalSize
@@ -280,14 +273,14 @@ func BuildSabHistoryResponse(
 			Retry:        0,
 			Script:       "None",
 			NzbName:      download.DownloadName + ".nzb",
-			DownloadTime: int(download.AddedAt.Sub(download.AddedAt).Seconds()),
+			DownloadTime: int(download.CompletedAt.Sub(download.AddedAt).Seconds()),
 			Storage:      storagePath,
 			HasRating:    false,
 			Status:       status,
 			ScriptLine:   "",
 			Completed:    completedUnix,
 			TimeAdded:    addedUnix,
-			NzoID:        download.ID,
+			NzoID:        download.IDString(),
 			Downloaded:   downloaded,
 			Report:       "",
 			Password:     "",

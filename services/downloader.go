@@ -60,10 +60,10 @@ type GDLService struct {
 	mu    sync.Mutex
 }
 
-func (s *GDLService) Download(parentCtx context.Context, localDownloadItem models.LocalDownloadInstanceItem) error {
+func (s *GDLService) Download(parentCtx context.Context, localDownloadItem databases.LocalDownloadsInstanceItem) error {
 	ctx, cancel := context.WithCancel(parentCtx)
 
-	databases.UpdateLocalDownloadItemStatus(localDownloadItem.ID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_DOWNLOADING)
+	databases.UpdateLocalDownloadItemStatus(localDownloadItem.IDString(), config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_DOWNLOADING)
 
 	dir, err := GetDownloadRootPath(localDownloadItem.Category)
 	if err != nil {
@@ -74,8 +74,8 @@ func (s *GDLService) Download(parentCtx context.Context, localDownloadItem model
 
 	outputPath := filepath.Join(dir, localDownloadItem.FilePath)
 	task := &DownloadTask{
-		ID:         localDownloadItem.ID,
-		DownloadID: localDownloadItem.DownloadID,
+		ID:         localDownloadItem.IDString(),
+		DownloadID: localDownloadItem.DownloadIDString(),
 		URL:        localDownloadItem.ExternalProviderDownloadURL,
 		OutputPath: outputPath,
 		Ctx:        ctx,
@@ -114,7 +114,7 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 				TotalSize:       p.TotalSize,
 				AverageSpeed:    p.Speed,
 			}
-			logger.Log.Debugw("Downloading Progress", "File", task.Stats.Filename, "Percentage", float64(p.BytesDownloaded/task.Stats.TotalSize*100))
+			logger.Log.Debugw("Download Progress", "Id", task.ID, "File", task.OutputPath, "Percentage", p.Percentage)
 			task.mu.Unlock()
 		},
 	}
@@ -233,18 +233,6 @@ func (s *GDLService) Delete(id string) error {
 		delete(s.tasks, id)
 	}
 	s.mu.Unlock()
-
-	downloadItem, err := databases.GetLocalDownloadItemDetails(id)
-	if err == nil {
-		categoryDir, _ := GetDownloadRootPath(downloadItem.Category)
-		filePath := filepath.Join(categoryDir, downloadItem.FilePath)
-		cleanPath := filepath.Clean(filePath)
-
-		if strings.HasPrefix(cleanPath, categoryDir+string(os.PathSeparator)) {
-			_ = os.Remove(cleanPath)
-		}
-	}
-
 	return nil
 }
 
