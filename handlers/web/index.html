@@ -77,8 +77,22 @@
             container.innerHTML = list.map(dl => {
                 const totalItems = dl.item_details.length;
                 const completedItems = dl.item_details.filter(i => i.status === "Completed").length;
-                const parentProgress = ((completedItems / totalItems) * 100).toFixed(0);
                 
+                const totalBytes = dl.item_details.reduce((acc, item) => acc + (item.file_size || 0), 0);
+                    
+                const downloadedBytes = dl.item_details.reduce((acc, item) => {
+                    const stats = item.downloader_stats || {};
+                    const isFinished = item.status === "Completed" || stats.status === "Completed";
+                    if (isFinished) {
+                        return acc + (item.file_size || 0);
+                }
+                        
+                const itemProgress = (stats.percentage || 0) / 100;
+                    return acc + ((item.file_size || 0) * itemProgress);
+                }, 0);
+
+                const parentProgress = totalBytes > 0 ? ((downloadedBytes / totalBytes) * 100).toFixed(0) : 0;
+
                 const cardId = `items-${dl.id}`;
                 const isExpanded = openCards.has(cardId);
 
