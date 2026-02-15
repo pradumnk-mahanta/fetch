@@ -161,7 +161,7 @@ type PackageJSON struct {
 }
 
 func GetVersionFromPackage() string {
-	content, err := os.ReadFile("package.json")
+	content, err := os.ReadFile("project.json")
 	if err != nil {
 		return "0.1.0"
 	}
