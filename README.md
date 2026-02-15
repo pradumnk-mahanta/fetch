@@ -19,7 +19,7 @@ version: '3.8'
 
 services:
   fetch:
-    image: pradumnk-mahanta/fetch:latest
+    image: ghcr.io/pradumnk-mahanta/fetch:latest
     container_name: fetch
     environment:
       - TZ=Asia/Kolkata
