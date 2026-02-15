@@ -39,14 +39,14 @@ func main() {
 	logger.Log.Infow("Scheduler Initialized!")
 
 	http.HandleFunc("/sabnzbd/api", handlers.SABNzbdHandler)
-	http.HandleFunc("/qbittorrent/api", handlers.QBittorrentHandler)
-	http.HandleFunc("/fetch/api", handlers.CommonHandler)
+	http.HandleFunc("/qbittorrent/api/", handlers.QBittorrentHandler)
+	//http.HandleFunc("/fetch/api", handlers.CommonHandler)
 
 	http.HandleFunc("/login", handlers.WebHandlerLogin)
-	http.HandleFunc("/", handlers.WebProtectedHandler)
-	http.HandleFunc("/api/internal", handlers.WebProtectedHandler)
+	http.HandleFunc("/internal/api", handlers.WebProtectedHandler)
 	http.HandleFunc("/settings", handlers.WebProtectedHandler)
 	http.HandleFunc("/register", handlers.WebHandlerRegister)
+	http.HandleFunc("/", handlers.WebProtectedHandler)
 
 	port := ":9090"
 	logger.Log.Infow("Server Starting on", "port", port)

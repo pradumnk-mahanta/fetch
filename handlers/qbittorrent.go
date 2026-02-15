@@ -26,27 +26,35 @@ func QBittorrentHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Log.Infow("qBittorrent Request", "method", method, "path", path)
 
 	switch path {
-	case "/api/v2/auth/login":
+	case "/qbittorrent/api/v2/auth/login":
 		HandleQBLogin(w, r)
 		return
 
-	case "/api/v2/app/version":
+	case "/qbittorrent/api/v2/app/webapiVersion":
 		HandleQBVersion(w, r)
 		return
 
-	case "/api/v2/torrents/info":
+	case "/qbittorrent/api/v2/app/preferences":
+		HandleQBPreferences(w, r)
+		return
+
+	case "/qbittorrent/api/v2/torrents/categories":
+		HandleQBTorrentCategories(w, r)
+		return
+
+	case "/qbittorrent/api/v2/torrents/info":
 		HandleQBTorrentsInfo(w, r)
 		return
 
-	case "/api/v2/torrents/add":
+	case "/qbittorrent/api/v2/torrents/add":
 		HandleQBAddTorrent(w, r)
 		return
 
-	case "/api/v2/torrents/delete":
+	case "/qbittorrent/api/v2/torrents/delete":
 		HandleQBDelete(w, r)
 		return
 
-	case "/api/v2/sync/maindata":
+	case "/qbittorrent/api/v2/sync/maindata":
 		HandleQBSyncMainData(w, r)
 		return
 
@@ -200,7 +208,14 @@ func HandleQBAddTorrent(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			ref, err := adapters.CreateDownload(config.ProtocolTorrent, fh.Filename, fileBytes, "", "", category)
+			fileName, infoHash, infoError := GetTorrentInfo(fileBytes, "")
+			if infoError != nil {
+				errors = append(errors, fmt.Sprintf("%s: %v", "File Info Parse Error", infoError))
+				continue
+			}
+
+			logger.Log.Infow("Received Torrent File", "fileName", fileName, "infoHash", infoHash)
+			ref, err := adapters.CreateDownload(config.ProtocolTorrent, fh.Filename, fileBytes, "", infoHash, category)
 			if err != nil {
 				errors = append(errors, fmt.Sprintf("%s: %v", fh.Filename, err))
 				continue
@@ -317,4 +332,96 @@ func GetTorrentInfo(torrentBytes []byte, magnetLink string) (name string, infoHa
 	}
 
 	return "", "", fmt.Errorf("no torrent file or magnet link provided")
+}
+
+func HandleQBPreferences(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	prefs := map[string]interface{}{
+		"locale":                                 "en",
+		"create_subfolder_enabled":               true,
+		"start_paused_enabled":                   false,
+		"auto_delete_mode":                       0,
+		"preallocate_all":                        false,
+		"incomplete_files_ext":                   false,
+		"auto_tmm_enabled":                       false,
+		"torrent_changed_tmm_enabled":            false,
+		"save_path_changed_tmm_enabled":          false,
+		"category_changed_tmm_enabled":           false,
+		"save_path":                              config.ApplicationDownloadRoot,
+		"temp_path_enabled":                      false,
+		"temp_path":                              "",
+		"scan_dirs":                              map[string]interface{}{},
+		"export_dir":                             "",
+		"export_dir_fin":                         "",
+		"mail_notification_enabled":              false,
+		"upnp":                                   true,
+		"dht":                                    true,
+		"pex":                                    true,
+		"lsd":                                    true,
+		"encryption":                             0,
+		"anonymous_mode":                         false,
+		"proxy_type":                             -1,
+		"proxy_ip":                               "",
+		"proxy_port":                             0,
+		"proxy_peer_connections":                 false,
+		"proxy_auth_enabled":                     false,
+		"proxy_username":                         "",
+		"proxy_password":                         "",
+		"max_connec":                             -1,
+		"max_connec_per_torrent":                 -1,
+		"max_uploads":                            -1,
+		"max_uploads_per_torrent":                -1,
+		"download_limit":                         0,
+		"upload_limit":                           0,
+		"max_active_downloads":                   -1,
+		"max_active_torrents":                    -1,
+		"max_active_uploads":                     -1,
+		"web_ui_domain_list":                     "",
+		"web_ui_address":                         "0.0.0.0",
+		"web_ui_port":                            9090,
+		"web_ui_upnp":                            false,
+		"web_ui_username":                        "",
+		"web_ui_password":                        "",
+		"web_ui_csrf_protection_enabled":         true,
+		"web_ui_clickjacking_protection_enabled": true,
+		"web_ui_secure_cookie_enabled":           false,
+		"web_ui_max_auth_fail_count":             5,
+		"web_ui_ban_duration":                    3600,
+		"web_ui_session_timeout":                 3600,
+		"web_ui_host_header_validation_enabled":  true,
+	}
+	json.NewEncoder(w).Encode(prefs)
+}
+
+func HandleQBTorrentCategories(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+
+	categories := make(map[string]map[string]string)
+
+	csv := strings.TrimSpace(config.AppConfig.ApplicationCategories)
+	if csv != "" {
+		for _, cat := range strings.Split(csv, ",") {
+			categoryName := strings.TrimSpace(cat)
+			if categoryName == "" {
+				continue
+			}
+
+			categories[categoryName] = map[string]string{
+				"name":     categoryName,
+				"savePath": config.ApplicationDownloadRoot + "/" + categoryName,
+			}
+		}
+	}
+
+	json.NewEncoder(w).Encode(categories)
 }

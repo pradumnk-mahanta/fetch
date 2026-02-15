@@ -61,10 +61,10 @@ func CreateDownload(protocol string, downloadName string, fileBytes []byte, down
 	}
 }
 
-func ProcessDownloads() (string, error) {
-	logger.Log.Debugw("Started Processing Downloads on Shedule!")
+func ProcessUsenetDownloadsQueue() (string, error) {
+	logger.Log.Infow("Started Processing Downloads on Shedule for SABNzbd!")
 
-	localDownloads, err := databases.GetLocalPendingDownloads("")
+	localDownloads, err := databases.GetLocalPendingDownloads(config.ProtocolUsenet)
 	if err != nil {
 		logger.Log.Errorw("Unable to retrieve pending downloads at this time. Please try again later!")
 		return "Unable to retrieve pending downloads at this time. Please try again later!", err
@@ -81,114 +81,109 @@ func ProcessDownloads() (string, error) {
 	}
 
 	for _, localDownload := range localDownloads {
-		switch localDownload.Protocol {
-		case "usenet":
-			switch localDownload.Status {
-			case config.DOWNLOAD_STATUS_CLIENT_ADDED:
-				if databases.GetLocalDownloadsAddedToProviderCount() < config.GetUsenetProvider().MaxSend {
-					usenetdownload_id, errAdd := services.TorboxUsenetCreateDownload(localDownload)
-					if errAdd != nil {
-						logger.Log.Errorw("Failed to add download to provider", "error", errAdd)
-						continue
-					}
-
-					errorUpdate := databases.UpdateLocalDownloadProviderId(localDownload.IDString(), usenetdownload_id, config.DOWNLOAD_STATUS_PROVIDER_ADDED)
-					if errorUpdate != nil {
-						logger.Log.Errorw("Failed to updated local download provider id", "error", errorUpdate)
-						continue
-					}
-
-					logger.Log.Debugw("Created download on provider", "download", localDownload.ID, "provider", usenetdownload_id)
-				}
-
-			case config.DOWNLOAD_STATUS_PROVIDER_ADDED, config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING, config.DOWNLOAD_STATUS_PROVIDER_PROCESSING:
-				for _, providerDownload := range providerDownloads {
-					providerDownloadID := strconv.FormatInt(*providerDownload.ID, 10)
-					if providerDownloadID == localDownload.ExternalProviderID {
-						errStatus := databases.UpdateLocalDownloadStatus(localDownload.IDString(), services.TorboxUsenetDownloadStatusTranslate(*providerDownload.DownloadState))
-						if errStatus != nil {
-							logger.Log.Errorw("Failed to update download status", "error", errStatus)
-							continue
-						}
-						provData, provDataErr := providerDownload.ToJSON()
-						if provDataErr != nil {
-							logger.Log.Errorw("Failed to get provider data in json", "error", provDataErr)
-							continue
-						}
-						errProvData := databases.UpdateLocalDownloadProviderData(localDownload.IDString(), provData)
-						if errProvData != nil {
-							logger.Log.Errorw("Failed to update download status", "error", errProvData)
-							continue
-						}
-					}
-				}
-				logger.Log.Debugw("Updating download", "download", localDownload, "providerStatus", providerDownloads)
-
-			case config.DOWNLOAD_STATUS_PROVIDER_COMPLETED:
-				if config.GetUsenetProvider().PreferZippedFolder {
-					downloadLink, requestDownloadLinkError := services.TorboxUsenetRequestDownloadLink(localDownload.ExternalProviderID, "-1")
-					if requestDownloadLinkError != nil {
-						logger.Log.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)
-						continue
-					}
-					logger.Log.Debugw("Requested Zipped download link from provider", "downloadLink", downloadLink)
-
-					fileInfo, errFile := gdl.GetFileInfo(context.Background(), downloadLink)
-					if errFile != nil {
-						logger.Log.Errorw("Unable to retrieve file metadata: " + errFile.Error())
-						continue
-					}
-					downloadItemId, errAdd := databases.AddLocalDownloadItem(localDownload.IDString(), config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE, localDownload.Category, fileInfo.Filename, fileInfo.Filename, fileInfo.Size, localDownload.ExternalProviderID, "-1", downloadLink)
-					if errAdd != nil {
-						logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "item", downloadItemId)
-					}
-					logger.Log.Infow("Added download Item Id", "item", downloadItemId)
-				} else {
-					var providerDownloadFromStorage models.DAT
-					providerDownloadFromStorage.LoadJSON(localDownload.ExternalProviderDataObject)
-					for _, providerDownloadItem := range providerDownloadFromStorage.Files {
-						downloadItemId, err := databases.AddLocalDownloadItem(localDownload.IDString(), config.DOWNLOAD_ITEM_TYPE_INDIVIDUAL_FILE, localDownload.Category, providerDownloadItem.ShortName, providerDownloadItem.Name, providerDownloadItem.Size, localDownload.ExternalProviderID, strconv.FormatInt(providerDownloadItem.ID, 10), "")
-						if err != nil {
-							logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "item", downloadItemId)
-						}
-						logger.Log.Infow("Added download Item Id", "download", localDownload.ID, "item", downloadItemId)
-					}
-				}
-				databases.UpdateLocalDownloadStatus(localDownload.IDString(), config.DOWNLOAD_STATUS_DOWNLOADER_ADDED)
-
-			case config.DOWNLOAD_STATUS_DOWNLOADER_ADDED, config.DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING, config.DOWNLOAD_STATUS_DOWNLOADER_PROCESSING:
-				databases.UpdateLocalDownloadStatus(localDownload.IDString(), GetLocalDownloadStatusBasedOnItems(localDownload.IDString(), config.DOWNLOAD_STATUS_DOWNLOADER_ADDED))
-
-			case config.DOWNLOAD_STATUS_DOWNLOADER_FAILED:
-				localDownloadItems, err := databases.GetLocalDownloadItemsForDownload(localDownload.IDString())
-				if err != nil {
-					logger.Log.Errorw("Unable to get local download items")
+		switch localDownload.Status {
+		case config.DOWNLOAD_STATUS_CLIENT_ADDED:
+			if databases.GetLocalDownloadsAddedToProviderCount() < config.GetUsenetProvider().MaxSend {
+				usenetdownload_id, errAdd := services.TorboxUsenetCreateDownload(localDownload)
+				if errAdd != nil {
+					logger.Log.Errorw("Failed to add download to provider", "error", errAdd)
 					continue
 				}
 
-				var hasFailedMoreThanMaxAllowed bool
+				errorUpdate := databases.UpdateLocalDownloadProviderId(localDownload.IDString(), usenetdownload_id, config.DOWNLOAD_STATUS_PROVIDER_ADDED)
+				if errorUpdate != nil {
+					logger.Log.Errorw("Failed to updated local download provider id", "error", errorUpdate)
+					continue
+				}
 
-				for _, item := range localDownloadItems {
-					if item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED &&
-						item.RetryCounter >= config.AppConfig.DownloaderMaxDownloadsRetry {
-						hasFailedMoreThanMaxAllowed = true
-						break
+				logger.Log.Debugw("Created download on provider", "download", localDownload.ID, "provider", usenetdownload_id)
+			}
+
+		case config.DOWNLOAD_STATUS_PROVIDER_ADDED, config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING, config.DOWNLOAD_STATUS_PROVIDER_PROCESSING:
+			for _, providerDownload := range providerDownloads {
+				providerDownloadID := strconv.FormatInt(*providerDownload.ID, 10)
+				if providerDownloadID == localDownload.ExternalProviderID {
+					errStatus := databases.UpdateLocalDownloadStatus(localDownload.IDString(), services.TorboxUsenetDownloadStatusTranslate(*providerDownload.DownloadState))
+					if errStatus != nil {
+						logger.Log.Errorw("Failed to update download status", "error", errStatus)
+						continue
+					}
+					provData, provDataErr := providerDownload.ToJSON()
+					if provDataErr != nil {
+						logger.Log.Errorw("Failed to get provider data in json", "error", provDataErr)
+						continue
+					}
+					errProvData := databases.UpdateLocalDownloadProviderData(localDownload.IDString(), provData)
+					if errProvData != nil {
+						logger.Log.Errorw("Failed to update download status", "error", errProvData)
+						continue
 					}
 				}
+			}
+			logger.Log.Debugw("Updating download", "download", localDownload, "providerStatus", providerDownloads)
 
-				if hasFailedMoreThanMaxAllowed {
-					logger.Log.Debugw("Download failed due to no retry attempts left!")
-					databases.UpdateLocalDownloadStatus(localDownload.IDString(), config.DOWNLOAD_STATUS_CLIENT_FAILED)
+		case config.DOWNLOAD_STATUS_PROVIDER_COMPLETED:
+			if config.GetUsenetProvider().PreferZippedFolder {
+				downloadLink, requestDownloadLinkError := services.TorboxUsenetRequestDownloadLink(localDownload.ExternalProviderID, "-1")
+				if requestDownloadLinkError != nil {
+					logger.Log.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)
+					continue
 				}
-				continue
+				logger.Log.Debugw("Requested Zipped download link from provider", "downloadLink", downloadLink)
 
-			case config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED:
-				databases.UpdateLocalDownloadStatus(localDownload.IDString(), config.DOWNLOAD_STATUS_CLIENT_COMPLETED)
-				continue
+				fileInfo, errFile := gdl.GetFileInfo(context.Background(), downloadLink)
+				if errFile != nil {
+					logger.Log.Errorw("Unable to retrieve file metadata: " + errFile.Error())
+					continue
+				}
+				downloadItemId, errAdd := databases.AddLocalDownloadItem(localDownload.IDString(), config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE, localDownload.Category, fileInfo.Filename, fileInfo.Filename, fileInfo.Size, localDownload.ExternalProviderID, "-1", downloadLink)
+				if errAdd != nil {
+					logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "item", downloadItemId)
+				}
+				logger.Log.Infow("Added download Item Id", "item", downloadItemId)
+			} else {
+				var providerDownloadFromStorage models.DAT
+				providerDownloadFromStorage.LoadJSON(localDownload.ExternalProviderDataObject)
+				for _, providerDownloadItem := range providerDownloadFromStorage.Files {
+					downloadItemId, err := databases.AddLocalDownloadItem(localDownload.IDString(), config.DOWNLOAD_ITEM_TYPE_INDIVIDUAL_FILE, localDownload.Category, providerDownloadItem.ShortName, providerDownloadItem.Name, providerDownloadItem.Size, localDownload.ExternalProviderID, strconv.FormatInt(providerDownloadItem.ID, 10), "")
+					if err != nil {
+						logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "item", downloadItemId)
+					}
+					logger.Log.Infow("Added download Item Id", "download", localDownload.ID, "item", downloadItemId)
+				}
+			}
+			databases.UpdateLocalDownloadStatus(localDownload.IDString(), config.DOWNLOAD_STATUS_DOWNLOADER_ADDED)
 
-			default:
+		case config.DOWNLOAD_STATUS_DOWNLOADER_ADDED, config.DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING, config.DOWNLOAD_STATUS_DOWNLOADER_PROCESSING:
+			databases.UpdateLocalDownloadStatus(localDownload.IDString(), GetLocalDownloadStatusBasedOnItems(localDownload.IDString(), config.DOWNLOAD_STATUS_DOWNLOADER_ADDED))
+
+		case config.DOWNLOAD_STATUS_DOWNLOADER_FAILED:
+			localDownloadItems, err := databases.GetLocalDownloadItemsForDownload(localDownload.IDString())
+			if err != nil {
+				logger.Log.Errorw("Unable to get local download items")
 				continue
 			}
+
+			var hasFailedMoreThanMaxAllowed bool
+
+			for _, item := range localDownloadItems {
+				if item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED &&
+					item.RetryCounter >= config.AppConfig.DownloaderMaxDownloadsRetry {
+					hasFailedMoreThanMaxAllowed = true
+					break
+				}
+			}
+
+			if hasFailedMoreThanMaxAllowed {
+				logger.Log.Debugw("Download failed due to no retry attempts left!")
+				databases.UpdateLocalDownloadStatus(localDownload.IDString(), config.DOWNLOAD_STATUS_CLIENT_FAILED)
+			}
+			continue
+
+		case config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED:
+			databases.UpdateLocalDownloadStatus(localDownload.IDString(), config.DOWNLOAD_STATUS_CLIENT_COMPLETED)
+			continue
+
 		default:
 			continue
 		}
@@ -196,7 +191,138 @@ func ProcessDownloads() (string, error) {
 	return "Successfully updated downloads", nil
 }
 
-func ProcessDownloadItems() (string, error) {
+func ProcessTorrentsDownloadsQueue() (string, error) {
+	logger.Log.Infow("Started Processing Downloads on Shedule for qBittorrent!")
+
+	localDownloads, err := databases.GetLocalPendingDownloads(config.ProtocolTorrent)
+	if err != nil {
+		logger.Log.Errorw("Unable to retrieve pending downloads at this time. Please try again later!")
+		return "Unable to retrieve pending downloads at this time. Please try again later!", err
+	}
+
+	// var providerDownloads []models.DAT
+	// if databases.GetLocalDownloadsAddedToProviderCount() > 0 {
+	// 	provDl, err := services.TorboxTorrentGetDownloadList()
+	// 	if err != nil {
+	// 		logger.Log.Errorw("Failed to get download status from provider", "error", err)
+	// 		return "Unable to retrieve pending downloads at this time. Please try again later!", err
+	// 	}
+	// 	providerDownloads = provDl
+	// }
+
+	for _, localDownload := range localDownloads {
+
+		switch localDownload.Status {
+		case config.DOWNLOAD_STATUS_CLIENT_ADDED:
+			if databases.GetLocalDownloadsAddedToProviderCount() < config.GetTorrentsProvider().MaxSend {
+				torrent_id, errAdd := services.TorboxTorrentCreateDownload(localDownload)
+				if errAdd != nil {
+					logger.Log.Errorw("Failed to add download to provider", "error", errAdd)
+					continue
+				}
+
+				errorUpdate := databases.UpdateLocalDownloadProviderId(localDownload.IDString(), torrent_id, config.DOWNLOAD_STATUS_PROVIDER_ADDED)
+				if errorUpdate != nil {
+					logger.Log.Errorw("Failed to updated local download provider id", "error", errorUpdate)
+					continue
+				}
+
+				logger.Log.Debugw("Created download on provider", "download", localDownload.ID, "provider", torrent_id)
+			}
+
+		case config.DOWNLOAD_STATUS_PROVIDER_ADDED, config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING, config.DOWNLOAD_STATUS_PROVIDER_PROCESSING:
+			// for _, providerDownload := range providerDownloads {
+			// 	providerDownloadID := strconv.FormatInt(*providerDownload.ID, 10)
+			// 	if providerDownloadID == localDownload.ExternalProviderID {
+			// 		errStatus := databases.UpdateLocalDownloadStatus(localDownload.IDString(), services.TorboxUsenetDownloadStatusTranslate(*providerDownload.DownloadState))
+			// 		if errStatus != nil {
+			// 			logger.Log.Errorw("Failed to update download status", "error", errStatus)
+			// 			continue
+			// 		}
+			// 		provData, provDataErr := providerDownload.ToJSON()
+			// 		if provDataErr != nil {
+			// 			logger.Log.Errorw("Failed to get provider data in json", "error", provDataErr)
+			// 			continue
+			// 		}
+			// 		errProvData := databases.UpdateLocalDownloadProviderData(localDownload.IDString(), provData)
+			// 		if errProvData != nil {
+			// 			logger.Log.Errorw("Failed to update download status", "error", errProvData)
+			// 			continue
+			// 		}
+			// 	}
+			// }
+			// logger.Log.Debugw("Updating download", "download", localDownload, "providerStatus", providerDownloads)
+
+		case config.DOWNLOAD_STATUS_PROVIDER_COMPLETED:
+			// if config.GetUsenetProvider().PreferZippedFolder {
+			// 	downloadLink, requestDownloadLinkError := services.TorboxUsenetRequestDownloadLink(localDownload.ExternalProviderID, "-1")
+			// 	if requestDownloadLinkError != nil {
+			// 		logger.Log.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)
+			// 		continue
+			// 	}
+			// 	logger.Log.Debugw("Requested Zipped download link from provider", "downloadLink", downloadLink)
+
+			// 	fileInfo, errFile := gdl.GetFileInfo(context.Background(), downloadLink)
+			// 	if errFile != nil {
+			// 		logger.Log.Errorw("Unable to retrieve file metadata: " + errFile.Error())
+			// 		continue
+			// 	}
+			// 	downloadItemId, errAdd := databases.AddLocalDownloadItem(localDownload.IDString(), config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE, localDownload.Category, fileInfo.Filename, fileInfo.Filename, fileInfo.Size, localDownload.ExternalProviderID, "-1", downloadLink)
+			// 	if errAdd != nil {
+			// 		logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "item", downloadItemId)
+			// 	}
+			// 	logger.Log.Infow("Added download Item Id", "item", downloadItemId)
+			// } else {
+			// 	var providerDownloadFromStorage models.DAT
+			// 	providerDownloadFromStorage.LoadJSON(localDownload.ExternalProviderDataObject)
+			// 	for _, providerDownloadItem := range providerDownloadFromStorage.Files {
+			// 		downloadItemId, err := databases.AddLocalDownloadItem(localDownload.IDString(), config.DOWNLOAD_ITEM_TYPE_INDIVIDUAL_FILE, localDownload.Category, providerDownloadItem.ShortName, providerDownloadItem.Name, providerDownloadItem.Size, localDownload.ExternalProviderID, strconv.FormatInt(providerDownloadItem.ID, 10), "")
+			// 		if err != nil {
+			// 			logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "item", downloadItemId)
+			// 		}
+			// 		logger.Log.Infow("Added download Item Id", "download", localDownload.ID, "item", downloadItemId)
+			// 	}
+			// }
+			// databases.UpdateLocalDownloadStatus(localDownload.IDString(), config.DOWNLOAD_STATUS_DOWNLOADER_ADDED)
+
+		case config.DOWNLOAD_STATUS_DOWNLOADER_ADDED, config.DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING, config.DOWNLOAD_STATUS_DOWNLOADER_PROCESSING:
+			//databases.UpdateLocalDownloadStatus(localDownload.IDString(), GetLocalDownloadStatusBasedOnItems(localDownload.IDString(), config.DOWNLOAD_STATUS_DOWNLOADER_ADDED))
+
+		case config.DOWNLOAD_STATUS_DOWNLOADER_FAILED:
+			// localDownloadItems, err := databases.GetLocalDownloadItemsForDownload(localDownload.IDString())
+			// if err != nil {
+			// 	logger.Log.Errorw("Unable to get local download items")
+			// 	continue
+			// }
+
+			// var hasFailedMoreThanMaxAllowed bool
+
+			// for _, item := range localDownloadItems {
+			// 	if item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED &&
+			// 		item.RetryCounter >= config.AppConfig.DownloaderMaxDownloadsRetry {
+			// 		hasFailedMoreThanMaxAllowed = true
+			// 		break
+			// 	}
+			// }
+
+			// if hasFailedMoreThanMaxAllowed {
+			// 	logger.Log.Debugw("Download failed due to no retry attempts left!")
+			// 	databases.UpdateLocalDownloadStatus(localDownload.IDString(), config.DOWNLOAD_STATUS_CLIENT_FAILED)
+			// }
+			// continue
+
+		case config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED:
+			// databases.UpdateLocalDownloadStatus(localDownload.IDString(), config.DOWNLOAD_STATUS_CLIENT_COMPLETED)
+			// continue
+
+		default:
+			continue
+		}
+	}
+	return "Successfully updated downloads", nil
+}
+
+func ProcessDownloadItemsQueue() (string, error) {
 	logger.Log.Debugw("Started Processing Downloads Items on Shedule!")
 
 	localDownloadItems, err := databases.GetLocalDownloadItems()

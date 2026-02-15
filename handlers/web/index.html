@@ -50,7 +50,7 @@
 
         async function fetchData() {
             try {
-                const response = await fetch('/api/internal/stats');
+                const response = await fetch('/internal/api/stats');
                 
                 if (response.status === 401) {
                     window.location.href = '/';
@@ -197,7 +197,7 @@
             if (!confirm("Are you sure you want to delete this download?")) return;
 
             try {
-                const response = await fetch(`/api/internal/delete?id=${id}`, { method: 'DELETE' });
+                const response = await fetch(`/internal/api/delete?id=${id}`, { method: 'DELETE' });
                 if (response.ok) {
                     fetchData(); // Refresh list immediately
                 } else {

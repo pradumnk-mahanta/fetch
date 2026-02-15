@@ -71,6 +71,7 @@ type DAT struct {
 	TrackerMessage    *string    `json:"tracker_message,omitempty"`
 	Private           *bool      `json:"private,omitempty"`
 	UsenetdownloadID  *int64     `json:"usenetdownload_id,omitempty"`
+	TorrentID         *int64     `json:"torrent_id,omitempty"`
 }
 
 type File struct {

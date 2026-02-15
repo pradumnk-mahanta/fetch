@@ -86,12 +86,16 @@ func BuildQBTorrentsInfo(hashesParam string) ([]QBTorrentInfo, error) {
 		result = append(result, torrent)
 	}
 
+	if result == nil {
+		result = make([]QBTorrentInfo, 0)
+	}
+
 	return result, nil
 }
 
 func BuildQBSyncMainData(ridParam string) (*QBSyncMainInfo, error) {
 
-	downloads := databases.GetLocalDownloadsByProtocol("torrent")
+	downloads := databases.GetLocalDownloadsByProtocol(config.ProtocolTorrent)
 
 	torrents := make(map[string]QBTorrentInfo)
 

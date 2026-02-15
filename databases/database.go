@@ -205,14 +205,17 @@ func GetLocalDownloadDetails(id string) (LocalDownloadsInstance, error) {
 func GetLocalDownloadsByReference(references string) []LocalDownloadsInstance {
 
 	var downloads []LocalDownloadsInstance
-	hashes := strings.Split(references, "|")
 
-	result := DB.Preload("DownloadItems").Model(&LocalDownloadsInstance{}).
-		Where("original_download_reference IN ?", hashes).
-		Find(&downloads)
+	query := DB.Preload("DownloadItems").Model(&LocalDownloadsInstance{}).Where("protocol = ?", config.ProtocolTorrent)
 
-	if result.Error != nil {
-		logger.Log.Errorw("Database error while fetching by references", "references", references, "error", result.Error)
+	if references != "" {
+		hashes := strings.Split(references, "|")
+		query.Where("original_download_reference IN ?", hashes)
+	}
+
+	errFind := query.Find(&downloads).Error
+	if errFind != nil {
+		logger.Log.Errorw("Database error while fetching by references", "references", references, "error", errFind)
 	}
 
 	return downloads

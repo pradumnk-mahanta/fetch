@@ -74,7 +74,7 @@
         let fullConfig = {};
 
         async function init() {
-            const res = await fetch('/api/internal/config');
+            const res = await fetch('/internal/api/config');
             fullConfig = await res.json();
             
             document.getElementById('ver-tag').innerText = fullConfig.version;
@@ -172,7 +172,7 @@
             update.configured_debrid_providers = mapFormToList(formData, 'debrid');
             update.configured_usenet_providers = mapFormToList(formData, 'usenet');
 
-            const res = await fetch('/api/internal/config/update', {
+            const res = await fetch('/internal/api/config/update', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(update)

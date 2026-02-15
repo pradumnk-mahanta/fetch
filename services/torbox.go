@@ -251,7 +251,7 @@ func TorboxTorrentCreateDownload(localDownload databases.LocalDownloadsInstance)
 		return "", requestError
 	}
 
-	return strconv.FormatInt(*response.Data.DAT.ID, 10), nil
+	return strconv.FormatInt(*response.Data.DAT.TorrentID, 10), nil
 }
 
 func TorboxTorrentRequestDownloadLink(externalProviderId string, externalProviderItemId string) (string, error) {

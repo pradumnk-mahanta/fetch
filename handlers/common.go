@@ -20,7 +20,7 @@ func CommonHandler(writer http.ResponseWriter, request *http.Request) {
 	case "downloads":
 		switch task {
 		case "process":
-			result, err := adapters.ProcessDownloads()
+			result, err := adapters.ProcessUsenetDownloadsQueue()
 			if err != nil {
 				writer.WriteHeader(http.StatusInternalServerError)
 				writer.Write([]byte(`{"error": "Failed to update downloads"}`))
@@ -49,7 +49,7 @@ func CommonHandler(writer http.ResponseWriter, request *http.Request) {
 	case "download_items":
 		switch task {
 		case "process":
-			result, err := adapters.ProcessDownloadItems()
+			result, err := adapters.ProcessDownloadItemsQueue()
 			if err != nil {
 				writer.WriteHeader(http.StatusInternalServerError)
 				writer.Write([]byte(`{"error": "Failed to update downloads"}`))

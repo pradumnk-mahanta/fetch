@@ -76,7 +76,7 @@ func WebProtectedHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !isAuthenticated(r) {
-		if r.URL.Path == "/api/internal/stats" {
+		if r.URL.Path == "/internal/api/stats" {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -96,7 +96,7 @@ func WebProtectedHandler(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.Write(content)
 
-	case "/api/internal/stats":
+	case "/internal/api/stats":
 		HandleDownlaodsList(w)
 
 	case "/settings":
@@ -105,14 +105,14 @@ func WebProtectedHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write(content)
 		return
 
-	case "/api/internal/config":
+	case "internal/api/config":
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(config.AppConfig)
 
-	case "/api/internal/config/update":
+	case "/internal/api/config/update":
 		HandleConfigUpdate(w, r)
 
-	case "/api/internal/delete":
+	case "/internal/api/delete":
 		HandleDownloadDelete(w, r)
 
 	case "/logout":
