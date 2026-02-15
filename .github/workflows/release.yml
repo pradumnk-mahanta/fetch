@@ -44,7 +44,7 @@ jobs:
           tags: ghcr.io/${{ github.repository_owner }}/fetch:${{ env.VERSION }}
 
       - name: Tag and Push latest
-        if: env.VERSION != 'dev-${{ github.run_number }}'
+        if: ${{ !startsWith(env.VERSION, 'dev-') }}
         run: |
           docker tag ghcr.io/${{ github.repository_owner }}/fetch:${VERSION} \
                     ghcr.io/${{ github.repository_owner }}/fetch:latest
