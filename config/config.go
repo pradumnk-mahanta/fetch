@@ -1,8 +1,6 @@
 package config
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -13,17 +11,52 @@ var AppConfig *Config
 
 const configPath = "/data/config.json"
 
+const (
+	ApplicationDownloadRoot = "/downloads"
+)
+
 type Config struct {
-	AppLogLevel                    string `json:"APPLICATION_LOG_LEVEL"`
-	AppAuthUsername                string `json:"APPLICATION_AUTH_USERNAME"`
-	AppAuthPassword                string `json:"APPLICATION_AUTH_PASSWORD"`
-	AppUsenetDownloadProvider      string `json:"APPLICATION_USENET_DOWNLOAD_PROVIDER"`
-	AppMaxDownloadSendToProvider   int    `json:"APPLICATION_MAX_DOWNLOAD_SEND_TO_PROVIDER"`
-	SabCategories                  string `json:"SABNZBD_CATEGORIES"`
-	DownloaderMaxParallelDownloads int    `json:"DOWNLOADER_MAX_PARALLEL_DOWNLOADS"`
-	DownloaderMaxRetryDownloads    int    `json:"DOWNLOADER_MAX_RETRY_DOWNLOADS"`
-	ProviderTBAPIKey               string `json:"PROVIDER_TB_CONFIG_API_KEY"`
-	ProviderTBPreferZippedFolder   bool   `json:"PROVIDER_TB_CONFIG_PREFER_ZIPPED_FOLDER"`
+	Version                          string         `json:"version"`
+	ApplicationLogLevel              string         `json:"application_log_level"`
+	ApplicationSupportedLogLevel     []string       `json:"application_supported_log_level"`
+	ApplicationAuthUsername          string         `json:"application_auth_username"`
+	ApplicationAuthPassword          string         `json:"application_auth_password"`
+	ApplicationCategories            string         `json:"application_categories"`
+	SupportedDebridProviders         []ProviderInfo `json:"supported_debrid_providers"`
+	ConfiguredDebridProviders        []DebridConfig `json:"configured_debrid_providers"`
+	SupportedUsenetProviders         []ProviderInfo `json:"supported_usenet_providers"`
+	ConfiguredUsenetProviders        []UsenetConfig `json:"configured_usenet_providers"`
+	DownloaderMaxDownloadsConcurrent int            `json:"downloader_max_downloads_concurrent"`
+	DownloaderMaxDownloadsRetry      int            `json:"downloader_max_downloads_retry"`
+}
+
+type ProviderInfo struct {
+	ID             string `json:"debrid_provider_id,omitempty"`
+	UsenetID       string `json:"usenet_provider_id,omitempty"`
+	Name           string `json:"debrid_provider_name,omitempty"`
+	UsenetName     string `json:"usenet_provider_name,omitempty"`
+	APIEndpoint    string `json:"debrid_provider_api_endpoint,omitempty"`
+	UsenetEndpoint string `json:"usenet_provider_api_endpoint,omitempty"`
+}
+
+type DebridConfig struct {
+	Priority           int    `json:"priority"`
+	ID                 string `json:"debrid_provider_id"`
+	Name               string `json:"debrid_provider_name"`
+	APIEndpoint        string `json:"debrid_provider_api_endpoint"`
+	APIKey             string `json:"debrid_provider_api_key"`
+	PreferZippedFolder bool   `json:"debrid_provider_prefer_zipped_folder"`
+	MaxSend            int    `json:"debrid_provider_max_send"`
+}
+
+type UsenetConfig struct {
+	Priority           int    `json:"priority"`
+	ID                 string `json:"usenet_provider_id"`
+	Name               string `json:"usenet_provider_name"`
+	APIEndpoint        string `json:"usenet_provider_api_endpoint"`
+	APIKey             string `json:"usenet_provider_api_key"`
+	PreferZippedFolder bool   `json:"usenet_provider_prefer_zipped_folder"`
+	MaxSend            int    `json:"usenet_provider_max_send"`
 }
 
 func LoadConfig() error {
@@ -63,42 +96,64 @@ func SaveConfig() error {
 }
 
 func CreateDefaultConfig() error {
-	//Default Values
 	AppConfig = &Config{
-		AppLogLevel:                    "INFO",
-		AppAuthUsername:                "",
-		AppAuthPassword:                "",
-		AppUsenetDownloadProvider:      "",
-		AppMaxDownloadSendToProvider:   2,
-		SabCategories:                  "sonarr,radarr",
-		DownloaderMaxParallelDownloads: 2,
-		DownloaderMaxRetryDownloads:    2,
-		ProviderTBAPIKey:               "",
-		ProviderTBPreferZippedFolder:   false,
+		Version:                      "0.1.2",
+		ApplicationSupportedLogLevel: []string{"INFO", "DEBUG"},
+		ApplicationLogLevel:          "INFO",
+		ApplicationAuthUsername:      "",
+		ApplicationAuthPassword:      "",
+		ApplicationCategories:        "sonarr,radarr",
+
+		SupportedDebridProviders: []ProviderInfo{
+			{
+				ID:          "torbox",
+				Name:        "Torbox",
+				APIEndpoint: "https://api.torbox.app/v1/api",
+			},
+		},
+
+		ConfiguredDebridProviders: []DebridConfig{},
+
+		SupportedUsenetProviders: []ProviderInfo{
+			{
+				UsenetID:       "torbox",
+				UsenetName:     "Torbox",
+				UsenetEndpoint: "https://api.torbox.app/v1/api",
+			},
+		},
+
+		ConfiguredUsenetProviders: []UsenetConfig{},
+
+		DownloaderMaxDownloadsConcurrent: 2,
+		DownloaderMaxDownloadsRetry:      2,
 	}
 
 	dir := filepath.Dir(configPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("Failed to create config directory: %w", err)
+		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
 	data, err := json.MarshalIndent(AppConfig, "", "    ")
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to marshal default config: %w", err)
 	}
 
 	if err := os.WriteFile(configPath, data, 0644); err != nil {
-		return fmt.Errorf("Failed to write default config: %w", err)
+		return fmt.Errorf("failed to write default config: %w", err)
 	}
 
-	fmt.Printf("Default config created at %s, please add the respective required details and restart the application", configPath)
+	fmt.Printf("New format config created at %s. Please update your details and restart.\n", configPath)
+
 	return ReadConfig()
 }
 
-const (
-	TB_API_BASE_URL           = "https://api.torbox.app/v1/api"
-	APPLICATION_DOWNLOAD_ROOT = "/downloads"
-)
+func GetUsenetProvider() UsenetConfig {
+	if len(AppConfig.ConfiguredDebridProviders) == 0 {
+		return UsenetConfig{}
+	} else {
+		return AppConfig.ConfiguredUsenetProviders[0]
+	}
+}
 
 const (
 	DOWNLOAD_STATUS_CLIENT_ADDED           = "Added"
@@ -133,9 +188,3 @@ const (
 	DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE    = "Full Archive for Download"
 	DOWNLOAD_ITEM_TYPE_INDIVIDUAL_FILE = "Individual File for Download"
 )
-
-func GenerateSessionHash() string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	return hex.EncodeToString(b)
-}

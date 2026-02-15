@@ -39,7 +39,7 @@ func WebHandlerLogin(w http.ResponseWriter, r *http.Request) {
 	user := r.FormValue("username")
 	pass := r.FormValue("password")
 
-	if user == config.AppConfig.AppAuthUsername && pass == config.AppConfig.AppAuthPassword {
+	if user == config.AppConfig.ApplicationAuthUsername && pass == config.AppConfig.ApplicationAuthPassword {
 		hash := GenerateSessionHash()
 		activeSessions[hash] = time.Now().Add(24 * time.Hour)
 
@@ -64,7 +64,7 @@ func GenerateSessionHash() string {
 
 func WebProtectedHandler(w http.ResponseWriter, r *http.Request) {
 
-	if config.AppConfig.AppAuthUsername == "" {
+	if config.AppConfig.ApplicationAuthUsername == "" {
 		if r.URL.Path != "/" {
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
@@ -138,7 +138,7 @@ func WebProtectedHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func WebHandlerRegister(w http.ResponseWriter, r *http.Request) {
-	if config.AppConfig.AppAuthUsername != "" {
+	if config.AppConfig.ApplicationAuthUsername != "" {
 		http.Error(w, "Initial setup already completed.", http.StatusForbidden)
 		return
 	}
@@ -156,8 +156,8 @@ func WebHandlerRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	config.AppConfig.AppAuthUsername = u
-	config.AppConfig.AppAuthPassword = p
+	config.AppConfig.ApplicationAuthUsername = u
+	config.AppConfig.ApplicationAuthPassword = p
 
 	if err := config.SaveConfig(); err != nil {
 		logger.Log.Errorw("Failed to save credentials to config file", "error", err)

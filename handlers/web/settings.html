@@ -8,116 +8,196 @@
 </head>
 <body class="bg-gray-950 text-gray-100 font-sans min-h-screen">
 
-    <div class="container mx-auto px-4 py-12">
-        <div class="max-w-2xl mx-auto">
-            <header class="mb-10 flex justify-between items-end">
-                <div>
-                    <h1 class="text-3xl font-extrabold text-white">Application Settings</h1>
-                    <p class="text-gray-500 text-sm mt-1">Configure your Fetch instance and provider keys.</p>
-                </div>
-                <a href="/" class="text-sm text-blue-500 hover:text-blue-400 font-medium">← Back to Dashboard</a>
-            </header>
+    <div class="container mx-auto px-4 py-8 max-w-5xl">
+        <header class="flex justify-between items-center mb-10 pb-6 border-b border-gray-800">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight text-white">
+                    <span class="text-blue-500">Fetch</span> Settings
+                </h1>
+                <p class="text-gray-500 text-sm mt-1">Version: <span id="ver-tag" class="text-blue-400 font-mono"></span></p>
+            </div>
+            <div class="flex items-center gap-4">
+                <a href="/" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition">
+                    ← Back to Dashboard
+                </a>
+            </div>
+        </header>
 
-            <form id="config-form" class="space-y-6 bg-gray-900 p-8 rounded-2xl border border-gray-800 shadow-2xl">
-                <div id="fields-container" class="space-y-6">
-                    <div class="animate-pulse flex space-y-4 flex-col">
-                        <div class="h-4 bg-gray-800 rounded w-1/4"></div>
-                        <div class="h-10 bg-gray-800 rounded w-full"></div>
+        <form id="config-form" class="space-y-8">
+            <div class="bg-gray-900 rounded-2xl border border-gray-800 shadow-xl overflow-hidden">
+                <div class="p-6 bg-gray-900/50 border-b border-gray-800">
+                    <h2 class="text-lg font-bold text-white uppercase tracking-wider text-xs">Application Core</h2>
+                </div>
+                <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-2">Log Level</label>
+                        <select name="application_log_level" id="log-level-select" class="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"></select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-2">Categories (CSV)</label>
+                        <input type="text" name="application_categories" id="app-categories" class="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition">
                     </div>
                 </div>
+            </div>
 
-                <div class="pt-6 border-t border-gray-800 flex justify-end gap-4">
-                    <div id="save-status" class="text-sm self-center hidden"></div>
-                    <button type="submit" class="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition shadow-lg transform active:scale-95">
-                        Save Configuration
-                    </button>
+            <section>
+                <div class="flex justify-between items-center mb-4 px-2">
+                    <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Debrid Providers</h2>
+                    <div class="flex gap-2">
+                        <select id="supported-debrid-list" class="bg-gray-900 border border-gray-700 text-xs rounded-lg px-3 py-1.5 outline-none"></select>
+                        <button type="button" onclick="addProvider('debrid')" class="text-xs bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded-lg font-bold transition">Add Provider</button>
+                    </div>
                 </div>
-            </form>
-        </div>
+                <div id="debrid-container" class="space-y-4"></div>
+            </section>
+
+            <section>
+                <div class="flex justify-between items-center mb-4 px-2">
+                    <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Usenet Providers</h2>
+                    <div class="flex gap-2">
+                        <select id="supported-usenet-list" class="bg-gray-900 border border-gray-700 text-xs rounded-lg px-3 py-1.5 outline-none"></select>
+                        <button type="button" onclick="addProvider('usenet')" class="text-xs bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded-lg font-bold transition">Add Provider</button>
+                    </div>
+                </div>
+                <div id="usenet-container" class="space-y-4"></div>
+            </section>
+
+            <div class="flex justify-end pt-6">
+                <button type="submit" class="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-lg transition transform active:scale-95">
+                    Save Configuration
+                </button>
+            </div>
+        </form>
     </div>
 
     <script>
-        const container = document.getElementById('fields-container');
-        const statusEl = document.getElementById('save-status');
+        let fullConfig = {};
 
-        // Fetch the current config from your Go API
-        async function loadConfig() {
-            try {
-                const response = await fetch('/api/internal/config');
-                const config = await response.json();
-                renderFields(config);
-            } catch (err) {
-                container.innerHTML = `<p class="text-red-500">Error loading config: ${err.message}</p>`;
-            }
+        async function init() {
+            const res = await fetch('/api/internal/config');
+            fullConfig = await res.json();
+            
+            document.getElementById('ver-tag').innerText = fullConfig.version;
+            document.getElementById('app-categories').value = fullConfig.application_categories;
+            
+            const logSelect = document.getElementById('log-level-select');
+            fullConfig.application_supported_log_level.forEach(lvl => {
+                logSelect.innerHTML += `<option value="${lvl}" ${lvl === fullConfig.application_log_level ? 'selected' : ''}>${lvl}</option>`;
+            });
+
+            populateSupported('supported-debrid-list', fullConfig.supported_debrid_providers, 'debrid');
+            populateSupported('supported-usenet-list', fullConfig.supported_usenet_providers, 'usenet');
+
+            renderProviders('debrid', fullConfig.configured_debrid_providers);
+            renderProviders('usenet', fullConfig.configured_usenet_providers);
         }
 
-        function renderFields(config) {
-            container.innerHTML = Object.keys(config).map(key => {
-                const val = config[key];
-                const label = key.replace(/_/g, ' '); // Human readable labels
-                
-                let inputHtml = '';
-                
-                if (typeof val === 'boolean') {
-                    inputHtml = `
-                        <select name="${key}" class="w-full p-3 bg-gray-950 border border-gray-800 rounded-lg text-white focus:border-blue-500 outline-none transition">
-                            <option value="true" ${val ? 'selected' : ''}>Enabled (True)</option>
-                            <option value="false" ${!val ? 'selected' : ''}>Disabled (False)</option>
-                        </select>`;
-                } else if (typeof val === 'number') {
-                    inputHtml = `<input type="number" name="${key}" value="${val}" class="w-full p-3 bg-gray-950 border border-gray-800 rounded-lg text-white focus:border-blue-500 outline-none transition">`;
-                } else {
-                    const isPassword = key.includes('PASSWORD') || key.includes('API_KEY');
-                    inputHtml = `<input type="${isPassword ? 'password' : 'text'}" name="${key}" value="${val}" class="w-full p-3 bg-gray-950 border border-gray-800 rounded-lg text-white focus:border-blue-500 outline-none transition">`;
-                }
+        function populateSupported(elId, list, type) {
+            const el = document.getElementById(elId);
+            list.forEach(p => {
+                el.innerHTML += `<option value="${p[`${type}_provider_id`]}">${p[`${type}_provider_name`]}</option>`;
+            });
+        }
 
-                return `
-                    <div class="flex flex-col gap-2">
-                        <label class="text-[10px] uppercase font-bold text-gray-500 tracking-widest">${label}</label>
-                        ${inputHtml}
+        function renderProviders(type, list) {
+            const container = document.getElementById(`${type}-container`);
+            container.innerHTML = list.map((p, i) => `
+                <div class="bg-gray-900 rounded-2xl border border-gray-800 shadow-xl overflow-hidden">
+                    <div class="p-4 bg-gray-900/50 border-b border-gray-800 flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <span class="px-2 py-0.5 bg-blue-900/40 text-blue-400 text-[9px] font-bold rounded uppercase border border-blue-800/50">Active</span>
+                            <span class="text-sm font-bold text-white">${p[`${type}_provider_name`]}</span>
+                        </div>
+                        <button type="button" onclick="removeProvider('${type}', ${i})" class="text-gray-500 hover:text-red-500 transition">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
                     </div>
-                `;
-            }).join('');
+                    <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="md:col-span-2">
+                            <label class="text-[10px] uppercase font-bold text-gray-500 mb-2 block">API Secret Key</label>
+                            <input type="password" name="${type}[${i}].api_key" value="${p[`${type}_provider_api_key`]}" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none transition">
+                            <input type="hidden" name="${type}[${i}].id" value="${p[`${type}_provider_id`]}">
+                            <input type="hidden" name="${type}[${i}].name" value="${p[`${type}_provider_name`]}">
+                            <input type="hidden" name="${type}[${i}].endpoint" value="${p[`${type}_provider_api_endpoint`]}">
+                        </div>
+                        <div>
+                            <label class="text-[10px] uppercase font-bold text-gray-500 mb-2 block">Priority</label>
+                            <input type="number" name="${type}[${i}].priority" value="${p.priority}" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm outline-none">
+                        </div>
+                        <div>
+                            <label class="text-[10px] uppercase font-bold text-gray-500 mb-2 block">Max Parallel</label>
+                            <input type="number" name="${type}[${i}].max" value="${p[`${type}_provider_max_send`]}" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm outline-none">
+                        </div>
+                        <div class="md:col-span-2 flex items-center gap-3 mt-4">
+                            <input type="checkbox" id="${type}-${i}-zip" name="${type}[${i}].zipped" value="true" ${p[`${type}_provider_prefer_zipped_folder`] ? 'checked' : ''} class="w-4 h-4 rounded border-gray-700 bg-gray-900 text-blue-600 focus:ring-blue-500">
+                            <label for="${type}-${i}-zip" class="text-xs font-bold text-gray-400 uppercase tracking-widest">Prefer Zipped Folders</label>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function addProvider(type) {
+            const select = document.getElementById(`supported-${type}-list`);
+            const selectedId = select.value;
+            const sourceList = type === 'debrid' ? fullConfig.supported_debrid_providers : fullConfig.supported_usenet_providers;
+            const template = sourceList.find(p => p[`${type}_provider_id`] === selectedId || p[`usenet_provider_id`] === selectedId);
+
+            const newList = type === 'debrid' ? fullConfig.configured_debrid_providers : fullConfig.configured_usenet_providers;
+            
+            newList.push({
+                priority: newList.length + 1,
+                [`${type}_provider_id`]: template[`${type}_provider_id`] || template[`usenet_provider_id`],
+                [`${type}_provider_name`]: template[`${type}_provider_name`] || template[`usenet_provider_name`],
+                [`${type}_provider_api_endpoint`]: template[`${type}_provider_api_endpoint`] || template[`usenet_provider_api_endpoint`],
+                [`${type}_provider_api_key`]: "",
+                [`${type}_provider_prefer_zipped_folder`]: true,
+                [`${type}_provider_max_send`]: 2
+            });
+            renderProviders(type, newList);
+        }
+
+        function removeProvider(type, index) {
+            const list = type === 'debrid' ? fullConfig.configured_debrid_providers : fullConfig.configured_usenet_providers;
+            list.splice(index, 1);
+            renderProviders(type, list);
         }
 
         document.getElementById('config-form').onsubmit = async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
-            const updatedConfig = {};
+            const update = { ...fullConfig };
+            update.application_log_level = formData.get('application_log_level');
+            update.application_categories = formData.get('application_categories');
+            update.configured_debrid_providers = mapFormToList(formData, 'debrid');
+            update.configured_usenet_providers = mapFormToList(formData, 'usenet');
 
-            // Re-map back to proper types
-            formData.forEach((value, key) => {
-                if (value === 'true') updatedConfig[key] = true;
-                else if (value === 'false') updatedConfig[key] = false;
-                else if (!isNaN(value) && value.trim() !== "") updatedConfig[key] = Number(value);
-                else updatedConfig[key] = value;
+            const res = await fetch('/api/internal/config/update', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(update)
             });
-
-            try {
-                const res = await fetch('/api/internal/config/update', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedConfig)
-                });
-
-                if (res.ok) {
-                    showStatus("Saved successfully!", "text-green-500");
-                } else {
-                    showStatus("Error saving.", "text-red-500");
-                }
-            } catch (err) {
-                showStatus("Network error.", "text-red-500");
-            }
+            if (res.ok) alert("Settings successfully saved.");
         };
 
-        function showStatus(text, colorClass) {
-            statusEl.innerText = text;
-            statusEl.className = `text-sm self-center ${colorClass}`;
-            statusEl.classList.remove('hidden');
-            setTimeout(() => statusEl.classList.add('hidden'), 3000);
+        function mapFormToList(formData, type) {
+            const list = [];
+            const count = type === 'debrid' ? fullConfig.configured_debrid_providers.length : fullConfig.configured_usenet_providers.length;
+            for (let i = 0; i < count; i++) {
+                list.push({
+                    priority: parseInt(formData.get(`${type}[${i}].priority`)),
+                    [`${type}_provider_id`]: formData.get(`${type}[${i}].id`),
+                    [`${type}_provider_name`]: formData.get(`${type}[${i}].name`),
+                    [`${type}_provider_api_endpoint`]: formData.get(`${type}[${i}].endpoint`),
+                    [`${type}_provider_api_key`]: formData.get(`${type}[${i}].api_key`),
+                    [`${type}_provider_prefer_zipped_folder`]: formData.get(`${type}[${i}].zipped`) === 'true',
+                    [`${type}_provider_max_send`]: parseInt(formData.get(`${type}[${i}].max`))
+                });
+            }
+            return list;
         }
 
-        loadConfig();
+        init();
     </script>
 </body>
 </html>

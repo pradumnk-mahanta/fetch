@@ -253,7 +253,7 @@ func BuildSabHistoryResponse(
 			}
 		}
 
-		root := config.APPLICATION_DOWNLOAD_ROOT
+		root := config.ApplicationDownloadRoot
 		storagePath := filepath.Join(root, download.Category, download.DownloadName)
 
 		completedUnix := download.CompletedAt.Unix()

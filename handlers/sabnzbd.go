@@ -30,7 +30,7 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 
 	logger.Log.Debugw("Received Credentials", "user", user, "pass", "Not Logged")
 
-	if user != config.AppConfig.AppAuthUsername || pass != config.AppConfig.AppAuthPassword {
+	if user != config.AppConfig.ApplicationAuthUsername || pass != config.AppConfig.ApplicationAuthPassword {
 		writer.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(writer).Encode(GetSABNzbdError("Credentials Incorrect!"))
 		return
@@ -211,7 +211,7 @@ func GetSABNzbdError(message string) map[string]interface{} {
 func HandleConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	downloadRoot := config.APPLICATION_DOWNLOAD_ROOT
+	downloadRoot := config.ApplicationDownloadRoot
 
 	resp := map[string]interface{}{
 		"config": map[string]interface{}{
@@ -247,7 +247,7 @@ func HandleConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetConfigCategories(downloadRoot string) []map[string]interface{} {
-	appConfigCategoriesString := config.AppConfig.SabCategories
+	appConfigCategoriesString := config.AppConfig.ApplicationCategories
 	if appConfigCategoriesString == "" {
 		appConfigCategoriesString = "*"
 	}

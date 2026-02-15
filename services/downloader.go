@@ -278,7 +278,7 @@ func (s *GDLService) Status() []models.GDLDownload {
 }
 
 func GetDownloadRootPath(category string) (string, error) {
-	root := config.APPLICATION_DOWNLOAD_ROOT
+	root := config.ApplicationDownloadRoot
 	if root == "" {
 		return "", errors.New("DOWNLOAD_ROOT not set")
 	}

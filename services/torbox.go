@@ -38,14 +38,14 @@ func TorboxUsenetCreateDownload(localDownload databases.LocalDownloadsInstance) 
 	}
 
 	client := &http.Client{Timeout: time.Second * 60}
-	request, requestError := http.NewRequest("POST", config.TB_API_BASE_URL+"/usenet/createusenetdownload", payload)
+	request, requestError := http.NewRequest("POST", config.GetUsenetProvider().APIEndpoint+"/usenet/createusenetdownload", payload)
 
 	if requestError != nil {
 		logger.Log.Errorw("Failed to create HTTP request", "error", requestError)
 		return "", requestError
 	}
 
-	request.Header.Add("Authorization", "Bearer "+config.AppConfig.ProviderTBAPIKey)
+	request.Header.Add("Authorization", "Bearer "+config.GetUsenetProvider().APIKey)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
 	request.Header.Set("Accept", "application/json")
 	requestResponse, requestError := client.Do(request)
@@ -76,15 +76,15 @@ func TorboxUsenetCreateDownload(localDownload databases.LocalDownloadsInstance) 
 }
 
 func TorboxUsenetRequestDownloadLink(externalProviderId string, externalProviderItemId string) (string, error) {
-	baseUrl, _ := url.Parse(config.TB_API_BASE_URL + "/usenet/requestdl")
+	baseUrl, _ := url.Parse(config.GetUsenetProvider().APIEndpoint + "/usenet/requestdl")
 
 	queryParams := baseUrl.Query()
-	queryParams.Set("token", config.AppConfig.ProviderTBAPIKey)
+	queryParams.Set("token", config.GetUsenetProvider().APIKey)
 	queryParams.Set("usenet_id", externalProviderId)
 	if externalProviderItemId != "-1" {
 		queryParams.Set("file_id", externalProviderItemId)
 	}
-	if config.AppConfig.ProviderTBPreferZippedFolder {
+	if config.GetUsenetProvider().PreferZippedFolder {
 		queryParams.Set("zip_link", "true")
 	}
 
@@ -98,7 +98,7 @@ func TorboxUsenetRequestDownloadLink(externalProviderId string, externalProvider
 		return "", requestError
 	}
 
-	request.Header.Add("Authorization", "Bearer "+config.AppConfig.ProviderTBAPIKey)
+	request.Header.Add("Authorization", "Bearer "+config.GetUsenetProvider().APIKey)
 	request.Header.Set("Accept", "application/json")
 	requestResponse, requestError := client.Do(request)
 	if requestError != nil {
@@ -130,7 +130,7 @@ func TorboxUsenetRequestDownloadLink(externalProviderId string, externalProvider
 func TorboxUsenetGetDownloadList() ([]models.DAT, error) {
 
 	client := &http.Client{Timeout: time.Second * 60}
-	request, requestError := http.NewRequest("GET", config.TB_API_BASE_URL+"/usenet/mylist", nil)
+	request, requestError := http.NewRequest("GET", config.GetUsenetProvider().APIEndpoint+"/usenet/mylist", nil)
 
 	var tbDownloads []models.DAT
 
@@ -139,7 +139,7 @@ func TorboxUsenetGetDownloadList() ([]models.DAT, error) {
 		return tbDownloads, requestError
 	}
 
-	request.Header.Add("Authorization", "Bearer "+config.AppConfig.ProviderTBAPIKey)
+	request.Header.Add("Authorization", "Bearer "+config.GetUsenetProvider().APIKey)
 	request.Header.Set("Accept", "application/json")
 	requestResponse, requestError := client.Do(request)
 	if requestError != nil {
