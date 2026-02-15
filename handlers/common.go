@@ -139,8 +139,10 @@ func DeleteLocalDownload(downloadId string) error {
 			pathOnDisk := config.ApplicationDownloadRoot + "/" + downloadItem.Category + "/" + downloadItem.FilePath
 			if downloadItem.DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
 				pathOnDisk = strings.TrimSuffix(pathOnDisk, filepath.Ext(downloadItem.FilePath))
+			} else {
+				pathOnDisk = filepath.Dir(pathOnDisk)
 			}
-			err := os.Remove(pathOnDisk)
+			err := os.RemoveAll(pathOnDisk)
 			if err != nil {
 				if os.IsNotExist(err) {
 					logger.Log.Debugw("Path not present on disk", "path", pathOnDisk)

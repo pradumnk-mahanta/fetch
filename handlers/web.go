@@ -105,7 +105,7 @@ func WebProtectedHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write(content)
 		return
 
-	case "internal/api/config":
+	case "/internal/api/config":
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(config.AppConfig)
 
