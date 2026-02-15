@@ -169,18 +169,16 @@ func TorboxUsenetGetDownloadList() ([]models.DAT, error) {
 	return response.Data.DATArray, nil
 }
 
-func TorboxUsenetDownloadStatusTranslate(status string) string {
+func TranslateTorboxDownloadStatusToLocalStatus(status string) string {
 	switch {
 	case strings.Contains(status, "processing"):
 		return config.DOWNLOAD_STATUS_PROVIDER_PROCESSING
 	case strings.Contains(status, "downloading"):
 		return config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING
-	case strings.Contains(status, "completed"):
-		return config.DOWNLOAD_STATUS_PROVIDER_COMPLETED
-	case strings.Contains(status, "uploading"):
-		return config.DOWNLOAD_STATUS_PROVIDER_COMPLETED
 	case strings.Contains(status, "failed"):
 		return config.DOWNLOAD_STATUS_PROVIDER_FAILED
+	case strings.Contains(status, "completed"), strings.Contains(status, "uploading"), strings.Contains(status, "cached"):
+		return config.DOWNLOAD_STATUS_PROVIDER_COMPLETED
 	default:
 		return config.DOWNLOAD_STATUS_PROVIDER_ADDED
 	}

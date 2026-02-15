@@ -12,6 +12,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/anacrolix/torrent/metainfo"
@@ -44,6 +46,14 @@ func QBittorrentHandler(w http.ResponseWriter, r *http.Request) {
 
 	case "/qbittorrent/api/v2/torrents/info":
 		HandleQBTorrentsInfo(w, r)
+		return
+
+	case "/qbittorrent/api/v2/torrents/files":
+		HandleQBTorrentFiles(w, r)
+		return
+
+	case "/qbittorrent/api/v2/torrents/properties":
+		HandleQBTorrentProperties(w, r)
 		return
 
 	case "/qbittorrent/api/v2/torrents/add":
@@ -138,7 +148,7 @@ func HandleQBDelete(w http.ResponseWriter, r *http.Request) {
 	localDownloads := databases.GetLocalDownloadsByReference(hashes)
 	for _, localDownload := range localDownloads {
 		err := DeleteLocalDownload(localDownload.IDString())
-		if err == nil {
+		if err != nil {
 			logger.Log.Debugw("Unable to delete Local Download", "id", localDownload.IDString())
 		}
 	}
@@ -424,4 +434,164 @@ func HandleQBTorrentCategories(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(categories)
+}
+
+func HandleQBTorrentFiles(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	hash := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("hash")))
+	if hash == "" {
+		http.Error(w, `{"error":"Missing hash parameter"}`, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	downloads := databases.GetLocalDownloadsByReference(hash)
+	if !(len(downloads) > 0) {
+		json.NewEncoder(w).Encode([]interface{}{})
+		return
+	}
+
+	download := downloads[0]
+	if len(download.OriginalDownloadFile) == 0 {
+		json.NewEncoder(w).Encode([]interface{}{})
+		return
+	}
+
+	if len(download.OriginalDownloadFile) == 0 {
+		json.NewEncoder(w).Encode([]interface{}{})
+		return
+	}
+
+	miFile, errFile := metainfo.Load(bytes.NewReader(download.OriginalDownloadFile))
+	if errFile != nil {
+		json.NewEncoder(w).Encode([]interface{}{})
+		return
+	}
+
+	info, err := miFile.UnmarshalInfo()
+	if err != nil {
+		json.NewEncoder(w).Encode([]interface{}{})
+		return
+	}
+
+	var files []map[string]interface{}
+
+	if len(info.Files) > 0 {
+		for i, f := range info.Files {
+			files = append(files, map[string]interface{}{
+				"index":        i,
+				"name":         strings.Join(f.Path, "/"),
+				"size":         f.Length,
+				"progress":     0.0,
+				"priority":     1,
+				"is_seed":      false,
+				"piece_range":  []int{0, 0},
+				"availability": -1,
+			})
+		}
+	} else {
+		files = append(files, map[string]interface{}{
+			"index":        0,
+			"name":         info.Name,
+			"size":         info.Length,
+			"progress":     0.0,
+			"priority":     1,
+			"is_seed":      false,
+			"piece_range":  []int{0, 0},
+			"availability": -1,
+		})
+	}
+
+	json.NewEncoder(w).Encode(files)
+}
+
+func HandleQBTorrentProperties(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
+		return
+	}
+
+	hash := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("hash")))
+	if hash == "" {
+		http.Error(w, `{"error":"Missing hash parameter"}`, http.StatusBadRequest)
+		return
+	}
+
+	downloads := databases.GetLocalDownloadsByReference(hash)
+	if !(len(downloads) > 0) {
+		json.NewEncoder(w).Encode([]interface{}{})
+		return
+	}
+
+	download := downloads[0]
+
+	w.Header().Set("Content-Type", "application/json")
+
+	savePath := config.ApplicationDownloadRoot + "/" + download.Category
+	if download.DownloadItems[0].DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
+		savePath = strings.TrimSuffix(savePath+"/"+download.DownloadItems[0].FilePath, filepath.Ext(download.DownloadItems[0].FilePath))
+	} else {
+		savePath = GetTopLevelDir(download.DownloadItems[0].FilePath)
+	}
+
+	response := map[string]interface{}{
+		"save_path":                savePath + string(os.PathSeparator),
+		"creation_date":            download.AddedAt,
+		"piece_size":               0,
+		"comment":                  "",
+		"total_wasted":             0,
+		"total_uploaded":           0,
+		"total_uploaded_session":   0,
+		"total_downloaded":         0,
+		"total_downloaded_session": 0,
+		"up_limit":                 0,
+		"dl_limit":                 0,
+		"time_elapsed":             0,
+		"seeding_time":             0,
+		"nb_connections":           0,
+		"nb_connections_limit":     -1,
+		"share_ratio":              0,
+		"addition_date":            download.AddedAt,
+		"completion_date":          download.CompletedAt,
+		"created_by":               "",
+		"private":                  false,
+	}
+
+	if len(download.OriginalDownloadFile) > 0 {
+		mi, err := metainfo.Load(bytes.NewReader(download.OriginalDownloadFile))
+		if err == nil {
+			info, err := mi.UnmarshalInfo()
+			if err == nil {
+				response["piece_size"] = info.PieceLength
+				response["creation_date"] = mi.CreationDate
+				response["comment"] = mi.Comment
+				response["created_by"] = mi.CreatedBy
+				response["private"] = info.Private
+			}
+		}
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
+func GetTopLevelDir(path string) string {
+	path = filepath.Clean(path)
+
+	if !filepath.IsAbs(path) {
+		path = string(os.PathSeparator) + path
+	}
+
+	trimmed := strings.TrimPrefix(path, string(os.PathSeparator))
+	parts := strings.Split(trimmed, string(os.PathSeparator))
+
+	if len(parts) > 0 {
+		return string(os.PathSeparator) + parts[0]
+	}
+
+	return string(os.PathSeparator)
 }
