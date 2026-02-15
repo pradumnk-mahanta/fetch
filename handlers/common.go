@@ -2,11 +2,15 @@ package handlers
 
 import (
 	"fetch/adapters"
+	"fetch/config"
 	"fetch/databases"
 	"fetch/logger"
 	"fetch/models"
 	"fetch/services"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 func CommonHandler(writer http.ResponseWriter, request *http.Request) {
@@ -131,8 +135,24 @@ func DeleteLocalDownload(downloadId string) error {
 	downloader := services.GetGDLService()
 	for _, downloadItem := range localDownlaodItems {
 		downloader.Delete(downloadItem.IDString())
-	}
+		if downloadItem.FilePath != "" {
+			pathOnDisk := config.ApplicationDownloadRoot + "/" + downloadItem.Category + "/" + downloadItem.FilePath
+			if downloadItem.DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
+				pathOnDisk = strings.TrimSuffix(pathOnDisk, filepath.Ext(downloadItem.FilePath))
+			}
+			err := os.Remove(pathOnDisk)
+			if err != nil {
+				if os.IsNotExist(err) {
+					logger.Log.Debugw("Path not present on disk", "path", pathOnDisk)
+				} else {
+					logger.Log.Errorw("Failed to delete", "path", pathOnDisk, "error", err)
+				}
+			} else {
+				logger.Log.Infow("Deleted", "path", pathOnDisk)
+			}
 
+		}
+	}
 	databases.DeleteLocalDownload(downloadId)
 	return nil
 }
