@@ -13,8 +13,8 @@ import (
 )
 
 func main() {
-	config.LoadConfig()
-	if err := config.LoadConfig(); err != nil {
+	configLoadError := config.LoadConfig()
+	if configLoadError != nil {
 		panic("Unable to find config file. Please add a config file and restart the application!")
 	}
 

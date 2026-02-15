@@ -79,19 +79,26 @@ func ReadConfig() error {
 		return fmt.Errorf("Failed to parse config JSON: %w", err)
 	}
 
+	newVersion := GetVersionFromPackage()
+	if cfg.Version != newVersion {
+		fmt.Printf("Updating app version from %s to %s\n", cfg.Version, newVersion)
+		cfg.Version = newVersion
+	}
+
 	AppConfig = &cfg
+	SaveConfig()
 	return nil
 }
 
 func SaveConfig() error {
 	data, err := json.MarshalIndent(AppConfig, "", "    ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal config to JSON: %w", err)
+		return fmt.Errorf("Failed to marshal config to JSON: %w", err)
 	}
 
 	err = os.WriteFile(configPath, data, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to write config file: %w", err)
+		return fmt.Errorf("Failed to write config file: %w", err)
 	}
 
 	return nil
@@ -99,7 +106,7 @@ func SaveConfig() error {
 
 func CreateDefaultConfig() error {
 	AppConfig = &Config{
-		Version:                      "0.1.2",
+		Version:                      GetVersionFromPackage(),
 		ApplicationSupportedLogLevel: []string{"INFO", "DEBUG"},
 		ApplicationLogLevel:          "INFO",
 		ApplicationAuthUsername:      "",
@@ -147,6 +154,24 @@ func CreateDefaultConfig() error {
 	fmt.Printf("New format config created at %s. Please update your details and restart.\n", configPath)
 
 	return ReadConfig()
+}
+
+type PackageJSON struct {
+	Version string `json:"version"`
+}
+
+func GetVersionFromPackage() string {
+	content, err := os.ReadFile("package.json")
+	if err != nil {
+		return "0.1.0"
+	}
+
+	var pkg PackageJSON
+	if err := json.Unmarshal(content, &pkg); err != nil {
+		return "0.1.0"
+	}
+
+	return pkg.Version
 }
 
 func GetUsenetProvider() UsenetConfig {
