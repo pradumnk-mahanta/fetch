@@ -1,0 +1,40 @@
+name: Create Release & Publish Docker Image
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Read version from project.json
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' project.json)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "Version found: $VERSION"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Docker image
+        run: |
+          docker build -t ghcr.io/${{ github.repository_owner }}/fetch:${VERSION} .
+
+      - name: Push Docker image
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/fetch:${VERSION}
+
+      - name: Tag and push latest
+        if: github.ref == 'refs/tags/v${{ env.VERSION }}'
+        run: |
+          docker tag ghcr.io/${{ github.repository_owner }}/fetch:${VERSION} ghcr.io/${{ github.repository_owner }}/fetch:latest
+          docker push ghcr.io/${{ github.repository_owner }}/fetch:latest

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fetch | Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 font-sans min-h-screen">
+
+    <div class="container mx-auto px-4 py-8">
+        <header class="flex justify-between items-center mb-10 pb-6 border-b border-gray-800">
+            <div>
+                <h1 class="text-3xl font-extrabold tracking-tight text-white">
+                    <span class="text-blue-500">Fetch</span> Dashboard
+                </h1>
+                <p class="text-gray-500 text-sm mt-1">SABnzbd and qBittorrent Proxy for Debrid Services</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-right mr-4">
+                    <p class="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Auto-Refresh</p>
+                    <p class="text-sm font-mono text-blue-400"><span id="timer">10</span>s</p>
+                </div>
+
+                <a href="/settings" class="p-2.5 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-lg transition" title="Settings">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </a>
+
+                <a href="/logout" class="px-4 py-2 bg-gray-800 hover:bg-red-900/30 hover:text-red-400 rounded-lg text-sm font-medium transition">
+                    Logout
+                </a>
+            </div>
+        </header>
+
+        <div id="download-container" class="grid grid-cols-1 gap-6">
+            <div class="flex flex-col items-center justify-center py-20 text-gray-600">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+                <p>Pulling latest data from Go backend...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let countdown = 10;
+        const container = document.getElementById('download-container');
+        const timerEl = document.getElementById('timer');
+
+        async function fetchData() {
+            try {
+                const response = await fetch('/internal/api/stats');
+                
+                if (response.status === 401) {
+                    window.location.href = '/';
+                    return;
+                }
+
+                const data = await response.json();
+                renderUI(data);
+                countdown = 10;
+            } catch (err) {
+                console.error("Fetch error:", err);
+            }
+        }
+
+        let openCards = new Set(); // Global set to track which cards are expanded
+
+        function renderUI(downloads) {
+            const list = downloads || [];
+            if (list.length === 0) {
+                container.innerHTML = `<div class="text-center py-20 bg-gray-900 rounded-2xl border border-dashed border-gray-800 text-gray-500">No active downloads found.</div>`;
+                return;
+            }
+
+            container.innerHTML = list.map(dl => {
+                const totalItems = dl.item_details.length;
+                const completedItems = dl.item_details.filter(i => i.status === "Completed").length;
+                
+                const totalBytes = dl.item_details.reduce((acc, item) => acc + (item.file_size || 0), 0);
+                    
+                const downloadedBytes = dl.item_details.reduce((acc, item) => {
+                    const stats = item.downloader_stats || {};
+                    const isFinished = item.status === "Completed" || stats.status === "Completed";
+                    if (isFinished) {
+                        return acc + (item.file_size || 0);
+                }
+                        
+                const itemProgress = (stats.percentage || 0) / 100;
+                    return acc + ((item.file_size || 0) * itemProgress);
+                }, 0);
+
+                const parentProgress = totalBytes > 0 ? ((downloadedBytes / totalBytes) * 100).toFixed(0) : 0;
+
+                const cardId = `items-${dl.id}`;
+                const isExpanded = openCards.has(cardId);
+
+                return `
+                <div class="bg-gray-900 rounded-2xl border border-gray-800 shadow-xl overflow-hidden mb-4">
+                    <div onclick="toggleItems('${cardId}')" class="p-6 bg-gray-900/50 hover:bg-gray-800/50 cursor-pointer flex justify-between items-center transition-colors">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="px-2 py-0.5 bg-blue-900/40 text-blue-400 text-[10px] font-bold rounded uppercase tracking-wider border border-blue-800/50">
+                                    ${dl.protocol}
+                                </span>
+                                <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-[10px] font-bold rounded uppercase tracking-wider border border-gray-700">
+                                    ${dl.category || 'Default Category'}
+                                </span>
+                                <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-[10px] font-bold rounded uppercase tracking-wider border border-gray-700">
+                                    ${dl.provider || 'Unknown Provider'}
+                                </span>
+                            </div>
+                            <h2 class="text-xl font-bold text-white">${dl.download_name}</h2>
+                            <p class="text-xs text-gray-400 mt-1">${completedItems} of ${totalItems} files finished (${parentProgress}%)</p>
+                        </div>
+                        
+                        <div class="flex items-center gap-6">
+                            <button onclick="event.stopPropagation(); deleteDownload('${dl.id}')" 
+                                    class="p-2 text-gray-500 hover:text-red-500 hover:bg-red-900/20 rounded-lg transition-all group"
+                                    title="Delete Download">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+
+                            <div class="h-8 w-px bg-gray-800"></div>
+
+                            <div class="text-right hidden md:block">
+                                <span class="block text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1">Status</span>
+                                <span class="text-sm font-medium ${dl.status === 'Completed' ? 'text-green-500' : 'text-yellow-500'}">
+                                    ${dl.status}
+                                </span>
+                            </div>
+                            
+                            <svg id="icon-${cardId}" xmlns="http://www.w3.org/2000/svg" 
+                                class="h-6 w-6 text-gray-500 transition-transform duration-300" 
+                                style="transform: ${isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'}"
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </div>
+
+                    <div id="${cardId}" class="${isExpanded ? '' : 'hidden'} p-4 space-y-3 bg-gray-950/30 border-t border-gray-800">
+                        ${dl.item_details.map(item => {
+                            const stats = item.downloader_stats || {};
+                            const isFinished = item.status === "Completed" || stats.status === "Completed";
+                            const progress = isFinished ? "100.00" : (stats.percentage || 0).toFixed(2);
+                            const speed = isFinished ? "Finished" : (stats.average_speed ? (stats.average_speed / 1024).toFixed(2) + " MB/s" : "0.00 MB/s");
+
+                            return `
+                            <div class="bg-gray-900/80 p-4 rounded-xl border border-gray-800 flex flex-col lg:flex-row lg:items-center gap-4">
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-semibold text-gray-200 truncate">${item.file_name}</p>
+                                    <div class="flex gap-4 mt-1 text-[11px]">
+                                        <span class="text-gray-500 italic">${(item.file_size / 1024 / 1024).toFixed(1)} MB</span>
+                                        <span class="${isFinished ? 'text-green-400' : 'text-blue-400'} font-bold font-mono">${speed}</span>
+                                    </div>
+                                </div>
+                                <div class="w-full lg:w-64">
+                                    <div class="flex justify-between items-end mb-1.5">
+                                        <span class="text-[10px] uppercase font-bold ${isFinished ? 'text-green-500' : 'text-gray-500'}">
+                                            ${isFinished ? 'Completed' : (item.status || 'Queued')}
+                                        </span>
+                                        <span class="text-xs font-mono text-blue-400">${progress}%</span>
+                                    </div>
+                                    <div class="w-full bg-gray-800 rounded-full h-1.5 overflow-hidden">
+                                        <div class="${isFinished ? 'bg-green-500' : 'bg-blue-600'} h-full rounded-full transition-all duration-700" style="width: ${progress}%"></div>
+                                    </div>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+                `;
+            }).join('');
+
+        }
+
+        function toggleItems(id) {
+            const element = document.getElementById(id);
+            const icon = document.getElementById('icon-' + id);
+            
+            if (element.classList.contains('hidden')) {
+                element.classList.remove('hidden');
+                icon.style.transform = 'rotate(180deg)';
+                openCards.add(id); // Save state
+            } else {
+                element.classList.add('hidden');
+                icon.style.transform = 'rotate(0deg)';
+                openCards.delete(id); // Remove state
+            }
+        }
+
+        async function deleteDownload(id) {
+            if (!confirm("Are you sure you want to delete this download?")) return;
+
+            try {
+                const response = await fetch(`/internal/api/delete?id=${id}`, { method: 'DELETE' });
+                if (response.ok) {
+                    fetchData(); // Refresh list immediately
+                } else {
+                    alert("Error: Could not delete from database.");
+                }
+            } catch (err) {
+                console.error("Delete failed:", err);
+            }
+        }
+
+        setInterval(() => {
+            countdown--;
+            timerEl.innerText = countdown;
+            if (countdown <= 0) fetchData();
+        }, 1000);
+
+        fetchData();
+    </script>
+</body>
+</html>
