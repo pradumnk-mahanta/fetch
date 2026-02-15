@@ -13,10 +13,10 @@ import (
 	"github.com/forest6511/gdl"
 )
 
-func CreateDownload(protocol string, downloadName string, fileBytes []byte, downloadUrl string, category string) (string, error) {
+func CreateDownload(protocol string, downloadName string, fileBytes []byte, downloadUrl string, downloadReference string, category string) (string, error) {
 	switch protocol {
 	case "usenet":
-		id, err := databases.AddLocalDownload(protocol, config.GetUsenetProvider().ID, downloadName, downloadUrl, fileBytes, category)
+		id, err := databases.AddLocalDownload(protocol, config.GetUsenetProvider().ID, downloadName, downloadUrl, fileBytes, downloadReference, category)
 		if err != nil {
 			return "", err
 		}
@@ -33,7 +33,7 @@ func DeleteDownload(id string, downloadName string, downloadFile multipart.File,
 func ProcessDownloads() (string, error) {
 	logger.Log.Debugw("Started Processing Downloads on Shedule!")
 
-	localDownloads, err := databases.GetLocalPendingDownloads()
+	localDownloads, err := databases.GetLocalPendingDownloads("")
 	if err != nil {
 		logger.Log.Errorw("Unable to retrieve pending downloads at this time. Please try again later!")
 		return "Unable to retrieve pending downloads at this time. Please try again later!", err
@@ -104,7 +104,7 @@ func ProcessDownloads() (string, error) {
 
 					fileInfo, errFile := gdl.GetFileInfo(context.Background(), downloadLink)
 					if errFile != nil {
-						logger.Log.Errorw("Unable to retrieve file metadata: " + err.Error())
+						logger.Log.Errorw("Unable to retrieve file metadata: " + errFile.Error())
 						continue
 					}
 					downloadItemId, errAdd := databases.AddLocalDownloadItem(localDownload.IDString(), config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE, localDownload.Category, fileInfo.Filename, fileInfo.Filename, fileInfo.Size, localDownload.ExternalProviderID, "-1", downloadLink)

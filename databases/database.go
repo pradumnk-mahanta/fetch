@@ -58,6 +58,7 @@ type LocalDownloadsInstance struct {
 	DownloadName               string    `gorm:"column:download_name" json:"download_name"`
 	OriginalDownloadUrl        string    `gorm:"column:original_download_url" json:"original_download_url"`
 	OriginalDownloadFile       []byte    `gorm:"column:original_download_file;type:blob" json:"-"`
+	OriginalDownloadReference  string    `gorm:"column:original_download_reference;type:blob" json:"original_download_reference"` //hash store
 	Category                   string    `gorm:"column:category" json:"category"`
 	Status                     string    `gorm:"column:status" json:"status"`
 	ExternalProviderID         string    `gorm:"column:external_provider_id" json:"external_provider_id"`
@@ -136,20 +137,21 @@ func InitDB() error {
 	return nil
 }
 
-func AddLocalDownload(protocol string, provider string, downloadname string, downloadUrl string, fileBytes []byte, category string) (string, error) {
+func AddLocalDownload(protocol string, provider string, downloadname string, downloadUrl string, fileBytes []byte, downloadReference string, category string) (string, error) {
 
 	name := strings.TrimSuffix(downloadname, filepath.Ext(downloadname))
 
 	dl := &LocalDownloadsInstance{
-		Protocol:             protocol,
-		Provider:             provider,
-		DownloadName:         name,
-		OriginalDownloadUrl:  downloadUrl,
-		OriginalDownloadFile: fileBytes,
-		Category:             category,
-		Status:               config.DOWNLOAD_STATUS_CLIENT_ADDED,
-		AddedAt:              time.Now(),
-		DownloadItems:        []LocalDownloadsInstanceItem{},
+		Protocol:                  protocol,
+		Provider:                  provider,
+		DownloadName:              name,
+		OriginalDownloadUrl:       downloadUrl,
+		OriginalDownloadFile:      fileBytes,
+		OriginalDownloadReference: downloadReference,
+		Category:                  category,
+		Status:                    config.DOWNLOAD_STATUS_CLIENT_ADDED,
+		AddedAt:                   time.Now(),
+		DownloadItems:             []LocalDownloadsInstanceItem{},
 	}
 
 	if err := dl.Add(); err != nil {
@@ -219,6 +221,36 @@ func GetLocalDownloadDetails(id string) (LocalDownloadsInstance, error) {
 	}
 
 	return download, nil
+}
+
+func GetLocalDownloadsByReference(references string) []LocalDownloadsInstance {
+
+	var downloads []LocalDownloadsInstance
+	hashes := strings.Split(references, "|")
+
+	result := DB.Preload("DownloadItems").Model(&LocalDownloadsInstance{}).
+		Where("original_download_reference IN ?", hashes).
+		Find(&downloads)
+
+	if result.Error != nil {
+		logger.Log.Errorw("Database error while fetching by references", "references", references, "error", result.Error)
+	}
+
+	return downloads
+}
+
+func GetLocalDownloadsByProtocol(protocol string) []LocalDownloadsInstance {
+
+	var downloads []LocalDownloadsInstance
+	result := DB.Preload("DownloadItems").Model(&LocalDownloadsInstance{}).
+		Where("protocol = ?", protocol).
+		Find(&downloads)
+
+	if result.Error != nil {
+		logger.Log.Errorw("Database error while fetching by references", "protocol", protocol, "error", result.Error)
+	}
+
+	return downloads
 }
 
 func GetLocalDownloadItemDetails(id string) (LocalDownloadsInstanceItem, error) {
@@ -375,20 +407,26 @@ func GetLocalDownloads() ([]LocalDownloadsInstance, error) {
 	return downloads, nil
 }
 
-func GetLocalPendingDownloads() ([]LocalDownloadsInstance, error) {
+func GetLocalPendingDownloads(protocol string) ([]LocalDownloadsInstance, error) {
 	var downloads []LocalDownloadsInstance
 
-	logger.Log.Debugw("Fetching pending downloads from DB")
+	logger.Log.Debugw("Fetching pending downloads from DB", "protocol", protocol)
 
-	err := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+	query := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
 		return db.Order("added_at ASC")
 	}).Where("status NOT IN ?", []string{
 		config.DOWNLOAD_STATUS_CLIENT_COMPLETED,
 		config.DOWNLOAD_STATUS_CLIENT_FAILED,
-	}).Find(&downloads).Error
+	})
+
+	if protocol != "" {
+		query = query.Where("protocol = ?", protocol)
+	}
+
+	err := query.Find(&downloads).Error
 
 	if err != nil {
-		logger.Log.Errorw("Failed to fetch pending downloads", "error", err)
+		logger.Log.Errorw("Failed to fetch pending downloads", "protocol", protocol, "error", err)
 		return nil, err
 	}
 
@@ -398,21 +436,27 @@ func GetLocalPendingDownloads() ([]LocalDownloadsInstance, error) {
 		}
 	}
 
-	logger.Log.Debugw("Pending downloads retrieved", "count", len(downloads))
+	logger.Log.Debugw("Pending downloads retrieved", "protocol", protocol, "count", len(downloads))
 	return downloads, nil
 }
 
-func GetLocalCompletedDownloads() ([]LocalDownloadsInstance, error) {
+func GetLocalCompletedDownloads(protocol string) ([]LocalDownloadsInstance, error) {
 	var downloads []LocalDownloadsInstance
 
 	logger.Log.Debugw("Fetching completed/failed downloads from DB")
 
-	err := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+	query := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
 		return db.Order("added_at ASC")
 	}).Where("status IN ?", []string{
 		config.DOWNLOAD_STATUS_CLIENT_COMPLETED,
 		config.DOWNLOAD_STATUS_CLIENT_FAILED,
-	}).Find(&downloads).Error
+	})
+
+	if protocol != "" {
+		query = query.Where("protocol = ?", protocol)
+	}
+
+	err := query.Find(&downloads).Error
 
 	if err != nil {
 		logger.Log.Errorw("Failed to fetch completed downloads", "error", err)

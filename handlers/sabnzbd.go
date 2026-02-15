@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	protocol = "usenet"
+	protocolUsenet = "usenet"
 )
 
 func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
@@ -90,7 +90,7 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 			customName = fileStats.Filename
 		}
 
-		id, err := adapters.CreateDownload(protocol, customName, fileBytes, "", category)
+		id, err := adapters.CreateDownload(protocolUsenet, customName, fileBytes, "", "", category)
 		if err != nil {
 			writer.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to create download"))
@@ -116,21 +116,23 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 		var file multipart.File
 		var header multipart.FileHeader
 
-		fromNzbFileKey, headerNzbFileKey, errNzbFile := request.FormFile("nzbfile")
-		if errNzbFile != nil {
-			logger.Log.Warnw("No nzbfile found in request for Key nzbfile", "error", err)
-			fromNameKey, headerNameKey, errName := request.FormFile("name")
-			if errName != nil {
-				logger.Log.Warnw("No nzbfile found in request for Key name", "error", err)
+		fromNameKey, headerNameKey, errName := request.FormFile("name")
+		if errName != nil {
+			logger.Log.Warnw("No nzbfile found in request for Key name, Searching with nzbfile key", "error", err)
+			fromNzbFileKey, headerNzbFileKey, errNzbFile := request.FormFile("nzbfile")
+			if errNzbFile != nil {
+				writer.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to retrieve nzb file form request"))
+				logger.Log.Warnw("No nzbfile found in request for Key nzbfile", "error", err)
 				return
 			}
-			header = *headerNameKey
-			file = fromNameKey
-			defer fromNameKey.Close()
-		} else {
 			header = *headerNzbFileKey
 			file = fromNzbFileKey
 			defer fromNzbFileKey.Close()
+		} else {
+			header = *headerNameKey
+			file = fromNameKey
+			defer fromNameKey.Close()
 		}
 
 		logger.Log.Infow("Received nzbfile", "filename", header.Filename, "size", header.Size)
@@ -143,7 +145,7 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 			return
 		}
 
-		id, err := adapters.CreateDownload(protocol, header.Filename, fileBytes, "", category)
+		id, err := adapters.CreateDownload(protocolUsenet, header.Filename, fileBytes, "", "", category)
 		if err != nil {
 			writer.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to create download"))
@@ -170,7 +172,7 @@ func HandleNzbDownload() {
 func HandleSabQueue(writer http.ResponseWriter) {
 	var sabQueueResponse models.SabQueueResponse
 	var downloads []databases.LocalDownloadsInstance
-	localDownloads, localDownloadsError := databases.GetLocalPendingDownloads()
+	localDownloads, localDownloadsError := databases.GetLocalPendingDownloads(protocolUsenet)
 	if localDownloadsError != nil {
 		logger.Log.Debugw("Unable to get Local Download Items. Defaulting to Empty Queue")
 
@@ -184,7 +186,7 @@ func HandleSabQueue(writer http.ResponseWriter) {
 
 func HandleSabHistory(writer http.ResponseWriter) {
 	var downloads []databases.LocalDownloadsInstance
-	localDownloads, localDownloadsError := databases.GetLocalCompletedDownloads()
+	localDownloads, localDownloadsError := databases.GetLocalCompletedDownloads(protocolUsenet)
 	if localDownloadsError != nil {
 		logger.Log.Debugw("Unable to get Local Download Items. Defaulting to Empty Queue")
 	}
