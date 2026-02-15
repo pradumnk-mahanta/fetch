@@ -206,7 +206,10 @@ func GetLocalDownloadsByReference(references string) []LocalDownloadsInstance {
 
 	var downloads []LocalDownloadsInstance
 
-	query := DB.Preload("DownloadItems").Model(&LocalDownloadsInstance{}).Where("protocol = ?", config.ProtocolTorrent)
+	query := DB.Preload("DownloadItems", func(preloadBuilder gorm.PreloadBuilder) error {
+		preloadBuilder.Order("file_size DESC")
+		return nil
+	}).Model(&LocalDownloadsInstance{}).Where("protocol = ?", config.ProtocolTorrent)
 
 	if references != "" {
 		hashes := strings.Split(references, "|")

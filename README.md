@@ -1,5 +1,8 @@
+# Why the name Fetch?
+I don't know, maybe because it is a Pet Project? (Pun Intended!)
+
 # Fetch
-**Fetch** is a unified download management service designed to act as a SABnzbd and qBittorrent mock API for automation tools like **Sonarr**, **Radarr**. It allows you to manage downloads, track queue and history, and integrate seamlessly with media automation tools.  
+**Fetch** is a SABnzbd and qBittorrent mock API for automation tools like **Sonarr**, **Radarr**. It allows you to manage downloads, track queue and history, and integrate seamlessly with media automation tools.  
 
 ## Features
 
@@ -8,7 +11,25 @@
 - Dockerized for easy deployment.
 
 ## Supported Providers
-- Torbox
+I started with TB Usenet as I wanted to explore it.
+- Torbox - [Referral Link](https://torbox.app/subscription?referral=b664682d-45d8-4320-9d4a-4271972d4abf)
+
+## Planned Providers
+I only have access to the below right now. So I might just add the integration while I have the 
+- Real-Debrid
+- Offcloud
+
+## Planned Features
+I use this primarily as downloader so, I am not sure what other features are popular right now. I plan to add the following features for now, any other feature requests are welcome.
+- Better UI (I suck at UI)
+- Better Automated Flows, right now I have brute forced things, which I would like to optimize. 
+- Better Validations (Right now it trusts you that the API keys are genuine, and it will work.)
+- Retry Buttons to retry failed downloads/items.
+- Downloader Option - Symlink
+- Downloader Option - Do Not Download (Maybe also to remove from client when downloded on provider)
+- Filter Files based on Extensios? (I usually download zipped folders so based on demand)
+
+Please raise a Feature Request if there is something you would like to get added.
 
 ## Docker Compose Setup
 
@@ -43,7 +64,7 @@ volumes:
 
 ## Usage with *Arr Stack
 
-When configuring Radarr, Sonarr, Lidarr, or Readarr, you must specify a URL base path depending on the client type:
+When configuring *Arr Stack, you must specify a URL base path depending on the client type:
 
 SABnzbd client: /sabnzbd
 
@@ -56,9 +77,14 @@ http://<host>:9090/sabnzbd
 http://<host>:9090/qbittorrent
 ```
 
-This ensures proper routing to the correct mock API endpoints.
+This ensures proper routing to the correct mock API endpoints. Use the `username` and `password` set during initial setup of fetch.
+
+## Disclaimer
+This is just a downloader. it does not host or share any files.
 
 ## Credits
+To the services, applications and community which drives these kind of projects.
+
 
 Fetch uses and integrates the following notable Go libraries:
 
@@ -86,4 +112,4 @@ Fetch uses and integrates the following notable Go libraries:
 - **[github.com/dustin/go-humanize](https://github.com/dustin/go-humanize)**  
   Human readable file sizes and durations
 
-See `go.mod` for full list of packages.
+See `go.mod` for full list of other packages.

@@ -511,6 +511,8 @@ func HandleQBTorrentFiles(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleQBTorrentProperties(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	if r.Method != http.MethodGet {
 		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
 		return
@@ -529,9 +531,6 @@ func HandleQBTorrentProperties(w http.ResponseWriter, r *http.Request) {
 	}
 
 	download := downloads[0]
-
-	w.Header().Set("Content-Type", "application/json")
-
 	savePath := config.ApplicationDownloadRoot + "/" + download.Category
 	if download.DownloadItems[0].DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
 		savePath = strings.TrimSuffix(savePath+"/"+download.DownloadItems[0].FilePath, filepath.Ext(download.DownloadItems[0].FilePath))
