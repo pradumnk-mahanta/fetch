@@ -536,7 +536,7 @@ func HandleQBTorrentProperties(w http.ResponseWriter, r *http.Request) {
 	if download.DownloadItems[0].DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
 		savePath = strings.TrimSuffix(savePath+"/"+download.DownloadItems[0].FilePath, filepath.Ext(download.DownloadItems[0].FilePath))
 	} else {
-		savePath = GetTopLevelDir(download.DownloadItems[0].FilePath)
+		savePath = filepath.Dir(savePath + "/" + download.DownloadItems[0].FilePath)
 	}
 
 	response := map[string]interface{}{
