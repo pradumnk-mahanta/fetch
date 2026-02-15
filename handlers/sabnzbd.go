@@ -45,7 +45,7 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 		category = "default"
 	}
 
-	logger.Log.Infow("Received SABNzbd API Call", "mode", mode, "name", name, "nzo_id", nzo_id, "category", category)
+	logger.Log.Infow("Received SABNzbd API Request", "mode", mode, "name", name, "nzo_id", nzo_id, "category", category)
 
 	switch mode {
 	case "queue":
