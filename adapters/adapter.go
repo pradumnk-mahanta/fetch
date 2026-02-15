@@ -352,17 +352,37 @@ func ProcessDownloadItemsQueue() (string, error) {
 			if activeDownloads < config.AppConfig.DownloaderMaxDownloadsConcurrent {
 				var downloadLink string
 				if localDownloadItem.ExternalProviderDownloadURL == "" {
-					providerDownloadLink, requestDownloadLinkError := services.TorboxUsenetRequestDownloadLink(localDownloadItem.ExternalProviderID, localDownloadItem.ExternalProviderItemID)
-					if requestDownloadLinkError != nil {
-						logger.Log.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)
+					localDownload, errorLocalDownload := databases.GetLocalDownloadDetails(localDownloadItem.DownloadIDString())
+					if errorLocalDownload != nil {
+						logger.Log.Errorw("Failed to get parent item for", "item", localDownloadItem.DownloadIDString())
 						continue
 					}
-					linkDbUpdErr := databases.UpdateLocalDownloadItemExternalUrl(localDownloadItem.IDString(), downloadLink)
-					if linkDbUpdErr != nil {
-						logger.Log.Errorw("Failed to save download link from provider", "error", linkDbUpdErr)
-						continue
+					if localDownload.Protocol == config.ProtocolUsenet {
+						providerDownloadLink, requestDownloadLinkError := services.TorboxUsenetRequestDownloadLink(localDownloadItem.ExternalProviderID, localDownloadItem.ExternalProviderItemID)
+						if requestDownloadLinkError != nil {
+							logger.Log.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)
+							continue
+						}
+						linkDbUpdErr := databases.UpdateLocalDownloadItemExternalUrl(localDownloadItem.IDString(), downloadLink)
+						if linkDbUpdErr != nil {
+							logger.Log.Errorw("Failed to save download link from provider", "error", linkDbUpdErr)
+							continue
+						}
+						downloadLink = providerDownloadLink
+					} else {
+						providerDownloadLink, requestDownloadLinkError := services.TorboxTorrentRequestDownloadLink(localDownloadItem.ExternalProviderID, localDownloadItem.ExternalProviderItemID)
+						if requestDownloadLinkError != nil {
+							logger.Log.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)
+							continue
+						}
+						linkDbUpdErr := databases.UpdateLocalDownloadItemExternalUrl(localDownloadItem.IDString(), downloadLink)
+						if linkDbUpdErr != nil {
+							logger.Log.Errorw("Failed to save download link from provider", "error", linkDbUpdErr)
+							continue
+						}
+						downloadLink = providerDownloadLink
 					}
-					downloadLink = providerDownloadLink
+
 				} else {
 					downloadLink = localDownloadItem.ExternalProviderDownloadURL
 				}

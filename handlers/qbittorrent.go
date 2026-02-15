@@ -555,7 +555,7 @@ func HandleQBTorrentProperties(w http.ResponseWriter, r *http.Request) {
 		"seeding_time":             0,
 		"nb_connections":           0,
 		"nb_connections_limit":     -1,
-		"share_ratio":              0,
+		"share_ratio":              4,
 		"addition_date":            download.AddedAt,
 		"completion_date":          download.CompletedAt,
 		"created_by":               "",

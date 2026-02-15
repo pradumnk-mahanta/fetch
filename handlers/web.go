@@ -185,6 +185,8 @@ func HandleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 
 	*config.AppConfig = newConfig
 
+	logger.InitLogger()
+
 	if err := config.SaveConfig(); err != nil {
 		logger.Log.Errorw("Failed to save config to disk", "error", err)
 		http.Error(w, "Internal server error saving file", http.StatusInternalServerError)
