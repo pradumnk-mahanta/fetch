@@ -13,6 +13,8 @@ const configPath = "/data/config.json"
 
 const (
 	ApplicationDownloadRoot = "/downloads"
+	ProtocolTorrent         = "torrent"
+	ProtocolUsenet          = "usenet"
 )
 
 type Config struct {
@@ -148,10 +150,18 @@ func CreateDefaultConfig() error {
 }
 
 func GetUsenetProvider() UsenetConfig {
-	if len(AppConfig.ConfiguredDebridProviders) == 0 {
+	if len(AppConfig.ConfiguredUsenetProviders) == 0 {
 		return UsenetConfig{}
 	} else {
 		return AppConfig.ConfiguredUsenetProviders[0]
+	}
+}
+
+func GetTorrentsProvider() DebridConfig {
+	if len(AppConfig.ConfiguredDebridProviders) == 0 {
+		return DebridConfig{}
+	} else {
+		return AppConfig.ConfiguredDebridProviders[0]
 	}
 }
 

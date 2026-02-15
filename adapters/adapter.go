@@ -7,27 +7,58 @@ import (
 	"fetch/logger"
 	"fetch/models"
 	"fetch/services"
-	"mime/multipart"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/forest6511/gdl"
 )
 
-func CreateDownload(protocol string, downloadName string, fileBytes []byte, downloadUrl string, downloadReference string, category string) (string, error) {
+// Change based on Provider Later. Right now only focus on TB
+func CreateDownload(protocol string, downloadName string, fileBytes []byte, downloadUrl string, reference string, category string) (string, error) {
 	switch protocol {
-	case "usenet":
-		id, err := databases.AddLocalDownload(protocol, config.GetUsenetProvider().ID, downloadName, downloadUrl, fileBytes, downloadReference, category)
+	case config.ProtocolUsenet:
+		var download databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
+			Protocol:             protocol,
+			Provider:             config.GetTorrentsProvider().ID,
+			DownloadName:         strings.TrimSuffix(downloadName, filepath.Ext(downloadName)),
+			OriginalDownloadFile: fileBytes,
+			Category:             category,
+			Status:               config.DOWNLOAD_STATUS_CLIENT_ADDED,
+			AddedAt:              time.Now(),
+			DownloadItems:        []databases.LocalDownloadsInstanceItem{},
+		}
+
+		locaDownloadId, err := databases.AddLocalDownload(download)
 		if err != nil {
 			return "", err
 		}
-		return id, nil
+		return locaDownloadId, nil
+
+	case config.ProtocolTorrent:
+		var download databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
+			Protocol:                  protocol,
+			Provider:                  config.GetTorrentsProvider().ID,
+			DownloadName:              strings.TrimSuffix(downloadName, filepath.Ext(downloadName)),
+			OriginalDownloadUrl:       downloadUrl,
+			OriginalDownloadFile:      fileBytes,
+			OriginalDownloadReference: reference,
+			Category:                  category,
+			Status:                    config.DOWNLOAD_STATUS_CLIENT_ADDED,
+			AddedAt:                   time.Now(),
+			DownloadItems:             []databases.LocalDownloadsInstanceItem{},
+		}
+
+		locaDownloadId, err := databases.AddLocalDownload(download)
+		if err != nil {
+			return "", err
+		}
+		return locaDownloadId, nil
+
 	default:
 		return "", nil
 	}
-}
-
-func DeleteDownload(id string, downloadName string, downloadFile multipart.File, downloadUrl string, category string) (string, error) {
-	return "", nil
 }
 
 func ProcessDownloads() (string, error) {

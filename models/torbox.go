@@ -53,6 +53,23 @@ type DAT struct {
 	Server            *int64     `json:"server,omitempty"`
 	CachedAt          *time.Time `json:"cached_at,omitempty"`
 	AlternativeHashes []string   `json:"alternative_hashes,omitempty"`
+	Magnet            *string    `json:"magnet,omitempty"`
+	Seeds             *int64     `json:"seeds,omitempty"`
+	Peers             *int64     `json:"peers,omitempty"`
+	Ratio             *float64   `json:"ratio,omitempty"`
+	UploadSpeed       *int64     `json:"upload_speed,omitempty"`
+	TorrentFile       *bool      `json:"torrent_file,omitempty"`
+	DownloadPath      *string    `json:"download_path,omitempty"`
+	Availability      *int64     `json:"availability,omitempty"`
+	Tracker           *string    `json:"tracker,omitempty"`
+	TotalUploaded     *int64     `json:"total_uploaded,omitempty"`
+	TotalDownloaded   *int64     `json:"total_downloaded,omitempty"`
+	Owner             *string    `json:"owner,omitempty"`
+	SeedTorrent       *bool      `json:"seed_torrent,omitempty"`
+	AllowZipped       *bool      `json:"allow_zipped,omitempty"`
+	LongTermSeeding   *bool      `json:"long_term_seeding,omitempty"`
+	TrackerMessage    *string    `json:"tracker_message,omitempty"`
+	Private           *bool      `json:"private,omitempty"`
 	UsenetdownloadID  *int64     `json:"usenetdownload_id,omitempty"`
 }
 

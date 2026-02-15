@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fetch/config"
 	"fetch/logger"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -137,35 +136,15 @@ func InitDB() error {
 	return nil
 }
 
-func AddLocalDownload(protocol string, provider string, downloadname string, downloadUrl string, fileBytes []byte, downloadReference string, category string) (string, error) {
+func AddLocalDownload(download LocalDownloadsInstance) (string, error) {
 
-	name := strings.TrimSuffix(downloadname, filepath.Ext(downloadname))
-
-	dl := &LocalDownloadsInstance{
-		Protocol:                  protocol,
-		Provider:                  provider,
-		DownloadName:              name,
-		OriginalDownloadUrl:       downloadUrl,
-		OriginalDownloadFile:      fileBytes,
-		OriginalDownloadReference: downloadReference,
-		Category:                  category,
-		Status:                    config.DOWNLOAD_STATUS_CLIENT_ADDED,
-		AddedAt:                   time.Now(),
-		DownloadItems:             []LocalDownloadsInstanceItem{},
-	}
-
+	dl := download
 	if err := dl.Add(); err != nil {
 		logger.Log.Errorw("Failed to add download to db", "error", err)
 		return "", err
 	}
 
-	logger.Log.Infow("Download Added",
-		"protocol", protocol,
-		"cat", category,
-		"name", name,
-		"id", dl.IDString(),
-	)
-
+	logger.Log.Infow("Download Added", "protocol", dl.Protocol, "cat", dl.Category, "name", dl.DownloadName, "id", dl.IDString())
 	return dl.IDString(), nil
 }
 

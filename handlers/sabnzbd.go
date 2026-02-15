@@ -16,10 +16,6 @@ import (
 	"github.com/forest6511/gdl"
 )
 
-const (
-	protocolUsenet = "usenet"
-)
-
 func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 
 	writer.Header().Set("Content-Type", "application/json")
@@ -90,7 +86,7 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 			customName = fileStats.Filename
 		}
 
-		id, err := adapters.CreateDownload(protocolUsenet, customName, fileBytes, "", "", category)
+		id, err := adapters.CreateDownload(config.ProtocolUsenet, customName, fileBytes, "", "", category)
 		if err != nil {
 			writer.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to create download"))
@@ -145,7 +141,7 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 			return
 		}
 
-		id, err := adapters.CreateDownload(protocolUsenet, header.Filename, fileBytes, "", "", category)
+		id, err := adapters.CreateDownload(config.ProtocolUsenet, header.Filename, fileBytes, "", "", category)
 		if err != nil {
 			writer.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to create download"))
@@ -172,7 +168,7 @@ func HandleNzbDownload() {
 func HandleSabQueue(writer http.ResponseWriter) {
 	var sabQueueResponse models.SabQueueResponse
 	var downloads []databases.LocalDownloadsInstance
-	localDownloads, localDownloadsError := databases.GetLocalPendingDownloads(protocolUsenet)
+	localDownloads, localDownloadsError := databases.GetLocalPendingDownloads(config.ProtocolUsenet)
 	if localDownloadsError != nil {
 		logger.Log.Debugw("Unable to get Local Download Items. Defaulting to Empty Queue")
 
@@ -186,7 +182,7 @@ func HandleSabQueue(writer http.ResponseWriter) {
 
 func HandleSabHistory(writer http.ResponseWriter) {
 	var downloads []databases.LocalDownloadsInstance
-	localDownloads, localDownloadsError := databases.GetLocalCompletedDownloads(protocolUsenet)
+	localDownloads, localDownloadsError := databases.GetLocalCompletedDownloads(config.ProtocolUsenet)
 	if localDownloadsError != nil {
 		logger.Log.Debugw("Unable to get Local Download Items. Defaulting to Empty Queue")
 	}

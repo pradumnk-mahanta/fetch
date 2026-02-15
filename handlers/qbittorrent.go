@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fetch/adapters"
 	"fetch/config"
@@ -13,11 +14,8 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/anacrolix/torrent/metainfo"
 	"github.com/forest6511/gdl"
-)
-
-const (
-	protocolTorrent = "torrent"
 )
 
 func QBittorrentHandler(w http.ResponseWriter, r *http.Request) {
@@ -202,7 +200,7 @@ func HandleQBAddTorrent(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 
-			ref, err := adapters.CreateDownload(protocolTorrent, fh.Filename, fileBytes, "", "", category)
+			ref, err := adapters.CreateDownload(config.ProtocolTorrent, fh.Filename, fileBytes, "", "", category)
 			if err != nil {
 				errors = append(errors, fmt.Sprintf("%s: %v", fh.Filename, err))
 				continue
@@ -223,20 +221,34 @@ func HandleQBAddTorrent(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if strings.HasPrefix(url, "magnet:") {
-				fileName := ExtractNameFromMagnet(url)
-				ref, errCreate := adapters.CreateDownload(protocolTorrent, fileName, []byte{}, url, "", category)
+
+				fileName, infoHash, infoError := GetTorrentInfo([]byte{}, url)
+				if infoError != nil {
+					errors = append(errors, fmt.Sprintf("%s: %v", url, infoError))
+					continue
+				}
+
+				ref, errCreate := adapters.CreateDownload(config.ProtocolTorrent, fileName, []byte{}, url, infoHash, category)
 				if errCreate != nil {
 					errors = append(errors, fmt.Sprintf("%s: %v", url, errCreate))
 					continue
 				}
+
 				added = append(added, map[string]string{
 					"name": fileName,
 					"hash": ref,
 				})
+
 			} else if strings.HasSuffix(strings.ToLower(url), ".torrent") {
 				fileBytes, fileStats, err := gdl.DownloadToMemory(r.Context(), url)
 
-				ref, err := adapters.CreateDownload(protocolTorrent, fileStats.Filename, fileBytes, "", "", category)
+				fileName, infoHash, infoError := GetTorrentInfo(fileBytes, "")
+				if infoError != nil {
+					errors = append(errors, fmt.Sprintf("%s: %v", url, infoError))
+					continue
+				}
+
+				ref, err := adapters.CreateDownload(config.ProtocolTorrent, fileName, fileBytes, "", infoHash, category)
 				if err != nil {
 					errors = append(errors, fmt.Sprintf("%s: %v", url, err))
 					continue
@@ -261,22 +273,48 @@ func HandleQBAddTorrent(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
-func ExtractNameFromMagnet(magnet string) string {
-	magnet = strings.TrimPrefix(magnet, "magnet:?")
-
-	values, err := url.ParseQuery(magnet)
-	if err != nil {
-		return magnet
-	}
-
-	if dn := values.Get("dn"); dn != "" {
-		return dn
-	}
-
-	for _, xt := range values["xt"] {
-		if strings.HasPrefix(xt, "urn:btih:") {
-			return strings.TrimPrefix(xt, "urn:btih:")
+func GetTorrentInfo(torrentBytes []byte, magnetLink string) (name string, infoHash string, err error) {
+	if len(torrentBytes) > 0 {
+		mi, err := metainfo.Load(bytes.NewReader(torrentBytes))
+		if err != nil {
+			return "", "", fmt.Errorf("failed to parse torrent file: %w", err)
 		}
+
+		info, err := mi.UnmarshalInfo()
+		if err != nil {
+			return "", "", fmt.Errorf("failed to unmarshal torrent info: %w", err)
+		}
+
+		infoHash = mi.HashInfoBytes().HexString()
+		name = info.Name
+		return name, infoHash, nil
 	}
-	return magnet
+
+	if magnetLink != "" {
+		u, err := url.Parse(magnetLink)
+		if err != nil {
+			return "", "", fmt.Errorf("invalid magnet link: %w", err)
+		}
+
+		xts := u.Query()["xt"]
+		for _, xt := range xts {
+			if strings.HasPrefix(xt, "urn:btih:") {
+				infoHash = strings.TrimPrefix(xt, "urn:btih:")
+				break
+			}
+		}
+
+		if infoHash == "" {
+			return "", "", fmt.Errorf("magnet link missing info hash")
+		}
+
+		name = u.Query().Get("dn")
+		if name == "" {
+			name = infoHash
+		}
+
+		return name, infoHash, nil
+	}
+
+	return "", "", fmt.Errorf("no torrent file or magnet link provided")
 }
