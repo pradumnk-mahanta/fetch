@@ -86,4 +86,4 @@ Fetch uses and integrates the following notable Go libraries:
 - **[github.com/dustin/go-humanize](https://github.com/dustin/go-humanize)**  
   Human readable file sizes and durations
 
-Many other Go modules are used indirectly for networking, cryptography, and torrent handling. See `go.mod` for full details.
+See `go.mod` for full list of packages.
