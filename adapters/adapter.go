@@ -62,7 +62,7 @@ func CreateDownload(protocol string, downloadName string, fileBytes []byte, down
 }
 
 func ProcessUsenetDownloadsQueue() (string, error) {
-	logger.Log.Infow("Processing Usenet Downloads!")
+	logger.Log.Debugw("Processing Usenet Downloads!")
 
 	localDownloads, err := databases.GetLocalPendingDownloads(config.ProtocolUsenet)
 	if err != nil {
@@ -192,7 +192,7 @@ func ProcessUsenetDownloadsQueue() (string, error) {
 }
 
 func ProcessTorrentsDownloadsQueue() (string, error) {
-	logger.Log.Infow("Processing Torrent Downloads!")
+	logger.Log.Debugw("Processing Torrent Downloads!")
 
 	localDownloads, err := databases.GetLocalPendingDownloads(config.ProtocolTorrent)
 	if err != nil {

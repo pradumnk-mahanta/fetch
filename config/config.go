@@ -17,6 +17,8 @@ const (
 	ProtocolUsenet          = "usenet"
 )
 
+var version = "dev"
+
 type Config struct {
 	Version                          string         `json:"version"`
 	ApplicationLogLevel              string         `json:"application_log_level"`
@@ -79,7 +81,7 @@ func ReadConfig() error {
 		return fmt.Errorf("Failed to parse config JSON: %w", err)
 	}
 
-	newVersion := GetVersionFromPackage()
+	newVersion := GetVersion()
 	if cfg.Version != newVersion {
 		fmt.Printf("Updating app version from %s to %s\n", cfg.Version, newVersion)
 		cfg.Version = newVersion
@@ -106,7 +108,7 @@ func SaveConfig() error {
 
 func CreateDefaultConfig() error {
 	AppConfig = &Config{
-		Version:                      GetVersionFromPackage(),
+		Version:                      GetVersion(),
 		ApplicationSupportedLogLevel: []string{"INFO", "DEBUG"},
 		ApplicationLogLevel:          "INFO",
 		ApplicationAuthUsername:      "",
@@ -156,22 +158,8 @@ func CreateDefaultConfig() error {
 	return ReadConfig()
 }
 
-type PackageJSON struct {
-	Version string `json:"version"`
-}
-
-func GetVersionFromPackage() string {
-	content, err := os.ReadFile("project.json")
-	if err != nil {
-		return "0.1.0"
-	}
-
-	var pkg PackageJSON
-	if err := json.Unmarshal(content, &pkg); err != nil {
-		return "0.1.0"
-	}
-
-	return pkg.Version
+func GetVersion() string {
+	return version
 }
 
 func GetUsenetProvider() UsenetConfig {

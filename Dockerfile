@@ -1,5 +1,7 @@
+ARG VERSION=dev
 FROM golang:1.25-bookworm AS builder
 
+ARG VERSION
 WORKDIR /app
 
 ENV CGO_ENABLED=1
@@ -11,7 +13,7 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -o fetch
+RUN go build -ldflags="-X fetch/config.version=$VERSION" -o fetch
 
 FROM debian:bookworm-slim
 
