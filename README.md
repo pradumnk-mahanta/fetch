@@ -64,17 +64,12 @@ volumes:
 
 ## Usage with *Arr Stack
 
-When configuring *Arr Stack, you must specify a URL base path depending on the client type:
-
-SABnzbd client: /sabnzbd
-
-qBittorrent client: /qbittorrent
+When configuring *Arr Stack for both clients.
 
 ```
 Example:
 
-http://<host>:9090/sabnzbd
-http://<host>:9090/qbittorrent
+http://<host>:9090/
 ```
 
 This ensures proper routing to the correct mock API endpoints. Use the `username` and `password` set during initial setup of fetch.
