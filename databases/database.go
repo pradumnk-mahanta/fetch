@@ -56,6 +56,7 @@ type LocalDownloadsInstance struct {
 	Protocol                   string    `gorm:"column:protocol" json:"protocol"`
 	Provider                   string    `gorm:"column:provider" json:"provider"`
 	DownloadName               string    `gorm:"column:download_name" json:"download_name"`
+	DownloadType               string    `gorm:"column:download_type:default:'Individual File for Download'" json:"download_type"`
 	OriginalDownloadUrl        string    `gorm:"column:original_download_url" json:"original_download_url"`
 	OriginalDownloadFile       []byte    `gorm:"column:original_download_file;type:blob" json:"-"`
 	OriginalDownloadReference  string    `gorm:"column:original_download_reference;type:blob" json:"original_download_reference"` //hash store
@@ -246,7 +247,9 @@ func GetLocalDownloadsByReferences(references string) []LocalDownloadsInstance {
 func GetLocalDownloadsByProtocol(protocol string) []LocalDownloadsInstance {
 
 	var downloads []LocalDownloadsInstance
-	result := DB.Preload("DownloadItems").Model(&LocalDownloadsInstance{}).
+	result := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+		return db.Order("file_size DESC")
+	}).Model(&LocalDownloadsInstance{}).
 		Where("protocol = ?", protocol).
 		Find(&downloads)
 
@@ -477,7 +480,7 @@ func GetLocalCompletedDownloads(protocol string) ([]LocalDownloadsInstance, erro
 	return downloads, nil
 }
 
-func UpdateLocalDownloadProviderData(id string, providerData string) error {
+func UpdateLocalDownloadProviderData(id string, providerDownloadName string, providerData string) error {
 	uID, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
 		logger.Log.Errorw("Invalid ID for provider data update", "id", id, "error", err)
@@ -486,7 +489,10 @@ func UpdateLocalDownloadProviderData(id string, providerData string) error {
 
 	result := DB.Model(&LocalDownloadsInstance{}).
 		Where("id = ?", uint(uID)).
-		Update("external_provider_data_object", providerData)
+		Updates(map[string]interface{}{
+			"download_name":                 providerDownloadName,
+			"external_provider_data_object": providerData,
+		})
 
 	if result.Error != nil {
 		logger.Log.Errorw("Failed to update provider data object", "id", id, "error", result.Error)

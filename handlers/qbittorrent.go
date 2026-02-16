@@ -8,6 +8,7 @@ import (
 	"fetch/databases"
 	"fetch/logger"
 	"fetch/models"
+	"fetch/services"
 	"fmt"
 	"io"
 	"net/http"
@@ -456,56 +457,83 @@ func HandleQBTorrentFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(download.OriginalDownloadFile) == 0 {
-		json.NewEncoder(w).Encode([]interface{}{})
-		return
-	}
-
-	if len(download.OriginalDownloadFile) == 0 {
-		json.NewEncoder(w).Encode([]interface{}{})
-		return
-	}
-
 	miFile, errFile := metainfo.Load(bytes.NewReader(download.OriginalDownloadFile))
 	if errFile != nil {
+		logger.Log.Errorw("Failed to load torrent metainfo", "hash", hash, "error", errFile)
 		json.NewEncoder(w).Encode([]interface{}{})
 		return
 	}
 
 	info, err := miFile.UnmarshalInfo()
 	if err != nil {
+		logger.Log.Errorw("Failed to unmarshal torrent info", "hash", hash, "error", err)
 		json.NewEncoder(w).Encode([]interface{}{})
 		return
 	}
 
-	var files []map[string]interface{}
+	isActive := false
+	activeStatuses := []string{
+		config.DOWNLOAD_STATUS_CLIENT_DOWNLOADING,
+		config.DOWNLOAD_STATUS_CLIENT_PROCESSING,
+		config.DOWNLOAD_STATUS_CLIENT_COMPLETED,
+	}
 
-	if len(info.Files) > 0 {
-		for i, f := range info.Files {
-			files = append(files, map[string]interface{}{
-				"index":        i,
-				"name":         strings.Join(f.Path, "/"),
-				"size":         f.Length,
-				"progress":     0.0,
-				"priority":     1,
-				"is_seed":      false,
-				"piece_range":  []int{0, 0},
-				"availability": -1,
-			})
+	for _, s := range activeStatuses {
+		if download.Status == s {
+			isActive = true
+			break
 		}
-	} else {
+	}
+
+	findStatus := func(id string) (models.GDLDownload, bool) {
+		downloader := services.GetGDLService()
+		liveStatuses := downloader.Status()
+		for _, s := range liveStatuses {
+			if s.ID == id {
+				return s, true
+			}
+		}
+		return models.GDLDownload{}, false
+	}
+
+	var files []map[string]interface{}
+	for i, f := range info.Files {
+		fileName := strings.Join(f.Path, "/")
+		progress := 0.0
+		if isActive {
+			if download.DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE && len(download.DownloadItems) > 0 {
+				archiveItem := download.DownloadItems[0]
+				status, found := findStatus(archiveItem.IDString())
+				if found {
+					progress = status.Percentage / 100
+				} else if archiveItem.Status == config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED {
+					progress = 1.0
+				}
+			} else {
+				for _, item := range download.DownloadItems {
+					if strings.Contains(item.FileName, fileName) || strings.Contains(fileName, item.FileName) {
+						status, found := findStatus(item.IDString())
+						if found {
+							progress = status.Percentage / 100
+						} else if item.Status == config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED {
+							progress = 1.0
+						}
+						break
+					}
+				}
+			}
+		}
 		files = append(files, map[string]interface{}{
-			"index":        0,
-			"name":         info.Name,
-			"size":         info.Length,
-			"progress":     0.0,
+			"index":        i,
+			"name":         fileName,
+			"size":         f.Length,
+			"progress":     progress,
 			"priority":     1,
 			"is_seed":      false,
 			"piece_range":  []int{0, 0},
 			"availability": -1,
 		})
 	}
-
 	json.NewEncoder(w).Encode(files)
 }
 
@@ -540,7 +568,7 @@ func HandleQBTorrentProperties(w http.ResponseWriter, r *http.Request) {
 
 	response := map[string]interface{}{
 		"save_path":                savePath,
-		"creation_date":            download.AddedAt,
+		"creation_date":            download.AddedAt.Unix(),
 		"piece_size":               0,
 		"comment":                  "",
 		"total_wasted":             0,
@@ -555,8 +583,8 @@ func HandleQBTorrentProperties(w http.ResponseWriter, r *http.Request) {
 		"nb_connections":           0,
 		"nb_connections_limit":     -1,
 		"share_ratio":              4,
-		"addition_date":            download.AddedAt,
-		"completion_date":          download.CompletedAt,
+		"addition_date":            download.AddedAt.Unix(),
+		"completion_date":          download.CompletedAt.Unix(),
 		"created_by":               "",
 		"private":                  false,
 	}

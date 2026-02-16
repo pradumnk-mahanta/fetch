@@ -19,10 +19,15 @@ import (
 func CreateDownload(protocol string, downloadName string, fileBytes []byte, downloadUrl string, reference string, category string) (string, error) {
 	switch protocol {
 	case config.ProtocolUsenet:
+		var downloadType string = config.DOWNLOAD_ITEM_TYPE_INDIVIDUAL_FILE
+		if config.GetTorrentsProvider().PreferZippedFolder {
+			downloadType = config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE
+		}
 		var download databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
 			Protocol:             protocol,
 			Provider:             config.GetTorrentsProvider().ID,
 			DownloadName:         strings.TrimSuffix(downloadName, filepath.Ext(downloadName)),
+			DownloadType:         downloadType,
 			OriginalDownloadFile: fileBytes,
 			Category:             category,
 			Status:               config.DOWNLOAD_STATUS_CLIENT_ADDED,
@@ -37,10 +42,15 @@ func CreateDownload(protocol string, downloadName string, fileBytes []byte, down
 		return locaDownloadId, nil
 
 	case config.ProtocolTorrent:
+		var downloadType string = config.DOWNLOAD_ITEM_TYPE_INDIVIDUAL_FILE
+		if config.GetTorrentsProvider().PreferZippedFolder {
+			downloadType = config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE
+		}
 		var download databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
 			Protocol:                  protocol,
 			Provider:                  config.GetTorrentsProvider().ID,
 			DownloadName:              strings.TrimSuffix(downloadName, filepath.Ext(downloadName)),
+			DownloadType:              downloadType,
 			OriginalDownloadUrl:       downloadUrl,
 			OriginalDownloadFile:      fileBytes,
 			OriginalDownloadReference: reference,
@@ -113,7 +123,7 @@ func ProcessUsenetDownloadsQueue() (string, error) {
 						logger.Log.Errorw("Failed to get provider data in json", "error", provDataErr)
 						continue
 					}
-					errProvData := databases.UpdateLocalDownloadProviderData(localDownload.IDString(), provData)
+					errProvData := databases.UpdateLocalDownloadProviderData(localDownload.IDString(), *providerDownload.Name, provData)
 					if errProvData != nil {
 						logger.Log.Errorw("Failed to update download status", "error", errProvData)
 						continue
@@ -244,7 +254,7 @@ func ProcessTorrentsDownloadsQueue() (string, error) {
 						logger.Log.Errorw("Failed to get provider data in json", "error", provDataErr)
 						continue
 					}
-					errProvData := databases.UpdateLocalDownloadProviderData(localDownload.IDString(), provData)
+					errProvData := databases.UpdateLocalDownloadProviderData(localDownload.IDString(), *providerDownload.Name, provData)
 					if errProvData != nil {
 						logger.Log.Errorw("Failed to update download status", "error", errProvData)
 						continue

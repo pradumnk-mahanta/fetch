@@ -3,6 +3,7 @@ package models
 import (
 	"fetch/config"
 	"fetch/databases"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -63,7 +64,7 @@ func BuildQBTorrentsInfo(hashesParam string) ([]QBTorrentInfo, error) {
 
 		progress := float64(0)
 		if totalSize > 0 {
-			progress = float64(completedSize) / float64(totalSize) * 100
+			progress = float64(completedSize) / float64(totalSize)
 		}
 
 		torrent := QBTorrentInfo{
@@ -96,12 +97,20 @@ func BuildQBSyncMainData(ridParam string) (*QBSyncMainInfo, error) {
 	downloads := databases.GetLocalDownloadsByProtocol(config.ProtocolTorrent)
 	torrents := make(map[string]QBTorrentInfo)
 
-	for _, d := range downloads {
+	for _, download := range downloads {
+
+		savePath := config.ApplicationDownloadRoot + "/" + download.Category
+		if len(download.DownloadItems) > 0 {
+			if download.DownloadItems[0].DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
+				savePath = strings.TrimSuffix(savePath+"/"+download.DownloadItems[0].FilePath, filepath.Ext(download.DownloadItems[0].FilePath))
+			} else {
+				savePath = filepath.Dir(savePath + "/" + download.DownloadItems[0].FilePath)
+			}
+		}
 
 		var totalSize int64
 		var completedSize int64
-
-		for _, item := range d.DownloadItems {
+		for _, item := range download.DownloadItems {
 			totalSize += item.FileSize
 			if strings.ToLower(item.Status) == "completed" {
 				completedSize += item.FileSize
@@ -110,24 +119,23 @@ func BuildQBSyncMainData(ridParam string) (*QBSyncMainInfo, error) {
 
 		progress := float64(0)
 		if totalSize > 0 {
-			progress = float64(completedSize) / float64(totalSize) * 100
+			progress = float64(completedSize) / float64(totalSize)
 		}
 
-		hash := d.OriginalDownloadReference
-
+		hash := download.OriginalDownloadReference
 		torrents[hash] = QBTorrentInfo{
 			Hash:         hash,
-			Name:         d.DownloadName,
+			Name:         download.DownloadName,
 			Size:         totalSize,
 			Progress:     progress,
-			State:        TranslateLocalDownloadStatusToQBStatus(d.Status),
+			State:        TranslateLocalDownloadStatusToQBStatus(download.Status),
 			DlSpeed:      0,
 			UpSpeed:      0,
 			Eta:          0,
-			Category:     d.Category,
-			SavePath:     config.ApplicationDownloadRoot + "/" + d.Category,
-			AddedOn:      d.AddedAt.Unix(),
-			CompletionOn: d.CompletedAt.Unix(),
+			Category:     download.Category,
+			SavePath:     savePath,
+			AddedOn:      download.AddedAt.Unix(),
+			CompletionOn: download.CompletedAt.Unix(),
 		}
 	}
 
