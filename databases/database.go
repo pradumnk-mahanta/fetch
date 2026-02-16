@@ -244,6 +244,19 @@ func GetLocalDownloadsByReferences(references string) []LocalDownloadsInstance {
 	return downloads
 }
 
+func GetLocalDownloadsByFilter(downloadFilters LocalDownloadsInstance) []LocalDownloadsInstance {
+	var downloads []LocalDownloadsInstance
+	query := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+		return db.Order("file_size DESC")
+	}).Model(&downloadFilters)
+
+	errFind := query.Find(&downloads).Error
+	if errFind != nil {
+		logger.Log.Errorw("Database error while fetching by references", "filters", downloadFilters, "error", errFind)
+	}
+	return downloads
+}
+
 func GetLocalDownloadsByProtocol(protocol string) []LocalDownloadsInstance {
 
 	var downloads []LocalDownloadsInstance

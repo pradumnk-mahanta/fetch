@@ -29,43 +29,43 @@ func QBittorrentHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Log.Infow("qBittorrent Request", "method", method, "path", path)
 
 	switch path {
-	case "/qbittorrent/api/v2/auth/login":
+	case "/qbittorrent/api/v2/auth/login", "/api/v2/auth/login":
 		HandleQBLogin(w, r)
 		return
 
-	case "/qbittorrent/api/v2/app/webapiVersion":
+	case "/qbittorrent/api/v2/app/webapiVersion", "/api/v2/app/webapiVersion":
 		HandleQBVersion(w, r)
 		return
 
-	case "/qbittorrent/api/v2/app/preferences":
+	case "/qbittorrent/api/v2/app/preferences", "/api/v2/app/preferences":
 		HandleQBPreferences(w, r)
 		return
 
-	case "/qbittorrent/api/v2/torrents/categories":
+	case "/qbittorrent/api/v2/torrents/categories", "/api/v2/torrents/categories":
 		HandleQBTorrentCategories(w, r)
 		return
 
-	case "/qbittorrent/api/v2/torrents/info":
+	case "/qbittorrent/api/v2/torrents/info", "/api/v2/torrents/info":
 		HandleQBTorrentsInfo(w, r)
 		return
 
-	case "/qbittorrent/api/v2/torrents/files":
+	case "/qbittorrent/api/v2/torrents/files", "/api/v2/torrents/files":
 		HandleQBTorrentFiles(w, r)
 		return
 
-	case "/qbittorrent/api/v2/torrents/properties":
+	case "/qbittorrent/api/v2/torrents/properties", "/api/v2/torrents/properties":
 		HandleQBTorrentProperties(w, r)
 		return
 
-	case "/qbittorrent/api/v2/torrents/add":
+	case "/qbittorrent/api/v2/torrents/add", "/api/v2/torrents/add":
 		HandleQBAddTorrent(w, r)
 		return
 
-	case "/qbittorrent/api/v2/torrents/delete":
+	case "/qbittorrent/api/v2/torrents/delete", "/api/v2/torrents/delete":
 		HandleQBDelete(w, r)
 		return
 
-	case "/qbittorrent/api/v2/sync/maindata":
+	case "/qbittorrent/api/v2/sync/maindata", "/api/v2/sync/maindata":
 		HandleQBSyncMainData(w, r)
 		return
 
