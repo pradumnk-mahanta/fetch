@@ -539,7 +539,7 @@ func HandleQBTorrentProperties(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]interface{}{
-		"save_path":                savePath + string(os.PathSeparator),
+		"save_path":                savePath,
 		"creation_date":            download.AddedAt,
 		"piece_size":               0,
 		"comment":                  "",

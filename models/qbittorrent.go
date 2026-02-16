@@ -65,7 +65,7 @@ func BuildQBTorrentsInfo(hashesParam string) ([]QBTorrentInfo, error) {
 
 		progress := float64(0)
 		if totalSize > 0 {
-			progress = float64(completedSize) / float64(totalSize)
+			progress = float64(completedSize) / float64(totalSize) * 100
 		}
 
 		torrent := QBTorrentInfo{
@@ -78,7 +78,7 @@ func BuildQBTorrentsInfo(hashesParam string) ([]QBTorrentInfo, error) {
 			UpSpeed:      0,
 			Eta:          0,
 			Category:     d.Category,
-			SavePath:     config.ApplicationDownloadRoot,
+			SavePath:     config.ApplicationDownloadRoot + "/" + d.Category,
 			AddedOn:      d.AddedAt.Unix(),
 			CompletionOn: d.CompletedAt.Unix(),
 		}
