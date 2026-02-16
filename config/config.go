@@ -12,7 +12,7 @@ var AppConfig *Config
 const configPath = "/data/config.json"
 
 const (
-	ApplicationDownloadRoot = "y:/downloads"
+	ApplicationDownloadRoot = "/downloads"
 	ProtocolTorrent         = "torrent"
 	ProtocolUsenet          = "usenet"
 )
