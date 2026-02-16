@@ -76,56 +76,20 @@ func TorboxUsenetCreateDownload(localDownload databases.LocalDownloadsInstance) 
 	return strconv.FormatInt(*response.Data.DAT.UsenetdownloadID, 10), nil
 }
 
-func TorboxUsenetRequestDownloadLink(externalProviderId string, externalProviderItemId string) (string, error) {
+func TorboxUsenetRequestDownloadLink(externalProviderId string, externalProviderItemId string, zipped bool) string {
 	baseUrl, _ := url.Parse(config.GetUsenetProvider().APIEndpoint + "/usenet/requestdl")
-
 	queryParams := baseUrl.Query()
 	queryParams.Set("token", config.GetUsenetProvider().APIKey)
 	queryParams.Set("usenet_id", externalProviderId)
+	queryParams.Set("redirect", "true")
 	if externalProviderItemId != "-1" {
 		queryParams.Set("file_id", externalProviderItemId)
 	}
-	if config.GetUsenetProvider().PreferZippedFolder {
+	if zipped {
 		queryParams.Set("zip_link", "true")
 	}
-
 	baseUrl.RawQuery = queryParams.Encode()
-
-	client := &http.Client{Timeout: time.Second * 60}
-	request, requestError := http.NewRequest("GET", baseUrl.String(), nil)
-
-	if requestError != nil {
-		logger.Log.Errorw("Failed to create HTTP request", "error", requestError)
-		return "", requestError
-	}
-
-	request.Header.Add("Authorization", "Bearer "+config.GetUsenetProvider().APIKey)
-	request.Header.Set("Accept", "application/json")
-	requestResponse, requestError := client.Do(request)
-	if requestError != nil {
-		logger.Log.Errorw("Failed to execute HTTP request", "error", requestError)
-		return "", requestError
-	}
-	defer requestResponse.Body.Close()
-
-	body, requestError := io.ReadAll(requestResponse.Body)
-	if requestError != nil {
-		logger.Log.Errorw("Failed to read HTTP response body", "error", requestError)
-		return "", requestError
-	}
-
-	response, requestError := models.UnmarshalTorBoxAPIRespose(body)
-	if requestError != nil {
-		logger.Log.Errorw("Failed to unmarshal Torbox API response", "error", requestError, "responseBody", string(body))
-		return "", requestError
-	}
-
-	if response.Success != true {
-		logger.Log.Errorw("Failed to create usenet download in Torbox", "responseBody", string(body))
-		return "", requestError
-	}
-
-	return *response.Data.String, nil
+	return baseUrl.String()
 }
 
 func TorboxUsenetGetDownloadList() ([]models.DAT, error) {
@@ -252,56 +216,20 @@ func TorboxTorrentCreateDownload(localDownload databases.LocalDownloadsInstance)
 	return strconv.FormatInt(*response.Data.DAT.TorrentID, 10), nil
 }
 
-func TorboxTorrentRequestDownloadLink(externalProviderId string, externalProviderItemId string) (string, error) {
+func TorboxTorrentRequestDownloadLink(externalProviderId string, externalProviderItemId string, zipped bool) string {
 	baseUrl, _ := url.Parse(config.GetTorrentsProvider().APIEndpoint + "/torrents/requestdl")
-
 	queryParams := baseUrl.Query()
 	queryParams.Set("token", config.GetTorrentsProvider().APIKey)
 	queryParams.Set("torrent_id", externalProviderId)
+	queryParams.Set("redirect", "true")
 	if externalProviderItemId != "-1" {
 		queryParams.Set("file_id", externalProviderItemId)
 	}
-	if config.GetTorrentsProvider().PreferZippedFolder {
+	if zipped {
 		queryParams.Set("zip_link", "true")
 	}
-
 	baseUrl.RawQuery = queryParams.Encode()
-
-	client := &http.Client{Timeout: time.Second * 60}
-	request, requestError := http.NewRequest("GET", baseUrl.String(), nil)
-
-	if requestError != nil {
-		logger.Log.Errorw("Failed to create HTTP request", "error", requestError)
-		return "", requestError
-	}
-
-	request.Header.Add("Authorization", "Bearer "+config.GetTorrentsProvider().APIKey)
-	request.Header.Set("Accept", "application/json")
-	requestResponse, requestError := client.Do(request)
-	if requestError != nil {
-		logger.Log.Errorw("Failed to execute HTTP request", "error", requestError)
-		return "", requestError
-	}
-	defer requestResponse.Body.Close()
-
-	body, requestError := io.ReadAll(requestResponse.Body)
-	if requestError != nil {
-		logger.Log.Errorw("Failed to read HTTP response body", "error", requestError)
-		return "", requestError
-	}
-
-	response, requestError := models.UnmarshalTorBoxAPIRespose(body)
-	if requestError != nil {
-		logger.Log.Errorw("Failed to unmarshal Torbox API response", "error", requestError, "responseBody", string(body))
-		return "", requestError
-	}
-
-	if response.Success != true {
-		logger.Log.Errorw("Failed to create usenet download in Torbox", "responseBody", string(body))
-		return "", requestError
-	}
-
-	return *response.Data.String, nil
+	return baseUrl.String()
 }
 
 func TorboxTorrentGetDownloadList() ([]models.DAT, error) {

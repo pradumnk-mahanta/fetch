@@ -19,10 +19,15 @@ import (
 func CreateDownload(protocol string, downloadName string, fileBytes []byte, downloadUrl string, reference string, category string) (string, error) {
 	switch protocol {
 	case config.ProtocolUsenet:
+		var downloadType string = config.DOWNLOAD_ITEM_TYPE_INDIVIDUAL_FILE
+		if config.GetUsenetProvider().PreferZippedFolder {
+			downloadType = config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE
+		}
 		var download databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
 			Protocol:             protocol,
 			Provider:             config.GetTorrentsProvider().ID,
 			DownloadName:         strings.TrimSuffix(downloadName, filepath.Ext(downloadName)),
+			DownloadType:         downloadType,
 			OriginalDownloadFile: fileBytes,
 			Category:             category,
 			Status:               config.DOWNLOAD_STATUS_CLIENT_ADDED,
@@ -37,10 +42,15 @@ func CreateDownload(protocol string, downloadName string, fileBytes []byte, down
 		return locaDownloadId, nil
 
 	case config.ProtocolTorrent:
+		var downloadType string = config.DOWNLOAD_ITEM_TYPE_INDIVIDUAL_FILE
+		if config.GetTorrentsProvider().PreferZippedFolder {
+			downloadType = config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE
+		}
 		var download databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
 			Protocol:                  protocol,
 			Provider:                  config.GetTorrentsProvider().ID,
 			DownloadName:              strings.TrimSuffix(downloadName, filepath.Ext(downloadName)),
+			DownloadType:              downloadType,
 			OriginalDownloadUrl:       downloadUrl,
 			OriginalDownloadFile:      fileBytes,
 			OriginalDownloadReference: reference,
@@ -113,7 +123,7 @@ func ProcessUsenetDownloadsQueue() (string, error) {
 						logger.Log.Errorw("Failed to get provider data in json", "error", provDataErr)
 						continue
 					}
-					errProvData := databases.UpdateLocalDownloadProviderData(localDownload.IDString(), provData)
+					errProvData := databases.UpdateLocalDownloadProviderData(localDownload.IDString(), *providerDownload.Name, provData)
 					if errProvData != nil {
 						logger.Log.Errorw("Failed to update download status", "error", errProvData)
 						continue
@@ -123,12 +133,8 @@ func ProcessUsenetDownloadsQueue() (string, error) {
 			logger.Log.Debugw("Updating download", "download", localDownload, "providerStatus", providerDownloads)
 
 		case config.DOWNLOAD_STATUS_PROVIDER_COMPLETED:
-			if config.GetUsenetProvider().PreferZippedFolder {
-				downloadLink, requestDownloadLinkError := services.TorboxUsenetRequestDownloadLink(localDownload.ExternalProviderID, "-1")
-				if requestDownloadLinkError != nil {
-					logger.Log.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)
-					continue
-				}
+			if localDownload.DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
+				downloadLink := services.TorboxUsenetRequestDownloadLink(localDownload.ExternalProviderID, "-1", true)
 				logger.Log.Debugw("Requested Zipped download link from provider", "downloadLink", downloadLink)
 
 				fileInfo, errFile := gdl.GetFileInfo(context.Background(), downloadLink)
@@ -136,7 +142,20 @@ func ProcessUsenetDownloadsQueue() (string, error) {
 					logger.Log.Errorw("Unable to retrieve file metadata: " + errFile.Error())
 					continue
 				}
-				downloadItemId, errAdd := databases.AddLocalDownloadItem(localDownload.IDString(), config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE, localDownload.Category, fileInfo.Filename, fileInfo.Filename, fileInfo.Size, localDownload.ExternalProviderID, "-1", downloadLink)
+				downloadItemId, errAdd := databases.AddLocalDownloadItem(databases.LocalDownloadsInstanceItem{
+					DownloadID:                  localDownload.ID,
+					DownloadType:                config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE,
+					Category:                    localDownload.Category,
+					FileName:                    fileInfo.Filename,
+					FilePath:                    fileInfo.Filename,
+					FileSize:                    fileInfo.Size,
+					Status:                      config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED,
+					ExternalProviderID:          localDownload.ExternalProviderID,
+					ExternalProviderItemID:      "-1",
+					ExternalProviderDownloadURL: downloadLink,
+					RetryCounter:                0,
+					AddedAt:                     time.Now(),
+				})
 				if errAdd != nil {
 					logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "item", downloadItemId)
 				}
@@ -145,9 +164,23 @@ func ProcessUsenetDownloadsQueue() (string, error) {
 				var providerDownloadFromStorage models.DAT
 				providerDownloadFromStorage.LoadJSON(localDownload.ExternalProviderDataObject)
 				for _, providerDownloadItem := range providerDownloadFromStorage.Files {
-					downloadItemId, err := databases.AddLocalDownloadItem(localDownload.IDString(), config.DOWNLOAD_ITEM_TYPE_INDIVIDUAL_FILE, localDownload.Category, providerDownloadItem.ShortName, providerDownloadItem.Name, providerDownloadItem.Size, localDownload.ExternalProviderID, strconv.FormatInt(providerDownloadItem.ID, 10), "")
-					if err != nil {
-						logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "item", downloadItemId)
+					downloadLink := services.TorboxUsenetRequestDownloadLink(localDownload.ExternalProviderID, providerDownloadItem.IDString(), false)
+					downloadItemId, errAdd := databases.AddLocalDownloadItem(databases.LocalDownloadsInstanceItem{
+						DownloadID:                  localDownload.ID,
+						DownloadType:                config.DOWNLOAD_ITEM_TYPE_INDIVIDUAL_FILE,
+						Category:                    localDownload.Category,
+						FileName:                    providerDownloadItem.ShortName,
+						FilePath:                    providerDownloadItem.Name,
+						FileSize:                    providerDownloadItem.Size,
+						Status:                      config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED,
+						ExternalProviderID:          localDownload.ExternalProviderID,
+						ExternalProviderItemID:      providerDownloadItem.IDString(),
+						ExternalProviderDownloadURL: downloadLink,
+						RetryCounter:                0,
+						AddedAt:                     time.Now(),
+					})
+					if errAdd != nil {
+						logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "provider item", providerDownloadItem.IDString())
 					}
 					logger.Log.Infow("Added download Item Id", "download", localDownload.ID, "item", downloadItemId)
 				}
@@ -244,7 +277,7 @@ func ProcessTorrentsDownloadsQueue() (string, error) {
 						logger.Log.Errorw("Failed to get provider data in json", "error", provDataErr)
 						continue
 					}
-					errProvData := databases.UpdateLocalDownloadProviderData(localDownload.IDString(), provData)
+					errProvData := databases.UpdateLocalDownloadProviderData(localDownload.IDString(), *providerDownload.Name, provData)
 					if errProvData != nil {
 						logger.Log.Errorw("Failed to update download status", "error", errProvData)
 						continue
@@ -254,12 +287,8 @@ func ProcessTorrentsDownloadsQueue() (string, error) {
 			logger.Log.Debugw("Updating download", "download", localDownload, "providerStatus", providerDownloads)
 
 		case config.DOWNLOAD_STATUS_PROVIDER_COMPLETED:
-			if config.GetTorrentsProvider().PreferZippedFolder {
-				downloadLink, requestDownloadLinkError := services.TorboxTorrentRequestDownloadLink(localDownload.ExternalProviderID, "-1")
-				if requestDownloadLinkError != nil {
-					logger.Log.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)
-					continue
-				}
+			if localDownload.DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
+				downloadLink := services.TorboxTorrentRequestDownloadLink(localDownload.ExternalProviderID, "-1", true)
 				logger.Log.Debugw("Requested Zipped download link from provider", "downloadLink", downloadLink)
 
 				fileInfo, errFile := gdl.GetFileInfo(context.Background(), downloadLink)
@@ -267,7 +296,20 @@ func ProcessTorrentsDownloadsQueue() (string, error) {
 					logger.Log.Errorw("Unable to retrieve file metadata: " + errFile.Error())
 					continue
 				}
-				downloadItemId, errAdd := databases.AddLocalDownloadItem(localDownload.IDString(), config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE, localDownload.Category, fileInfo.Filename, fileInfo.Filename, fileInfo.Size, localDownload.ExternalProviderID, "-1", downloadLink)
+				downloadItemId, errAdd := databases.AddLocalDownloadItem(databases.LocalDownloadsInstanceItem{
+					DownloadID:                  localDownload.ID,
+					DownloadType:                config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE,
+					Category:                    localDownload.Category,
+					FileName:                    fileInfo.Filename,
+					FilePath:                    fileInfo.Filename,
+					FileSize:                    fileInfo.Size,
+					Status:                      config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED,
+					ExternalProviderID:          localDownload.ExternalProviderID,
+					ExternalProviderItemID:      "-1",
+					ExternalProviderDownloadURL: downloadLink,
+					RetryCounter:                0,
+					AddedAt:                     time.Now(),
+				})
 				if errAdd != nil {
 					logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "item", downloadItemId)
 				}
@@ -276,9 +318,23 @@ func ProcessTorrentsDownloadsQueue() (string, error) {
 				var providerDownloadFromStorage models.DAT
 				providerDownloadFromStorage.LoadJSON(localDownload.ExternalProviderDataObject)
 				for _, providerDownloadItem := range providerDownloadFromStorage.Files {
-					downloadItemId, err := databases.AddLocalDownloadItem(localDownload.IDString(), config.DOWNLOAD_ITEM_TYPE_INDIVIDUAL_FILE, localDownload.Category, providerDownloadItem.ShortName, providerDownloadItem.Name, providerDownloadItem.Size, localDownload.ExternalProviderID, strconv.FormatInt(providerDownloadItem.ID, 10), "")
-					if err != nil {
-						logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "item", downloadItemId)
+					downloadLink := services.TorboxTorrentRequestDownloadLink(localDownload.ExternalProviderID, providerDownloadItem.IDString(), false)
+					downloadItemId, errAdd := databases.AddLocalDownloadItem(databases.LocalDownloadsInstanceItem{
+						DownloadID:                  localDownload.ID,
+						DownloadType:                config.DOWNLOAD_ITEM_TYPE_INDIVIDUAL_FILE,
+						Category:                    localDownload.Category,
+						FileName:                    providerDownloadItem.ShortName,
+						FilePath:                    providerDownloadItem.Name,
+						FileSize:                    providerDownloadItem.Size,
+						Status:                      config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED,
+						ExternalProviderID:          localDownload.ExternalProviderID,
+						ExternalProviderItemID:      providerDownloadItem.IDString(),
+						ExternalProviderDownloadURL: downloadLink,
+						RetryCounter:                0,
+						AddedAt:                     time.Now(),
+					})
+					if errAdd != nil {
+						logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "provider item", providerDownloadItem.IDString())
 					}
 					logger.Log.Infow("Added download Item Id", "download", localDownload.ID, "item", downloadItemId)
 				}
@@ -350,43 +406,6 @@ func ProcessDownloadItemsQueue() (string, error) {
 				}
 			}
 			if activeDownloads < config.AppConfig.DownloaderMaxDownloadsConcurrent {
-				var downloadLink string
-				if localDownloadItem.ExternalProviderDownloadURL == "" {
-					localDownload, errorLocalDownload := databases.GetLocalDownloadDetails(localDownloadItem.DownloadIDString())
-					if errorLocalDownload != nil {
-						logger.Log.Errorw("Failed to get parent item for", "item", localDownloadItem.DownloadIDString())
-						continue
-					}
-					if localDownload.Protocol == config.ProtocolUsenet {
-						providerDownloadLink, requestDownloadLinkError := services.TorboxUsenetRequestDownloadLink(localDownloadItem.ExternalProviderID, localDownloadItem.ExternalProviderItemID)
-						if requestDownloadLinkError != nil {
-							logger.Log.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)
-							continue
-						}
-						linkDbUpdErr := databases.UpdateLocalDownloadItemExternalUrl(localDownloadItem.IDString(), downloadLink)
-						if linkDbUpdErr != nil {
-							logger.Log.Errorw("Failed to save download link from provider", "error", linkDbUpdErr)
-							continue
-						}
-						downloadLink = providerDownloadLink
-					} else {
-						providerDownloadLink, requestDownloadLinkError := services.TorboxTorrentRequestDownloadLink(localDownloadItem.ExternalProviderID, localDownloadItem.ExternalProviderItemID)
-						if requestDownloadLinkError != nil {
-							logger.Log.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)
-							continue
-						}
-						linkDbUpdErr := databases.UpdateLocalDownloadItemExternalUrl(localDownloadItem.IDString(), downloadLink)
-						if linkDbUpdErr != nil {
-							logger.Log.Errorw("Failed to save download link from provider", "error", linkDbUpdErr)
-							continue
-						}
-						downloadLink = providerDownloadLink
-					}
-
-				} else {
-					downloadLink = localDownloadItem.ExternalProviderDownloadURL
-				}
-				localDownloadItem.ExternalProviderDownloadURL = downloadLink
 				downloader.Download(context.Background(), localDownloadItem)
 			}
 			continue

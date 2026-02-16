@@ -8,6 +8,7 @@ import (
 	"fetch/databases"
 	"fetch/logger"
 	"fetch/models"
+	"fetch/services"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/forest6511/gdl"
@@ -28,43 +30,43 @@ func QBittorrentHandler(w http.ResponseWriter, r *http.Request) {
 	logger.Log.Infow("qBittorrent Request", "method", method, "path", path)
 
 	switch path {
-	case "/qbittorrent/api/v2/auth/login":
+	case "/qbittorrent/api/v2/auth/login", "/api/v2/auth/login":
 		HandleQBLogin(w, r)
 		return
 
-	case "/qbittorrent/api/v2/app/webapiVersion":
+	case "/qbittorrent/api/v2/app/webapiVersion", "/api/v2/app/webapiVersion":
 		HandleQBVersion(w, r)
 		return
 
-	case "/qbittorrent/api/v2/app/preferences":
+	case "/qbittorrent/api/v2/app/preferences", "/api/v2/app/preferences":
 		HandleQBPreferences(w, r)
 		return
 
-	case "/qbittorrent/api/v2/torrents/categories":
+	case "/qbittorrent/api/v2/torrents/categories", "/api/v2/torrents/categories":
 		HandleQBTorrentCategories(w, r)
 		return
 
-	case "/qbittorrent/api/v2/torrents/info":
+	case "/qbittorrent/api/v2/torrents/info", "/api/v2/torrents/info":
 		HandleQBTorrentsInfo(w, r)
 		return
 
-	case "/qbittorrent/api/v2/torrents/files":
+	case "/qbittorrent/api/v2/torrents/files", "/api/v2/torrents/files":
 		HandleQBTorrentFiles(w, r)
 		return
 
-	case "/qbittorrent/api/v2/torrents/properties":
+	case "/qbittorrent/api/v2/torrents/properties", "/api/v2/torrents/properties":
 		HandleQBTorrentProperties(w, r)
 		return
 
-	case "/qbittorrent/api/v2/torrents/add":
+	case "/qbittorrent/api/v2/torrents/add", "/api/v2/torrents/add":
 		HandleQBAddTorrent(w, r)
 		return
 
-	case "/qbittorrent/api/v2/torrents/delete":
+	case "/qbittorrent/api/v2/torrents/delete", "/api/v2/torrents/delete":
 		HandleQBDelete(w, r)
 		return
 
-	case "/qbittorrent/api/v2/sync/maindata":
+	case "/qbittorrent/api/v2/sync/maindata", "/api/v2/sync/maindata":
 		HandleQBSyncMainData(w, r)
 		return
 
@@ -121,17 +123,15 @@ func HandleQBTorrentsInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hashesParam := r.URL.Query().Get("hashes")
-
-	response, err := models.BuildQBTorrentsInfo(hashesParam)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	category := r.URL.Query().Get("category")
+	downloads := databases.GetLocalDownloadsByFilter(databases.LocalDownloadsInstance{
+		Category: category,
+		Protocol: config.ProtocolTorrent,
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	json.NewEncoder(w).Encode(GetTorrentsInfoList(downloads))
 }
 
 func HandleQBDelete(w http.ResponseWriter, r *http.Request) {
@@ -145,7 +145,7 @@ func HandleQBDelete(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log.Debugw("Delete torrent", "hashes", hashes, "deleteFiles", deleteFiles)
 
-	localDownloads := databases.GetLocalDownloadsByReference(hashes)
+	localDownloads := databases.GetLocalDownloadsByReferences(hashes)
 	for _, localDownload := range localDownloads {
 		err := DeleteLocalDownload(localDownload.IDString())
 		if err != nil {
@@ -161,17 +161,27 @@ func HandleQBSyncMainData(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ridParam := r.URL.Query().Get("rid")
+	downloads := databases.GetLocalDownloadsByFilter(databases.LocalDownloadsInstance{
+		Protocol: config.ProtocolTorrent,
+	})
 
-	data, err := models.BuildQBSyncMainData(ridParam)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	torrentInfo := GetTorrentsInfoList(downloads)
+	var torrents map[string]models.QBTorrentInfo = make(map[string]models.QBTorrentInfo)
+
+	for _, torrent := range torrentInfo {
+		torrents[torrent.Hash] = torrent
+	}
+
+	mainData := models.QBSyncMainInfo{
+		Rid:             time.Now().Unix(),
+		FullUpdate:      true,
+		Torrents:        torrents,
+		TorrentsRemoved: []string{},
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(data)
+	json.NewEncoder(w).Encode(mainData)
 }
 
 func HandleQBAddTorrent(w http.ResponseWriter, r *http.Request) {
@@ -449,62 +459,42 @@ func HandleQBTorrentFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	download := databases.GetLocalDownloadByFilter(databases.LocalDownloadsInstance{
+		Protocol:                  config.ProtocolTorrent,
+		OriginalDownloadReference: hash,
+	})
 
-	downloads := databases.GetLocalDownloadsByReference(hash)
-	if !(len(downloads) > 0) {
-		json.NewEncoder(w).Encode([]interface{}{})
-		return
-	}
-
-	download := downloads[0]
-	if len(download.OriginalDownloadFile) == 0 {
-		json.NewEncoder(w).Encode([]interface{}{})
-		return
-	}
-
-	if len(download.OriginalDownloadFile) == 0 {
-		json.NewEncoder(w).Encode([]interface{}{})
-		return
-	}
-
-	miFile, errFile := metainfo.Load(bytes.NewReader(download.OriginalDownloadFile))
-	if errFile != nil {
-		json.NewEncoder(w).Encode([]interface{}{})
-		return
-	}
-
-	info, err := miFile.UnmarshalInfo()
-	if err != nil {
+	if download == nil {
 		json.NewEncoder(w).Encode([]interface{}{})
 		return
 	}
 
 	var files []map[string]interface{}
+	if len(download.OriginalDownloadFile) > 0 {
+		miFile, errFile := metainfo.Load(bytes.NewReader(download.OriginalDownloadFile))
+		if errFile != nil {
+			logger.Log.Errorw("Failed to load torrent metainfo", "hash", hash, "error", errFile)
+			json.NewEncoder(w).Encode([]interface{}{})
+			return
+		}
 
-	if len(info.Files) > 0 {
-		for i, f := range info.Files {
+		info, err := miFile.UnmarshalInfo()
+		if err != nil {
+			logger.Log.Errorw("Failed to unmarshal torrent info", "hash", hash, "error", err)
+			json.NewEncoder(w).Encode([]interface{}{})
+			return
+		}
+		for _, file := range info.Files {
+			fileName := strings.Join(file.Path, "/")
 			files = append(files, map[string]interface{}{
-				"index":        i,
-				"name":         strings.Join(f.Path, "/"),
-				"size":         f.Length,
-				"progress":     0.0,
-				"priority":     1,
-				"is_seed":      false,
-				"piece_range":  []int{0, 0},
-				"availability": -1,
+				"name": fileName,
 			})
 		}
+		if files == nil {
+			files = make([]map[string]interface{}, 0)
+		}
 	} else {
-		files = append(files, map[string]interface{}{
-			"index":        0,
-			"name":         info.Name,
-			"size":         info.Length,
-			"progress":     0.0,
-			"priority":     1,
-			"is_seed":      false,
-			"piece_range":  []int{0, 0},
-			"availability": -1,
-		})
+		files = make([]map[string]interface{}, 0)
 	}
 
 	json.NewEncoder(w).Encode(files)
@@ -512,7 +502,6 @@ func HandleQBTorrentFiles(w http.ResponseWriter, r *http.Request) {
 
 func HandleQBTorrentProperties(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-
 	if r.Method != http.MethodGet {
 		http.Error(w, `{"error":"Method not allowed"}`, http.StatusMethodNotAllowed)
 		return
@@ -524,23 +513,25 @@ func HandleQBTorrentProperties(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	downloads := databases.GetLocalDownloadsByReference(hash)
-	if !(len(downloads) > 0) {
+	download := databases.GetLocalDownloadByFilter(databases.LocalDownloadsInstance{
+		Protocol: config.ProtocolTorrent,
+	})
+	if download == nil {
 		json.NewEncoder(w).Encode([]interface{}{})
 		return
 	}
 
-	download := downloads[0]
-	savePath := config.ApplicationDownloadRoot + "/" + download.Category
-	if download.DownloadItems[0].DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
-		savePath = strings.TrimSuffix(savePath+"/"+download.DownloadItems[0].FilePath, filepath.Ext(download.DownloadItems[0].FilePath))
+	var completedTime *int64
+	if download.Status == config.DOWNLOAD_STATUS_CLIENT_COMPLETED {
+		ts := download.CompletedAt.Unix()
+		completedTime = &ts
 	} else {
-		savePath = filepath.Dir(savePath + "/" + download.DownloadItems[0].FilePath)
+		completedTime = nil
 	}
 
 	response := map[string]interface{}{
-		"save_path":                savePath + string(os.PathSeparator),
-		"creation_date":            download.AddedAt,
+		"save_path":                config.ApplicationDownloadRoot + "/" + download.Category,
+		"creation_date":            download.AddedAt.Unix(),
 		"piece_size":               0,
 		"comment":                  "",
 		"total_wasted":             0,
@@ -554,9 +545,9 @@ func HandleQBTorrentProperties(w http.ResponseWriter, r *http.Request) {
 		"seeding_time":             0,
 		"nb_connections":           0,
 		"nb_connections_limit":     -1,
-		"share_ratio":              4,
-		"addition_date":            download.AddedAt,
-		"completion_date":          download.CompletedAt,
+		"share_ratio":              2,
+		"addition_date":            download.AddedAt.Unix(),
+		"completion_date":          completedTime,
 		"created_by":               "",
 		"private":                  false,
 	}
@@ -593,4 +584,89 @@ func GetTopLevelDir(path string) string {
 	}
 
 	return string(os.PathSeparator)
+}
+
+func GetTorrentsInfoList(downloads []databases.LocalDownloadsInstance) []models.QBTorrentInfo {
+	liveDownloads := services.GetGDLService().Status()
+
+	var result []models.QBTorrentInfo
+	for _, download := range downloads {
+
+		var savePath = config.ApplicationDownloadRoot + "/" + download.Category
+		var contentPath = savePath
+		var totalSize int64 = 0
+		var completedSize int64 = 0
+
+		var completedTime *int64
+		if download.Status == config.DOWNLOAD_STATUS_CLIENT_COMPLETED {
+			ts := download.CompletedAt.Unix()
+			completedTime = &ts
+		} else {
+			completedTime = nil
+		}
+
+		switch download.Status {
+		case config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING,
+			config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_PROCESSING,
+			config.DOWNLOAD_STATUS_PROVIDER_COMPLETED,
+			config.DOWNLOAD_STATUS_DOWNLOADER_ADDED,
+			config.DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING,
+			config.DOWNLOAD_STATUS_DOWNLOADER_FAILED,
+			config.DOWNLOAD_STATUS_DOWNLOADER_PAUSED,
+			config.DOWNLOAD_STATUS_DOWNLOADER_PROCESSING,
+			config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED:
+			if download.DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
+				contentPath = strings.TrimSuffix(savePath+"/"+download.DownloadItems[0].FilePath, filepath.Ext(download.DownloadItems[0].FilePath))
+			} else {
+				contentPath = models.GetTopFolderFromPath(download.DownloadItems[0].FilePath)
+			}
+
+			for _, item := range download.DownloadItems {
+				totalSize += item.FileSize
+				if strings.ToLower(item.Status) == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED {
+					completedSize += item.FileSize
+					continue
+				}
+
+				for _, status := range liveDownloads {
+					if status.ID == item.IDString() {
+						partialBytes := float64(item.FileSize) * (status.Percentage / 100)
+						completedSize += int64(partialBytes)
+						break
+					}
+				}
+			}
+		default:
+
+		}
+
+		progress := float64(0)
+		if totalSize > 0 {
+			progress = float64(completedSize) / float64(totalSize)
+		}
+
+		torrent := models.QBTorrentInfo{
+			Hash:         download.OriginalDownloadReference,
+			Name:         download.DownloadName,
+			Size:         totalSize,
+			Progress:     progress,
+			State:        models.TranslateLocalDownloadStatusToQBStatus(download.Status),
+			DlSpeed:      0,
+			UpSpeed:      0,
+			Eta:          0,
+			Category:     download.Category,
+			SavePath:     savePath,
+			AddedOn:      download.AddedAt.Unix(),
+			CompletionOn: completedTime,
+			ContentPath:  contentPath + "/",
+		}
+
+		result = append(result, torrent)
+	}
+
+	if result == nil {
+		result = make([]models.QBTorrentInfo, 0)
+	}
+
+	return result
 }

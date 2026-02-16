@@ -2,9 +2,8 @@ package models
 
 import (
 	"fetch/config"
-	"fetch/databases"
+	"path/filepath"
 	"strings"
-	"time"
 )
 
 type QBTorrentInfo struct {
@@ -18,8 +17,9 @@ type QBTorrentInfo struct {
 	Eta          int64   `json:"eta"`
 	Category     string  `json:"category"`
 	SavePath     string  `json:"save_path"`
+	ContentPath  string  `json:"content_path"`
 	AddedOn      int64   `json:"added_on"`
-	CompletionOn int64   `json:"completion_on"`
+	CompletionOn *int64  `json:"completion_on"`
 }
 
 type QBSyncMainInfo struct {
@@ -42,102 +42,13 @@ func TranslateLocalDownloadStatusToQBStatus(status string) string {
 	default:
 		return "downloading"
 	}
-	// Remaining States - pausedDL, stalledDL // Map Later
 }
 
-func BuildQBTorrentsInfo(hashesParam string) ([]QBTorrentInfo, error) {
-
-	downloads := databases.GetLocalDownloadsByReference(hashesParam)
-
-	var result []QBTorrentInfo
-
-	for _, d := range downloads {
-
-		var totalSize int64
-		var completedSize int64
-
-		for _, item := range d.DownloadItems {
-			totalSize += item.FileSize
-			if strings.ToLower(item.Status) == "completed" {
-				completedSize += item.FileSize
-			}
-		}
-
-		progress := float64(0)
-		if totalSize > 0 {
-			progress = float64(completedSize) / float64(totalSize)
-		}
-
-		torrent := QBTorrentInfo{
-			Hash:         d.OriginalDownloadReference,
-			Name:         d.DownloadName,
-			Size:         totalSize,
-			Progress:     progress,
-			State:        TranslateLocalDownloadStatusToQBStatus(d.Status),
-			DlSpeed:      0,
-			UpSpeed:      0,
-			Eta:          0,
-			Category:     d.Category,
-			SavePath:     config.ApplicationDownloadRoot,
-			AddedOn:      d.AddedAt.Unix(),
-			CompletionOn: d.CompletedAt.Unix(),
-		}
-
-		result = append(result, torrent)
+func GetTopFolderFromPath(path string) string {
+	cleanPath := filepath.ToSlash(path)
+	parts := strings.Split(strings.TrimLeft(cleanPath, "/"), "/")
+	if len(parts) > 1 {
+		return "/" + parts[0]
 	}
-
-	if result == nil {
-		result = make([]QBTorrentInfo, 0)
-	}
-
-	return result, nil
-}
-
-func BuildQBSyncMainData(ridParam string) (*QBSyncMainInfo, error) {
-
-	downloads := databases.GetLocalDownloadsByProtocol(config.ProtocolTorrent)
-
-	torrents := make(map[string]QBTorrentInfo)
-
-	for _, d := range downloads {
-
-		var totalSize int64
-		var completedSize int64
-
-		for _, item := range d.DownloadItems {
-			totalSize += item.FileSize
-			if strings.ToLower(item.Status) == "completed" {
-				completedSize += item.FileSize
-			}
-		}
-
-		progress := float64(0)
-		if totalSize > 0 {
-			progress = float64(completedSize) / float64(totalSize)
-		}
-
-		hash := d.OriginalDownloadReference
-
-		torrents[hash] = QBTorrentInfo{
-			Hash:         hash,
-			Name:         d.DownloadName,
-			Size:         totalSize,
-			Progress:     progress,
-			State:        TranslateLocalDownloadStatusToQBStatus(d.Status),
-			DlSpeed:      0,
-			UpSpeed:      0,
-			Eta:          0,
-			Category:     d.Category,
-			SavePath:     config.ApplicationDownloadRoot,
-			AddedOn:      d.AddedAt.Unix(),
-			CompletionOn: d.CompletedAt.Unix(),
-		}
-	}
-
-	return &QBSyncMainInfo{
-		Rid:             time.Now().Unix(),
-		FullUpdate:      true,
-		Torrents:        torrents,
-		TorrentsRemoved: []string{},
-	}, nil
+	return "/"
 }

@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 )
 
@@ -93,6 +94,10 @@ type Data struct {
 	DAT      *DAT
 	DATArray []DAT
 	String   *string
+}
+
+func (i *File) IDString() string {
+	return strconv.FormatInt(i.ID, 10)
 }
 
 func (x *Data) UnmarshalJSON(data []byte) error {

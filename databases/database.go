@@ -2,6 +2,7 @@ package databases
 
 import (
 	"encoding/json"
+	"errors"
 	"fetch/config"
 	"fetch/logger"
 	"strconv"
@@ -55,6 +56,7 @@ type LocalDownloadsInstance struct {
 	Protocol                   string    `gorm:"column:protocol" json:"protocol"`
 	Provider                   string    `gorm:"column:provider" json:"provider"`
 	DownloadName               string    `gorm:"column:download_name" json:"download_name"`
+	DownloadType               string    `gorm:"column:download_type:default:'Individual File for Download'" json:"download_type"`
 	OriginalDownloadUrl        string    `gorm:"column:original_download_url" json:"original_download_url"`
 	OriginalDownloadFile       []byte    `gorm:"column:original_download_file;type:blob" json:"-"`
 	OriginalDownloadReference  string    `gorm:"column:original_download_reference;type:blob" json:"original_download_reference"` //hash store
@@ -148,34 +150,12 @@ func AddLocalDownload(download LocalDownloadsInstance) (string, error) {
 	return dl.IDString(), nil
 }
 
-func AddLocalDownloadItem(downloadId string, downloadType string, category string, fileName string, filePath string, fileSize int64, providerId string, providerItemId string, providerDownloadUrl string) (string, error) {
-
-	dlID, err := strconv.ParseUint(downloadId, 10, 64)
-	if err != nil {
-		logger.Log.Errorw("Invalid ID format", "id", dlID, "error", err)
-		return "", err
-	}
-
-	item := &LocalDownloadsInstanceItem{
-		DownloadID:                  uint(dlID),
-		DownloadType:                downloadType,
-		Category:                    category,
-		FileName:                    fileName,
-		FilePath:                    filePath,
-		FileSize:                    fileSize,
-		Status:                      config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED,
-		ExternalProviderID:          providerId,
-		ExternalProviderItemID:      providerItemId,
-		ExternalProviderDownloadURL: providerDownloadUrl,
-		RetryCounter:                0,
-		AddedAt:                     time.Now(),
-	}
-
+func AddLocalDownloadItem(localDownloadsInstanceItem LocalDownloadsInstanceItem) (string, error) {
+	item := &localDownloadsInstanceItem
 	if err := item.Add(); err != nil {
 		logger.Log.Errorw("Failed to add download item to db", "error", err)
 		return "", err
 	}
-
 	logger.Log.Infow("Download Item Added", "id", item.IDString())
 	return item.IDString(), nil
 }
@@ -202,13 +182,31 @@ func GetLocalDownloadDetails(id string) (LocalDownloadsInstance, error) {
 	return download, nil
 }
 
-func GetLocalDownloadsByReference(references string) []LocalDownloadsInstance {
+func GetLocalDownloadsByReference(reference string) *LocalDownloadsInstance {
+	var download LocalDownloadsInstance
+
+	err := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+		return db.Order("file_size DESC")
+	}).Where("protocol = ? AND original_download_reference = ?", config.ProtocolTorrent, reference).
+		First(&download).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		logger.Log.Errorw("Database error while fetching by reference", "reference", reference, "error", err)
+		return nil
+	}
+
+	return &download
+}
+
+func GetLocalDownloadsByReferences(references string) []LocalDownloadsInstance {
 
 	var downloads []LocalDownloadsInstance
 
-	query := DB.Preload("DownloadItems", func(preloadBuilder gorm.PreloadBuilder) error {
-		preloadBuilder.Order("file_size DESC")
-		return nil
+	query := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+		return db.Order("file_size DESC")
 	}).Model(&LocalDownloadsInstance{}).Where("protocol = ?", config.ProtocolTorrent)
 
 	if references != "" {
@@ -224,10 +222,42 @@ func GetLocalDownloadsByReference(references string) []LocalDownloadsInstance {
 	return downloads
 }
 
+func GetLocalDownloadsByFilter(downloadFilters LocalDownloadsInstance) []LocalDownloadsInstance {
+	var downloads []LocalDownloadsInstance
+	query := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+		return db.Order("file_size DESC")
+	}).Model(&downloadFilters)
+
+	errFind := query.Find(&downloads).Error
+	if errFind != nil {
+		logger.Log.Errorw("Database error while fetching by references", "filters", downloadFilters, "error", errFind)
+	}
+	return downloads
+}
+
+func GetLocalDownloadByFilter(downloadFilters LocalDownloadsInstance) *LocalDownloadsInstance {
+	var download LocalDownloadsInstance
+
+	err := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+		return db.Order("file_size DESC")
+	}).Where(&downloadFilters).First(&download).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		logger.Log.Errorw("Database error while fetching by filter", "filters", downloadFilters, "error", err)
+		return nil
+	}
+	return &download
+}
+
 func GetLocalDownloadsByProtocol(protocol string) []LocalDownloadsInstance {
 
 	var downloads []LocalDownloadsInstance
-	result := DB.Preload("DownloadItems").Model(&LocalDownloadsInstance{}).
+	result := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+		return db.Order("file_size DESC")
+	}).Model(&LocalDownloadsInstance{}).
 		Where("protocol = ?", protocol).
 		Find(&downloads)
 
@@ -458,7 +488,7 @@ func GetLocalCompletedDownloads(protocol string) ([]LocalDownloadsInstance, erro
 	return downloads, nil
 }
 
-func UpdateLocalDownloadProviderData(id string, providerData string) error {
+func UpdateLocalDownloadProviderData(id string, providerDownloadName string, providerData string) error {
 	uID, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
 		logger.Log.Errorw("Invalid ID for provider data update", "id", id, "error", err)
@@ -467,7 +497,10 @@ func UpdateLocalDownloadProviderData(id string, providerData string) error {
 
 	result := DB.Model(&LocalDownloadsInstance{}).
 		Where("id = ?", uint(uID)).
-		Update("external_provider_data_object", providerData)
+		Updates(map[string]interface{}{
+			"download_name":                 providerDownloadName,
+			"external_provider_data_object": providerData,
+		})
 
 	if result.Error != nil {
 		logger.Log.Errorw("Failed to update provider data object", "id", id, "error", result.Error)
