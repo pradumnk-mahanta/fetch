@@ -521,6 +521,14 @@ func HandleQBTorrentProperties(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var completedTime *int64
+	if download.Status == config.DOWNLOAD_STATUS_CLIENT_COMPLETED {
+		ts := download.CompletedAt.Unix()
+		completedTime = &ts
+	} else {
+		completedTime = nil
+	}
+
 	response := map[string]interface{}{
 		"save_path":                config.ApplicationDownloadRoot + "/" + download.Category,
 		"creation_date":            download.AddedAt.Unix(),
@@ -539,7 +547,7 @@ func HandleQBTorrentProperties(w http.ResponseWriter, r *http.Request) {
 		"nb_connections_limit":     -1,
 		"share_ratio":              2,
 		"addition_date":            download.AddedAt.Unix(),
-		"completion_date":          download.CompletedAt.Unix(),
+		"completion_date":          completedTime,
 		"created_by":               "",
 		"private":                  false,
 	}
@@ -595,6 +603,14 @@ func GetTorrentsInfoList(downloads []databases.LocalDownloadsInstance) []models.
 			contentPath = models.GetTopFolderFromPath(download.DownloadItems[0].FilePath)
 		}
 
+		var completedTime *int64
+		if download.Status == config.DOWNLOAD_STATUS_CLIENT_COMPLETED {
+			ts := download.CompletedAt.Unix()
+			completedTime = &ts
+		} else {
+			completedTime = nil
+		}
+
 		for _, item := range download.DownloadItems {
 			totalSize += item.FileSize
 			if strings.ToLower(item.Status) == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED {
@@ -628,7 +644,7 @@ func GetTorrentsInfoList(downloads []databases.LocalDownloadsInstance) []models.
 			Category:     download.Category,
 			SavePath:     savePath,
 			AddedOn:      download.AddedAt.Unix(),
-			CompletionOn: download.CompletedAt.Unix(),
+			CompletionOn: completedTime,
 			ContentPath:  contentPath + "/",
 		}
 

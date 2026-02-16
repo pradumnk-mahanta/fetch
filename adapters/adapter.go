@@ -264,7 +264,7 @@ func ProcessTorrentsDownloadsQueue() (string, error) {
 			logger.Log.Debugw("Updating download", "download", localDownload, "providerStatus", providerDownloads)
 
 		case config.DOWNLOAD_STATUS_PROVIDER_COMPLETED:
-			if config.GetTorrentsProvider().PreferZippedFolder {
+			if localDownload.DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
 				downloadLink, requestDownloadLinkError := services.TorboxTorrentRequestDownloadLink(localDownload.ExternalProviderID, "-1")
 				if requestDownloadLinkError != nil {
 					logger.Log.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)

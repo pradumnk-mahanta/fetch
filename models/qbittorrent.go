@@ -19,7 +19,7 @@ type QBTorrentInfo struct {
 	SavePath     string  `json:"save_path"`
 	ContentPath  string  `json:"content_path"`
 	AddedOn      int64   `json:"added_on"`
-	CompletionOn int64   `json:"completion_on"`
+	CompletionOn *int64  `json:"completion_on"`
 }
 
 type QBSyncMainInfo struct {
