@@ -133,7 +133,7 @@ func ProcessUsenetDownloadsQueue() (string, error) {
 			logger.Log.Debugw("Updating download", "download", localDownload, "providerStatus", providerDownloads)
 
 		case config.DOWNLOAD_STATUS_PROVIDER_COMPLETED:
-			if config.GetUsenetProvider().PreferZippedFolder {
+			if localDownload.DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
 				downloadLink, requestDownloadLinkError := services.TorboxUsenetRequestDownloadLink(localDownload.ExternalProviderID, "-1")
 				if requestDownloadLinkError != nil {
 					logger.Log.Errorw("Failed to request download link from provider", "error", requestDownloadLinkError)

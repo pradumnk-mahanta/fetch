@@ -257,6 +257,23 @@ func GetLocalDownloadsByFilter(downloadFilters LocalDownloadsInstance) []LocalDo
 	return downloads
 }
 
+func GetLocalDownloadByFilter(downloadFilters LocalDownloadsInstance) *LocalDownloadsInstance {
+	var download LocalDownloadsInstance
+
+	err := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+		return db.Order("file_size DESC")
+	}).Where(&downloadFilters).First(&download).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		logger.Log.Errorw("Database error while fetching by filter", "filters", downloadFilters, "error", err)
+		return nil
+	}
+	return &download
+}
+
 func GetLocalDownloadsByProtocol(protocol string) []LocalDownloadsInstance {
 
 	var downloads []LocalDownloadsInstance
