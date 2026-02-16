@@ -150,34 +150,12 @@ func AddLocalDownload(download LocalDownloadsInstance) (string, error) {
 	return dl.IDString(), nil
 }
 
-func AddLocalDownloadItem(downloadId string, downloadType string, category string, fileName string, filePath string, fileSize int64, providerId string, providerItemId string, providerDownloadUrl string) (string, error) {
-
-	dlID, err := strconv.ParseUint(downloadId, 10, 64)
-	if err != nil {
-		logger.Log.Errorw("Invalid ID format", "id", dlID, "error", err)
-		return "", err
-	}
-
-	item := &LocalDownloadsInstanceItem{
-		DownloadID:                  uint(dlID),
-		DownloadType:                downloadType,
-		Category:                    category,
-		FileName:                    fileName,
-		FilePath:                    filePath,
-		FileSize:                    fileSize,
-		Status:                      config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED,
-		ExternalProviderID:          providerId,
-		ExternalProviderItemID:      providerItemId,
-		ExternalProviderDownloadURL: providerDownloadUrl,
-		RetryCounter:                0,
-		AddedAt:                     time.Now(),
-	}
-
+func AddLocalDownloadItem(localDownloadsInstanceItem LocalDownloadsInstanceItem) (string, error) {
+	item := &localDownloadsInstanceItem
 	if err := item.Add(); err != nil {
 		logger.Log.Errorw("Failed to add download item to db", "error", err)
 		return "", err
 	}
-
 	logger.Log.Infow("Download Item Added", "id", item.IDString())
 	return item.IDString(), nil
 }

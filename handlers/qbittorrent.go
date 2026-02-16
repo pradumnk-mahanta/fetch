@@ -597,12 +597,6 @@ func GetTorrentsInfoList(downloads []databases.LocalDownloadsInstance) []models.
 		var totalSize int64 = 0
 		var completedSize int64 = 0
 
-		if download.DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
-			contentPath = strings.TrimSuffix(savePath+"/"+download.DownloadItems[0].FilePath, filepath.Ext(download.DownloadItems[0].FilePath))
-		} else {
-			contentPath = models.GetTopFolderFromPath(download.DownloadItems[0].FilePath)
-		}
-
 		var completedTime *int64
 		if download.Status == config.DOWNLOAD_STATUS_CLIENT_COMPLETED {
 			ts := download.CompletedAt.Unix()
@@ -611,20 +605,39 @@ func GetTorrentsInfoList(downloads []databases.LocalDownloadsInstance) []models.
 			completedTime = nil
 		}
 
-		for _, item := range download.DownloadItems {
-			totalSize += item.FileSize
-			if strings.ToLower(item.Status) == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED {
-				completedSize += item.FileSize
-				continue
+		switch download.Status {
+		case config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING,
+			config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_PROCESSING,
+			config.DOWNLOAD_STATUS_PROVIDER_COMPLETED,
+			config.DOWNLOAD_STATUS_DOWNLOADER_ADDED,
+			config.DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING,
+			config.DOWNLOAD_STATUS_DOWNLOADER_FAILED,
+			config.DOWNLOAD_STATUS_DOWNLOADER_PAUSED,
+			config.DOWNLOAD_STATUS_DOWNLOADER_PROCESSING,
+			config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED:
+			if download.DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
+				contentPath = strings.TrimSuffix(savePath+"/"+download.DownloadItems[0].FilePath, filepath.Ext(download.DownloadItems[0].FilePath))
+			} else {
+				contentPath = models.GetTopFolderFromPath(download.DownloadItems[0].FilePath)
 			}
 
-			for _, status := range liveDownloads {
-				if status.ID == item.IDString() {
-					partialBytes := float64(item.FileSize) * (status.Percentage / 100)
-					completedSize += int64(partialBytes)
-					break
+			for _, item := range download.DownloadItems {
+				totalSize += item.FileSize
+				if strings.ToLower(item.Status) == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED {
+					completedSize += item.FileSize
+					continue
+				}
+
+				for _, status := range liveDownloads {
+					if status.ID == item.IDString() {
+						partialBytes := float64(item.FileSize) * (status.Percentage / 100)
+						completedSize += int64(partialBytes)
+						break
+					}
 				}
 			}
+		default:
+
 		}
 
 		progress := float64(0)

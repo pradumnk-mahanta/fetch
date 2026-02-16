@@ -154,7 +154,7 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 		HandleConfig(writer, request)
 
 	case "version":
-		writer.Write([]byte(`{"version": "4.2.0"}`))
+		writer.Write([]byte(`{"version": "5.0.0"}`))
 
 	default:
 		HandleSabQueue(writer)
