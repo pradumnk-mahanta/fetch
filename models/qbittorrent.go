@@ -47,10 +47,8 @@ func TranslateLocalDownloadStatusToQBStatus(status string) string {
 
 func BuildQBTorrentsInfo(hashesParam string) ([]QBTorrentInfo, error) {
 
-	downloads := databases.GetLocalDownloadsByReference(hashesParam)
-
+	downloads := databases.GetLocalDownloadsByReferences(hashesParam)
 	var result []QBTorrentInfo
-
 	for _, d := range downloads {
 
 		var totalSize int64
@@ -96,7 +94,6 @@ func BuildQBTorrentsInfo(hashesParam string) ([]QBTorrentInfo, error) {
 func BuildQBSyncMainData(ridParam string) (*QBSyncMainInfo, error) {
 
 	downloads := databases.GetLocalDownloadsByProtocol(config.ProtocolTorrent)
-
 	torrents := make(map[string]QBTorrentInfo)
 
 	for _, d := range downloads {
@@ -113,7 +110,7 @@ func BuildQBSyncMainData(ridParam string) (*QBSyncMainInfo, error) {
 
 		progress := float64(0)
 		if totalSize > 0 {
-			progress = float64(completedSize) / float64(totalSize)
+			progress = float64(completedSize) / float64(totalSize) * 100
 		}
 
 		hash := d.OriginalDownloadReference
@@ -128,7 +125,7 @@ func BuildQBSyncMainData(ridParam string) (*QBSyncMainInfo, error) {
 			UpSpeed:      0,
 			Eta:          0,
 			Category:     d.Category,
-			SavePath:     config.ApplicationDownloadRoot,
+			SavePath:     config.ApplicationDownloadRoot + "/" + d.Category,
 			AddedOn:      d.AddedAt.Unix(),
 			CompletionOn: d.CompletedAt.Unix(),
 		}

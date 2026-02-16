@@ -145,7 +145,7 @@ func HandleQBDelete(w http.ResponseWriter, r *http.Request) {
 
 	logger.Log.Debugw("Delete torrent", "hashes", hashes, "deleteFiles", deleteFiles)
 
-	localDownloads := databases.GetLocalDownloadsByReference(hashes)
+	localDownloads := databases.GetLocalDownloadsByReferences(hashes)
 	for _, localDownload := range localDownloads {
 		err := DeleteLocalDownload(localDownload.IDString())
 		if err != nil {
@@ -450,13 +450,12 @@ func HandleQBTorrentFiles(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	downloads := databases.GetLocalDownloadsByReference(hash)
-	if !(len(downloads) > 0) {
+	download := databases.GetLocalDownloadsByReference(hash)
+	if download == nil {
 		json.NewEncoder(w).Encode([]interface{}{})
 		return
 	}
 
-	download := downloads[0]
 	if len(download.OriginalDownloadFile) == 0 {
 		json.NewEncoder(w).Encode([]interface{}{})
 		return
@@ -524,18 +523,19 @@ func HandleQBTorrentProperties(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	downloads := databases.GetLocalDownloadsByReference(hash)
-	if !(len(downloads) > 0) {
+	download := databases.GetLocalDownloadsByReference(hash)
+	if download == nil {
 		json.NewEncoder(w).Encode([]interface{}{})
 		return
 	}
 
-	download := downloads[0]
 	savePath := config.ApplicationDownloadRoot + "/" + download.Category
-	if download.DownloadItems[0].DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
-		savePath = strings.TrimSuffix(savePath+"/"+download.DownloadItems[0].FilePath, filepath.Ext(download.DownloadItems[0].FilePath))
-	} else {
-		savePath = filepath.Dir(savePath + "/" + download.DownloadItems[0].FilePath)
+	if len(download.DownloadItems) > 0 {
+		if download.DownloadItems[0].DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
+			savePath = strings.TrimSuffix(savePath+"/"+download.DownloadItems[0].FilePath, filepath.Ext(download.DownloadItems[0].FilePath))
+		} else {
+			savePath = filepath.Dir(savePath + "/" + download.DownloadItems[0].FilePath)
+		}
 	}
 
 	response := map[string]interface{}{

@@ -2,6 +2,7 @@ package databases
 
 import (
 	"encoding/json"
+	"errors"
 	"fetch/config"
 	"fetch/logger"
 	"strconv"
@@ -202,7 +203,26 @@ func GetLocalDownloadDetails(id string) (LocalDownloadsInstance, error) {
 	return download, nil
 }
 
-func GetLocalDownloadsByReference(references string) []LocalDownloadsInstance {
+func GetLocalDownloadsByReference(reference string) *LocalDownloadsInstance {
+	var download LocalDownloadsInstance
+
+	err := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+		return db.Order("file_size DESC")
+	}).Where("protocol = ? AND original_download_reference = ?", config.ProtocolTorrent, reference).
+		First(&download).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil
+		}
+		logger.Log.Errorw("Database error while fetching by reference", "reference", reference, "error", err)
+		return nil
+	}
+
+	return &download
+}
+
+func GetLocalDownloadsByReferences(references string) []LocalDownloadsInstance {
 
 	var downloads []LocalDownloadsInstance
 
