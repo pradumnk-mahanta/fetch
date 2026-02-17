@@ -142,7 +142,7 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 			return
 		}
 
-		id, err := adapters.CreateDownload(config.ProtocolUsenet, header.Filename, fileBytes, "", "", category)
+		id, err := adapters.CreateDownload(config.ProtocolUsenet, adapters.GetSanitizedPath(header.Filename), fileBytes, "", "", category)
 		if err != nil {
 			writer.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to create download"))
