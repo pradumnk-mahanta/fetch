@@ -40,18 +40,48 @@
                 </div>
             </div>
 
-            <div class="bg-gray-900 rounded-2xl border border-gray-800 shadow-xl overflow-hidden">
-                <div class="p-6 bg-gray-900/50 border-b border-gray-800">
-                    <h2 class="text-lg font-bold text-white uppercase tracking-wider text-xs">Downloader Core</h2>
-                </div>
-                <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="bg-gray-900 rounded-2xl border border-gray-700 shadow-sm p-6">
+                <h3 class="text-sm font-semibold text-gray-300 mb-6 uppercase tracking-wider">
+                    Downloader Core
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div>
-                        <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-2">Max Parallel Downloads</label>
-                        <input id="downloader_max_downloads_concurrent" type="number" min="1" name="downloader_max_downloads_concurrent" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm outline-none">
+                        <label class="block text-xs font-medium text-gray-400 mb-2">
+                            Active Downloader
+                        </label>
+                        <select
+                            id="downloader-select"
+                            name="configured_downloader_id"
+                            class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                        >
+                        </select>
                     </div>
+
                     <div>
-                        <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-2">Max Retry Per Download</label>
-                        <input id="downloader_max_downloads_retry" type="number" min="0" name="downloader_max_downloads_retry" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm outline-none">
+                        <label class="block text-xs font-medium text-gray-400 mb-2">
+                            Max Parallel Downloads
+                        </label>
+                        <input
+                            id="downloader_max_downloads_concurrent"
+                            type="number"
+                            min="1"
+                            name="downloader_max_downloads_concurrent"
+                            class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                        />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-2">
+                            Max Retry Per Download
+                        </label>
+                        <input
+                            id="downloader_max_downloads_retry"
+                            type="number"
+                            min="0"
+                            name="downloader_max_downloads_retry"
+                            class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                        />
                     </div>
                 </div>
             </div>
@@ -102,6 +132,15 @@
                 logSelect.innerHTML += `<option value="${lvl}" ${lvl === fullConfig.application_log_level ? 'selected' : ''}>${lvl}</option>`;
             });
 
+            const downloaderSelect = document.getElementById('downloader-select');
+            fullConfig.supported_downloaders.forEach(d => {
+                downloaderSelect.innerHTML += `
+                    <option value="${d.downloader_id}"
+                        ${d.downloader_id === fullConfig.configured_downloaders?.downloader_id ? 'selected' : ''}>
+                        ${d.downloader_name}
+                    </option>`;
+            });
+
             document.getElementById('downloader_max_downloads_concurrent').value = fullConfig.downloader_max_downloads_concurrent;
             document.getElementById('downloader_max_downloads_retry').value = fullConfig.downloader_max_downloads_retry;
 
@@ -148,6 +187,16 @@
                             <label class="text-[10px] uppercase font-bold text-gray-500 mb-2 block">Max Parallel</label>
                             <input type="number" name="${type}[${i}].max" value="${p[`${type}_provider_max_send`]}" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm outline-none">
                         </div>
+                        <div class="md:col-span-2">
+                            <label class="text-[10px] uppercase font-bold text-gray-500 mb-2 block">
+                                Mount Path
+                            </label>
+                            <input type="text"
+                                name="${type}[${i}].mount"
+                                value="${p[`${type}_provider_rclone_mount`] || ''}"
+                                placeholder="/mnt/torbox"
+                                class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm outline-none">
+                        </div>
                         <div class="md:col-span-2 flex items-center gap-3 mt-4">
                             <input type="checkbox" id="${type}-${i}-zip" name="${type}[${i}].zipped" value="true" ${p[`${type}_provider_prefer_zipped_folder`] ? 'checked' : ''} class="w-4 h-4 rounded border-gray-700 bg-gray-900 text-blue-600 focus:ring-blue-500">
                             <label for="${type}-${i}-zip" class="text-xs font-bold text-gray-400 uppercase tracking-widest">Prefer Zipped Folders</label>
@@ -172,7 +221,8 @@
                 [`${type}_provider_api_endpoint`]: template[`${type}_provider_api_endpoint`] || template[`usenet_provider_api_endpoint`],
                 [`${type}_provider_api_key`]: "",
                 [`${type}_provider_prefer_zipped_folder`]: true,
-                [`${type}_provider_max_send`]: 2
+                [`${type}_provider_max_send`]: 2,
+                [`${type}_provider_rclone_mount`]: ""
             });
             renderProviders(type, newList);
         }
@@ -189,6 +239,12 @@
             const update = { ...fullConfig };
             update.application_log_level = formData.get('application_log_level');
             update.application_categories = formData.get('application_categories');
+
+            const selectedDownloaderId = formData.get('configured_downloader_id');
+            const downloaderObj = fullConfig.supported_downloaders.find(
+                d => d.downloader_id === selectedDownloaderId
+            );
+            update.configured_downloaders = downloaderObj || null;   
             
             update.downloader_max_downloads_concurrent =
                 parseInt(formData.get('downloader_max_downloads_concurrent')) || 1;
@@ -221,7 +277,8 @@
                     [`${type}_provider_api_endpoint`]: formData.get(`${type}[${i}].endpoint`),
                     [`${type}_provider_api_key`]: formData.get(`${type}[${i}].api_key`),
                     [`${type}_provider_prefer_zipped_folder`]: formData.get(`${type}[${i}].zipped`) === 'true',
-                    [`${type}_provider_max_send`]: parseInt(formData.get(`${type}[${i}].max`)) || 1
+                    [`${type}_provider_max_send`]: parseInt(formData.get(`${type}[${i}].max`)) || 1,
+                    [`${type}_provider_rclone_mount`]: formData.get(`${type}[${i}].mount`) || "",
                 });
             }
             return list;

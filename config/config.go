@@ -9,29 +9,66 @@ import (
 
 var AppConfig *Config
 
-const configPath = "/data/config.json"
+var version = "dev"
 
+const configPath = "/data/config.json"
 const (
 	ApplicationDownloadRoot = "/downloads"
 	ProtocolTorrent         = "torrent"
 	ProtocolUsenet          = "usenet"
 )
 
-var version = "dev"
+var SupportedDownloaders = []DownloaderInfo{
+	{
+		ID:   "gdl",
+		Name: "Internal Downloader",
+	},
+	{
+		ID:   "symlink",
+		Name: "Create Symlink (WIP)",
+	},
+	{
+		ID:   "dnd",
+		Name: "Do Not Download (WIP)",
+	},
+}
+
+var SupportedDebridProviders = []ProviderInfo{
+	{
+		ID:          "torbox",
+		Name:        "Torbox",
+		APIEndpoint: "https://api.torbox.app/v1/api",
+	},
+}
+
+var SupportedUsenetProviders = []ProviderInfo{
+	{
+		ID:          "torbox",
+		Name:        "Torbox",
+		APIEndpoint: "https://api.torbox.app/v1/api",
+	},
+}
 
 type Config struct {
-	Version                          string         `json:"version"`
-	ApplicationLogLevel              string         `json:"application_log_level"`
-	ApplicationSupportedLogLevel     []string       `json:"application_supported_log_level"`
-	ApplicationAuthUsername          string         `json:"application_auth_username"`
-	ApplicationAuthPassword          string         `json:"application_auth_password"`
-	ApplicationCategories            string         `json:"application_categories"`
-	SupportedDebridProviders         []ProviderInfo `json:"supported_debrid_providers"`
-	ConfiguredDebridProviders        []DebridConfig `json:"configured_debrid_providers"`
-	SupportedUsenetProviders         []ProviderInfo `json:"supported_usenet_providers"`
-	ConfiguredUsenetProviders        []UsenetConfig `json:"configured_usenet_providers"`
-	DownloaderMaxDownloadsConcurrent int            `json:"downloader_max_downloads_concurrent"`
-	DownloaderMaxDownloadsRetry      int            `json:"downloader_max_downloads_retry"`
+	Version                          string           `json:"version"`
+	ApplicationLogLevel              string           `json:"application_log_level"`
+	ApplicationSupportedLogLevel     []string         `json:"application_supported_log_level"`
+	ApplicationAuthUsername          string           `json:"application_auth_username"`
+	ApplicationAuthPassword          string           `json:"application_auth_password"`
+	ApplicationCategories            string           `json:"application_categories"`
+	DownloaderMaxDownloadsConcurrent int              `json:"downloader_max_downloads_concurrent"`
+	DownloaderMaxDownloadsRetry      int              `json:"downloader_max_downloads_retry"`
+	ConfiguredDownloaders            *DownloaderInfo  `json:"configured_downloaders"`
+	SupportedDownloaders             []DownloaderInfo `json:"supported_downloaders"`
+	SupportedDebridProviders         []ProviderInfo   `json:"supported_debrid_providers"`
+	ConfiguredDebridProviders        []DebridConfig   `json:"configured_debrid_providers"`
+	SupportedUsenetProviders         []ProviderInfo   `json:"supported_usenet_providers"`
+	ConfiguredUsenetProviders        []UsenetConfig   `json:"configured_usenet_providers"`
+}
+
+type DownloaderInfo struct {
+	ID   string `json:"downloader_id,omitempty"`
+	Name string `json:"downloader_name,omitempty"`
 }
 
 type ProviderInfo struct {
@@ -51,6 +88,7 @@ type DebridConfig struct {
 	APIKey             string `json:"debrid_provider_api_key"`
 	PreferZippedFolder bool   `json:"debrid_provider_prefer_zipped_folder"`
 	MaxSend            int    `json:"debrid_provider_max_send"`
+	MountPoint         string `json:"usenet_provider_rclone_mount"`
 }
 
 type UsenetConfig struct {
@@ -61,6 +99,7 @@ type UsenetConfig struct {
 	APIKey             string `json:"usenet_provider_api_key"`
 	PreferZippedFolder bool   `json:"usenet_provider_prefer_zipped_folder"`
 	MaxSend            int    `json:"usenet_provider_max_send"`
+	MountPoint         string `json:"usenet_provider_rclone_mount"`
 }
 
 func LoadConfig() error {
@@ -87,6 +126,11 @@ func ReadConfig() error {
 		cfg.Version = newVersion
 	}
 
+	cfg.SupportedDownloaders = SupportedDownloaders
+	if cfg.ConfiguredDownloaders != nil {
+		cfg.ConfiguredDownloaders = &cfg.SupportedDownloaders[0]
+	}
+
 	AppConfig = &cfg
 	SaveConfig()
 	return nil
@@ -108,35 +152,20 @@ func SaveConfig() error {
 
 func CreateDefaultConfig() error {
 	AppConfig = &Config{
-		Version:                      GetVersion(),
-		ApplicationSupportedLogLevel: []string{"INFO", "DEBUG"},
-		ApplicationLogLevel:          "INFO",
-		ApplicationAuthUsername:      "",
-		ApplicationAuthPassword:      "",
-		ApplicationCategories:        "sonarr,radarr",
-
-		SupportedDebridProviders: []ProviderInfo{
-			{
-				ID:          "torbox",
-				Name:        "Torbox",
-				APIEndpoint: "https://api.torbox.app/v1/api",
-			},
-		},
-
-		ConfiguredDebridProviders: []DebridConfig{},
-
-		SupportedUsenetProviders: []ProviderInfo{
-			{
-				UsenetID:       "torbox",
-				UsenetName:     "Torbox",
-				UsenetEndpoint: "https://api.torbox.app/v1/api",
-			},
-		},
-
-		ConfiguredUsenetProviders: []UsenetConfig{},
-
+		Version:                          GetVersion(),
+		ApplicationSupportedLogLevel:     []string{"INFO", "DEBUG"},
+		ApplicationLogLevel:              "INFO",
+		ApplicationAuthUsername:          "",
+		ApplicationAuthPassword:          "",
+		ApplicationCategories:            "sonarr,radarr",
+		SupportedDownloaders:             SupportedDownloaders,
+		ConfiguredDownloaders:            &SupportedDownloaders[0],
 		DownloaderMaxDownloadsConcurrent: 2,
 		DownloaderMaxDownloadsRetry:      2,
+		SupportedDebridProviders:         SupportedDebridProviders,
+		ConfiguredDebridProviders:        []DebridConfig{},
+		SupportedUsenetProviders:         SupportedUsenetProviders,
+		ConfiguredUsenetProviders:        []UsenetConfig{},
 	}
 
 	dir := filepath.Dir(configPath)
