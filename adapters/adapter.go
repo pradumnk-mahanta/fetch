@@ -147,7 +147,7 @@ func ProcessUsenetDownloadsQueue() (string, error) {
 					DownloadType:                config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE,
 					Category:                    localDownload.Category,
 					FileName:                    fileInfo.Filename,
-					FilePath:                    fileInfo.Filename,
+					FilePath:                    GetSanitizedPath(fileInfo.Filename),
 					FileSize:                    fileInfo.Size,
 					Status:                      config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED,
 					ExternalProviderID:          localDownload.ExternalProviderID,
@@ -170,7 +170,7 @@ func ProcessUsenetDownloadsQueue() (string, error) {
 						DownloadType:                config.DOWNLOAD_ITEM_TYPE_INDIVIDUAL_FILE,
 						Category:                    localDownload.Category,
 						FileName:                    providerDownloadItem.ShortName,
-						FilePath:                    providerDownloadItem.Name,
+						FilePath:                    GetSanitizedPath(providerDownloadItem.Name),
 						FileSize:                    providerDownloadItem.Size,
 						Status:                      config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED,
 						ExternalProviderID:          localDownload.ExternalProviderID,
@@ -513,4 +513,11 @@ func DownloaderResumeDownload(id string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+func GetSanitizedPath(path string) string {
+	for strings.Contains(path, "..") {
+		path = strings.ReplaceAll(path, "..", ".")
+	}
+	return path
 }

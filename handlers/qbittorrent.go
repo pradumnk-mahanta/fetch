@@ -438,7 +438,7 @@ func HandleQBTorrentCategories(w http.ResponseWriter, r *http.Request) {
 
 			categories[categoryName] = map[string]string{
 				"name":     categoryName,
-				"savePath": config.ApplicationDownloadRoot + "/" + categoryName,
+				"savePath": filepath.Join(config.ApplicationDownloadRoot, categoryName),
 			}
 		}
 	}
@@ -530,7 +530,7 @@ func HandleQBTorrentProperties(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]interface{}{
-		"save_path":                config.ApplicationDownloadRoot + "/" + download.Category,
+		"save_path":                filepath.Join(config.ApplicationDownloadRoot, download.Category),
 		"creation_date":            download.AddedAt.Unix(),
 		"piece_size":               0,
 		"comment":                  "",
@@ -592,7 +592,7 @@ func GetTorrentsInfoList(downloads []databases.LocalDownloadsInstance) []models.
 	var result []models.QBTorrentInfo
 	for _, download := range downloads {
 
-		var savePath = config.ApplicationDownloadRoot + "/" + download.Category
+		var savePath = filepath.Join(config.ApplicationDownloadRoot, download.Category)
 		var contentPath = savePath
 		var totalSize int64 = 0
 		var completedSize int64 = 0
@@ -616,9 +616,9 @@ func GetTorrentsInfoList(downloads []databases.LocalDownloadsInstance) []models.
 			config.DOWNLOAD_STATUS_DOWNLOADER_PROCESSING,
 			config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED:
 			if download.DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
-				contentPath = strings.TrimSuffix(savePath+"/"+download.DownloadItems[0].FilePath, filepath.Ext(download.DownloadItems[0].FilePath))
+				contentPath = strings.TrimSuffix(filepath.Join(savePath, download.DownloadItems[0].FilePath), filepath.Ext(download.DownloadItems[0].FilePath))
 			} else {
-				contentPath = models.GetTopFolderFromPath(download.DownloadItems[0].FilePath)
+				contentPath = filepath.Join(savePath, models.GetTopFolderFromPath(download.DownloadItems[0].FilePath))
 			}
 
 			for _, item := range download.DownloadItems {
