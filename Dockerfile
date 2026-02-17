@@ -24,6 +24,7 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY --from=builder /app/fetch /app/fetch
+COPY --from=builder /app/logo.png /app/logo.png
 
 RUN mkdir -p /downloads /data
 
