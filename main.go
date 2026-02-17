@@ -38,11 +38,15 @@ func main() {
 	scheduler.Start(context.Background())
 	logger.Log.Infow("Scheduler Initialized!")
 
+	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./logo.png")
+	})
+
 	http.HandleFunc("/api", handlers.SABNzbdHandler)
 	http.HandleFunc("/api/v2/", handlers.QBittorrentHandler)
-	http.HandleFunc("/fetch/api", handlers.CommonHandler)
 	http.HandleFunc("/qbittorrent/api/v2/", handlers.QBittorrentHandler)
-	http.HandleFunc("/sabnzbd/fetch/api", handlers.CommonHandler)
+	http.HandleFunc("/sabnzbd/api", handlers.CommonHandler)
+	http.HandleFunc("/fetch/api", handlers.CommonHandler)
 
 	http.HandleFunc("/login", handlers.WebHandlerLogin)
 	http.HandleFunc("/internal/api", handlers.WebProtectedHandler)
