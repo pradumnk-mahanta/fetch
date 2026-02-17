@@ -39,7 +39,7 @@ func main() {
 	logger.Log.Infow("Scheduler Initialized!")
 
 	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "./logo.png")
+		http.ServeFile(w, r, "/app/logo.png")
 	})
 
 	http.HandleFunc("/api", handlers.SABNzbdHandler)
