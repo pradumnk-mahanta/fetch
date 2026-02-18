@@ -50,17 +50,17 @@ var SupportedDownloaders = []DownloaderInfo{
 
 var SupportedDebridProviders = []ProviderInfo{
 	{
-		ID:          "torbox",
-		Name:        "Torbox",
-		APIEndpoint: "https://api.torbox.app/v1/api",
+		DebridID:          "torbox",
+		DebridName:        "Torbox",
+		DebridAPIEndpoint: "https://api.torbox.app/v1/api",
 	},
 }
 
 var SupportedUsenetProviders = []ProviderInfo{
 	{
-		ID:          "torbox",
-		Name:        "Torbox",
-		APIEndpoint: "https://api.torbox.app/v1/api",
+		UsenetID:          "torbox",
+		UsenetName:        "Torbox",
+		UsenetAPIEndpoint: "https://api.torbox.app/v1/api",
 	},
 }
 
@@ -88,12 +88,12 @@ type DownloaderInfo struct {
 }
 
 type ProviderInfo struct {
-	ID             string `json:"debrid_provider_id,omitempty"`
-	UsenetID       string `json:"usenet_provider_id,omitempty"`
-	Name           string `json:"debrid_provider_name,omitempty"`
-	UsenetName     string `json:"usenet_provider_name,omitempty"`
-	APIEndpoint    string `json:"debrid_provider_api_endpoint,omitempty"`
-	UsenetEndpoint string `json:"usenet_provider_api_endpoint,omitempty"`
+	DebridID          string `json:"debrid_provider_id,omitempty"`
+	UsenetID          string `json:"usenet_provider_id,omitempty"`
+	DebridName        string `json:"debrid_provider_name,omitempty"`
+	UsenetName        string `json:"usenet_provider_name,omitempty"`
+	DebridAPIEndpoint string `json:"debrid_provider_api_endpoint,omitempty"`
+	UsenetAPIEndpoint string `json:"usenet_provider_api_endpoint,omitempty"`
 }
 
 type DebridConfig struct {
