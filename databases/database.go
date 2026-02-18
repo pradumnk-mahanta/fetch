@@ -139,13 +139,11 @@ func InitDB() error {
 }
 
 func AddLocalDownload(download LocalDownloadsInstance) (string, error) {
-
 	dl := download
 	if err := dl.Add(); err != nil {
 		logger.Log.Errorw("Failed to add download to db", "error", err)
 		return "", err
 	}
-
 	logger.Log.Infow("Download Added", "protocol", dl.Protocol, "cat", dl.Category, "name", dl.DownloadName, "id", dl.IDString())
 	return dl.IDString(), nil
 }
@@ -161,35 +159,28 @@ func AddLocalDownloadItem(localDownloadsInstanceItem LocalDownloadsInstanceItem)
 }
 
 func GetLocalDownloadDetails(id string) (LocalDownloadsInstance, error) {
-
 	var download LocalDownloadsInstance
 	uID, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
 		logger.Log.Errorw("Invalid ID format", "id", id, "error", err)
 		return download, err
 	}
-
 	result := DB.Preload("DownloadItems").First(&download, uint(uID))
-
 	if result.Error != nil {
 		return download, result.Error
 	}
-
 	if download.DownloadItems == nil {
 		download.DownloadItems = []LocalDownloadsInstanceItem{}
 	}
-
 	return download, nil
 }
 
 func GetLocalDownloadsByReference(reference string) *LocalDownloadsInstance {
 	var download LocalDownloadsInstance
-
 	err := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
 		return db.Order("file_size DESC")
 	}).Where("protocol = ? AND original_download_reference = ?", config.ProtocolTorrent, reference).
 		First(&download).Error
-
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
@@ -197,14 +188,11 @@ func GetLocalDownloadsByReference(reference string) *LocalDownloadsInstance {
 		logger.Log.Errorw("Database error while fetching by reference", "reference", reference, "error", err)
 		return nil
 	}
-
 	return &download
 }
 
 func GetLocalDownloadsByReferences(references string) []LocalDownloadsInstance {
-
 	var downloads []LocalDownloadsInstance
-
 	query := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
 		return db.Order("file_size DESC")
 	}).Model(&LocalDownloadsInstance{}).Where("protocol = ?", config.ProtocolTorrent)
@@ -213,12 +201,10 @@ func GetLocalDownloadsByReferences(references string) []LocalDownloadsInstance {
 		hashes := strings.Split(references, "|")
 		query.Where("original_download_reference IN ?", hashes)
 	}
-
 	errFind := query.Find(&downloads).Error
 	if errFind != nil {
 		logger.Log.Errorw("Database error while fetching by references", "references", references, "error", errFind)
 	}
-
 	return downloads
 }
 
@@ -237,11 +223,9 @@ func GetLocalDownloadsByFilter(downloadFilters LocalDownloadsInstance) []LocalDo
 
 func GetLocalDownloadByFilter(downloadFilters LocalDownloadsInstance) *LocalDownloadsInstance {
 	var download LocalDownloadsInstance
-
 	err := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
 		return db.Order("file_size DESC")
 	}).Where(&downloadFilters).First(&download).Error
-
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
@@ -253,18 +237,15 @@ func GetLocalDownloadByFilter(downloadFilters LocalDownloadsInstance) *LocalDown
 }
 
 func GetLocalDownloadsByProtocol(protocol string) []LocalDownloadsInstance {
-
 	var downloads []LocalDownloadsInstance
 	result := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
 		return db.Order("file_size DESC")
 	}).Model(&LocalDownloadsInstance{}).
 		Where("protocol = ?", protocol).
 		Find(&downloads)
-
 	if result.Error != nil {
 		logger.Log.Errorw("Database error while fetching by references", "protocol", protocol, "error", result.Error)
 	}
-
 	return downloads
 }
 
@@ -306,55 +287,25 @@ func UpdateLocalDownloadItemExternalUrl(id string, externalDownloadUrl string) e
 	return nil
 }
 
-func UpdateLocalDownloadProviderId(id string, externalIDProvider string, status string) error {
-	uID, err := strconv.ParseUint(id, 10, 64)
-	if err != nil {
-		logger.Log.Errorw("Invalid ID for provider update", "id", id, "error", err)
-		return err
-	}
-
+func UpdateLocalDownload(localDownload LocalDownloadsInstance) error {
 	result := DB.Model(&LocalDownloadsInstance{}).
-		Where("id = ?", uint(uID)).
-		Updates(map[string]interface{}{
-			"external_provider_id": externalIDProvider,
-			"status":               status,
-		})
-
+		Where("id = ?", localDownload.ID).
+		Updates(localDownload)
 	if result.Error != nil {
-		logger.Log.Errorw("Failed to update download provider info", "id", id, "error", result.Error)
+		logger.Log.Errorw("Failed to update download provider info", "id", localDownload.ID, "error", result.Error)
 		return result.Error
 	}
-
 	return nil
 }
 
-func UpdateLocalDownloadStatus(id string, status string) error {
-	uID, err := strconv.ParseUint(id, 10, 64)
-	if err != nil {
-		logger.Log.Errorw("Invalid ID for status update", "id", id, "error", err)
-		return err
-	}
-
-	updateData := map[string]interface{}{
-		"status": status,
-	}
-
-	if status == config.DOWNLOAD_STATUS_CLIENT_COMPLETED || status == config.DOWNLOAD_STATUS_CLIENT_FAILED {
-		now := time.Now()
-		updateData["completed_at"] = &now
-	} else {
-		updateData["completed_at"] = nil
-	}
-
-	result := DB.Model(&LocalDownloadsInstance{}).
-		Where("id = ?", uint(uID)).
-		Updates(updateData)
-
+func UpdateLocalDownloadItem(localDownloadItem LocalDownloadsInstanceItem) error {
+	result := DB.Model(&LocalDownloadsInstanceItem{}).
+		Where("id = ?", localDownloadItem.ID).
+		Updates(localDownloadItem)
 	if result.Error != nil {
-		logger.Log.Errorw("Failed to update download status", "id", id, "error", result.Error)
+		logger.Log.Errorw("Failed to update download provider info", "id", localDownloadItem.ID, "error", result.Error)
 		return result.Error
 	}
-
 	return nil
 }
 
@@ -589,33 +540,26 @@ func DeleteLocalDownloadItem(id string) error {
 		logger.Log.Errorw("Invalid ID for item deletion", "id", id, "error", err)
 		return err
 	}
-
 	result := DB.Delete(&LocalDownloadsInstanceItem{}, uint(uID))
-
 	if result.Error != nil {
 		logger.Log.Errorw("Failed to delete download item", "id", id, "error", result.Error)
 		return result.Error
 	}
-
 	logger.Log.Debugw("Deleted Download Item", "id", id, "rows_affected", result.RowsAffected)
 	return nil
 }
 
 func DeleteLocalDownload(id string) error {
-
 	uID, err := strconv.ParseUint(id, 10, 64)
 	if err != nil {
 		logger.Log.Errorw("Invalid ID for download deletion", "id", id, "error", err)
 		return err
 	}
-
 	result := DB.Delete(&LocalDownloadsInstance{}, uint(uID))
-
 	if result.Error != nil {
 		logger.Log.Errorw("Failed to delete download", "id", id, "error", result.Error)
 		return result.Error
 	}
-
 	logger.Log.Debugw("Deleted Local Download and associated items",
 		"id", id,
 		"rows_affected", result.RowsAffected,

@@ -18,17 +18,23 @@ const (
 	ProtocolUsenet          = "usenet"
 )
 
+const (
+	DownloaderIdInternal      = "internal"
+	DownloaderIdSymlink       = "symlink"
+	DownloaderIdDoNotDownload = "donotdownload"
+)
+
 var SupportedDownloaders = []DownloaderInfo{
 	{
-		ID:   "gdl",
+		ID:   DownloaderIdInternal,
 		Name: "Internal Downloader",
 	},
 	{
-		ID:   "symlink",
+		ID:   DownloaderIdSymlink,
 		Name: "Create Symlink (WIP)",
 	},
 	{
-		ID:   "dnd",
+		ID:   DownloaderIdDoNotDownload,
 		Name: "Do Not Download (WIP)",
 	},
 }
@@ -207,23 +213,36 @@ func GetTorrentsProvider() DebridConfig {
 	}
 }
 
+func GetMaxSendToProvider() int {
+	var usenetMax int = 1
+	var torrentsMax int = 1
+	if len(AppConfig.ConfiguredUsenetProviders) > 0 {
+		usenetMax = AppConfig.ConfiguredUsenetProviders[0].MaxSend
+	}
+	if len(AppConfig.ConfiguredUsenetProviders) > 0 {
+		torrentsMax = AppConfig.ConfiguredDebridProviders[0].MaxSend
+	}
+	return min(usenetMax, torrentsMax)
+}
+
 const (
-	DOWNLOAD_STATUS_CLIENT_ADDED           = "Added"
-	DOWNLOAD_STATUS_CLIENT_PROCESSING      = "Processing"
-	DOWNLOAD_STATUS_CLIENT_DOWNLOADING     = "Downloading"
-	DOWNLOAD_STATUS_CLIENT_FAILED          = "Failed"
-	DOWNLOAD_STATUS_CLIENT_COMPLETED       = "Completed"
-	DOWNLOAD_STATUS_PROVIDER_ADDED         = "Added to Provider"
-	DOWNLOAD_STATUS_PROVIDER_DOWNLOADING   = "Downloading on Provider"
-	DOWNLOAD_STATUS_PROVIDER_PROCESSING    = "Processing on Provider"
-	DOWNLOAD_STATUS_PROVIDER_FAILED        = "Failed on Provider"
-	DOWNLOAD_STATUS_PROVIDER_COMPLETED     = "Completed on Provider"
-	DOWNLOAD_STATUS_DOWNLOADER_ADDED       = "Added to Downloader"
-	DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING = "Downloading on Downloader"
-	DOWNLOAD_STATUS_DOWNLOADER_PROCESSING  = "Processing on Downloader"
-	DOWNLOAD_STATUS_DOWNLOADER_PAUSED      = "Paused on Downloader"
-	DOWNLOAD_STATUS_DOWNLOADER_FAILED      = "Failed on Downloader"
-	DOWNLOAD_STATUS_DOWNLOADER_COMPLETED   = "Completed on Downloader"
+	DOWNLOAD_STATUS_CLIENT_ADDED                  = "Added"
+	DOWNLOAD_STATUS_CLIENT_PROCESSING             = "Processing"
+	DOWNLOAD_STATUS_CLIENT_DOWNLOADING            = "Downloading"
+	DOWNLOAD_STATUS_CLIENT_FAILED                 = "Failed"
+	DOWNLOAD_STATUS_CLIENT_COMPLETED              = "Completed"
+	DOWNLOAD_STATUS_CLIENT_COMPLETED_NOT_DOWNLOAD = "Completed, Not Downloaded"
+	DOWNLOAD_STATUS_PROVIDER_ADDED                = "Added to Provider"
+	DOWNLOAD_STATUS_PROVIDER_DOWNLOADING          = "Downloading on Provider"
+	DOWNLOAD_STATUS_PROVIDER_PROCESSING           = "Processing on Provider"
+	DOWNLOAD_STATUS_PROVIDER_FAILED               = "Failed on Provider"
+	DOWNLOAD_STATUS_PROVIDER_COMPLETED            = "Completed on Provider"
+	DOWNLOAD_STATUS_DOWNLOADER_ADDED              = "Added to Downloader"
+	DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING        = "Downloading on Downloader"
+	DOWNLOAD_STATUS_DOWNLOADER_PROCESSING         = "Processing on Downloader"
+	DOWNLOAD_STATUS_DOWNLOADER_PAUSED             = "Paused on Downloader"
+	DOWNLOAD_STATUS_DOWNLOADER_FAILED             = "Failed on Downloader"
+	DOWNLOAD_STATUS_DOWNLOADER_COMPLETED          = "Completed on Downloader"
 )
 
 const (
@@ -237,6 +256,8 @@ const (
 )
 
 const (
-	DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE    = "Full Archive for Download"
-	DOWNLOAD_ITEM_TYPE_INDIVIDUAL_FILE = "Individual File for Download"
+	DOWNLOAD_TYPE_FULL_ARCHIVE    = "Full Archive for Download"
+	DOWNLOAD_TYPE_INDIVIDUAL_FILE = "Individual File for Download"
+	DOWNLOAD_TYPE_CREATE_SYMLINK  = "Individual File Create Symlink"
+	DOWNLOAD_TYPE_DO_NOT_DOWNLOAD = "Do not Download Files"
 )

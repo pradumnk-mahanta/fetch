@@ -49,8 +49,7 @@ func (s *Scheduler) run() {
 		s.mu.Unlock()
 	}()
 
-	adapters.ProcessUsenetDownloadsQueue()
-	adapters.ProcessTorrentsDownloadsQueue()
+	adapters.ProcessDownloadsQueue()
 	adapters.ProcessDownloadItemsQueue()
 }
 

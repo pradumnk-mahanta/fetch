@@ -255,7 +255,7 @@ func BuildSabHistoryResponse(
 		}
 
 		var storagePath = filepath.Join(config.ApplicationDownloadRoot, download.Category)
-		if download.DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
+		if download.DownloadType == config.DOWNLOAD_TYPE_FULL_ARCHIVE {
 			storagePath = strings.TrimSuffix(filepath.Join(storagePath, download.DownloadItems[0].FilePath), filepath.Ext(download.DownloadItems[0].FilePath))
 		} else {
 			storagePath = filepath.Join(storagePath, GetTopFolderFromPath(download.DownloadItems[0].FilePath))

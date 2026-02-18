@@ -615,7 +615,7 @@ func GetTorrentsInfoList(downloads []databases.LocalDownloadsInstance) []models.
 			config.DOWNLOAD_STATUS_DOWNLOADER_PAUSED,
 			config.DOWNLOAD_STATUS_DOWNLOADER_PROCESSING,
 			config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED:
-			if download.DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
+			if download.DownloadType == config.DOWNLOAD_TYPE_FULL_ARCHIVE {
 				contentPath = strings.TrimSuffix(filepath.Join(savePath, download.DownloadItems[0].FilePath), filepath.Ext(download.DownloadItems[0].FilePath))
 			} else {
 				contentPath = filepath.Join(savePath, models.GetTopFolderFromPath(download.DownloadItems[0].FilePath))
