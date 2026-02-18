@@ -185,12 +185,12 @@ func ProcessDownloadsQueue() (string, error) {
 		case config.DOWNLOAD_STATUS_PROVIDER_COMPLETED:
 			switch localDownload.DownloadType {
 			case config.DOWNLOAD_TYPE_DO_NOT_DOWNLOAD:
-				localDownload.Status = config.DOWNLOAD_STATUS_CLIENT_COMPLETED
+				localDownload.Status = config.DOWNLOAD_STATUS_CLIENT_COMPLETED_NOT_DOWNLOADED
 				updErr := databases.UpdateLocalDownload(localDownload)
 				if updErr != nil {
 					logger.Log.Errorw("Failed to update download status", "error", updErr)
-					continue
 				}
+				continue
 
 			case config.DOWNLOAD_TYPE_CREATE_SYMLINK:
 				var providerDownloadFromStorage models.DAT
