@@ -43,8 +43,8 @@ var SupportedDownloaders = []DownloaderInfo{
 	},
 	{
 		ID:          DownloaderIdStrmLink,
-		Name:        "Strm Files",
-		Description: "Strm Files are created for the downloads. Not dependent on mount paths. Please be advised, using this method relies on the media being available on the provider. If it is deleted from the Provider (goes out of cache), links will not resolve to anything.",
+		Name:        "Create Strm Files",
+		Description: "Strm Files are created for the downloads. Not dependent on mount paths. Please be advised, using this method relies on the media being available on the provider. If it is deleted from the Provider (goes out of cache), links will not resolve to anything. This method relies on your API Key to remain consistent. In case you change your API Keys, you will have to change the api keys in all your strm files untill an automated process is created.",
 	},
 }
 
@@ -269,5 +269,6 @@ const (
 	DOWNLOAD_TYPE_FULL_ARCHIVE    = "Full Archive for Download"
 	DOWNLOAD_TYPE_INDIVIDUAL_FILE = "Individual File for Download"
 	DOWNLOAD_TYPE_CREATE_SYMLINK  = "Individual File Create Symlink"
+	DOWNLOAD_TYPE_CREATE_STRM     = "Individual File Create Strm"
 	DOWNLOAD_TYPE_DO_NOT_DOWNLOAD = "Do not Download Files"
 )

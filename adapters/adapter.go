@@ -23,6 +23,8 @@ func CreateDownload(protocol string, downloadName string, fileBytes []byte, down
 		downloadType = config.DOWNLOAD_TYPE_DO_NOT_DOWNLOAD
 	case config.DownloaderIdSymlink:
 		downloadType = config.DOWNLOAD_TYPE_CREATE_SYMLINK
+	case config.DownloaderIdStrmLink:
+		downloadType = config.DOWNLOAD_TYPE_CREATE_STRM
 	case config.DownloaderIdInternal:
 		if protocol == config.ProtocolUsenet {
 			if config.GetUsenetProvider().PreferZippedFolder {
@@ -192,23 +194,31 @@ func ProcessDownloadsQueue() (string, error) {
 				}
 				continue
 
-			case config.DOWNLOAD_TYPE_CREATE_SYMLINK:
+			case config.DOWNLOAD_TYPE_INDIVIDUAL_FILE, config.DOWNLOAD_TYPE_CREATE_SYMLINK, config.DOWNLOAD_TYPE_CREATE_STRM:
 				var providerDownloadFromStorage models.DAT
 				providerDownloadFromStorage.LoadJSON(localDownload.ExternalProviderDataObject)
+
 				for _, providerDownloadItem := range providerDownloadFromStorage.Files {
+					var downloadLink string
+					if localDownload.Protocol == config.ProtocolUsenet {
+						downloadLink = services.TorboxUsenetRequestDownloadLink(localDownload.ExternalProviderID, providerDownloadItem.IDString(), false)
+					} else {
+						downloadLink = services.TorboxTorrentRequestDownloadLink(localDownload.ExternalProviderID, providerDownloadItem.IDString(), false)
+					}
 					downloadItemId, errAdd := databases.AddLocalDownloadItem(databases.LocalDownloadsInstanceItem{
-						DownloadID:             localDownload.ID,
-						DownloadType:           config.DOWNLOAD_TYPE_CREATE_SYMLINK,
-						Protocol:               localDownload.Protocol,
-						Category:               localDownload.Category,
-						FileName:               providerDownloadItem.ShortName,
-						FilePath:               providerDownloadItem.Name,
-						FileSize:               providerDownloadItem.Size,
-						Status:                 config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED,
-						ExternalProviderID:     localDownload.ExternalProviderID,
-						ExternalProviderItemID: providerDownloadItem.IDString(),
-						RetryCounter:           0,
-						AddedAt:                time.Now(),
+						DownloadID:                  localDownload.ID,
+						DownloadType:                localDownload.DownloadType,
+						Protocol:                    localDownload.Protocol,
+						Category:                    localDownload.Category,
+						FileName:                    providerDownloadItem.ShortName,
+						FilePath:                    providerDownloadItem.Name,
+						FileSize:                    providerDownloadItem.Size,
+						Status:                      config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED,
+						ExternalProviderID:          localDownload.ExternalProviderID,
+						ExternalProviderItemID:      providerDownloadItem.IDString(),
+						ExternalProviderDownloadURL: downloadLink,
+						RetryCounter:                0,
+						AddedAt:                     time.Now(),
 					})
 					if errAdd != nil {
 						logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "provider item", providerDownloadItem.IDString())
@@ -250,36 +260,6 @@ func ProcessDownloadsQueue() (string, error) {
 				}
 				logger.Log.Infow("Added download Item Id", "download", localDownload.ID, "item", downloadItemId)
 
-			case config.DOWNLOAD_TYPE_INDIVIDUAL_FILE:
-				var providerDownloadFromStorage models.DAT
-				providerDownloadFromStorage.LoadJSON(localDownload.ExternalProviderDataObject)
-				for _, providerDownloadItem := range providerDownloadFromStorage.Files {
-					var downloadLink string
-					if localDownload.Protocol == config.ProtocolUsenet {
-						downloadLink = services.TorboxUsenetRequestDownloadLink(localDownload.ExternalProviderID, providerDownloadItem.IDString(), false)
-					} else {
-						downloadLink = services.TorboxTorrentRequestDownloadLink(localDownload.ExternalProviderID, providerDownloadItem.IDString(), false)
-					}
-					downloadItemId, errAdd := databases.AddLocalDownloadItem(databases.LocalDownloadsInstanceItem{
-						DownloadID:                  localDownload.ID,
-						DownloadType:                config.DOWNLOAD_TYPE_INDIVIDUAL_FILE,
-						Protocol:                    localDownload.Protocol,
-						Category:                    localDownload.Category,
-						FileName:                    providerDownloadItem.ShortName,
-						FilePath:                    GetSanitizedPath(providerDownloadItem.Name),
-						FileSize:                    providerDownloadItem.Size,
-						Status:                      config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED,
-						ExternalProviderID:          localDownload.ExternalProviderID,
-						ExternalProviderItemID:      providerDownloadItem.IDString(),
-						ExternalProviderDownloadURL: downloadLink,
-						RetryCounter:                0,
-						AddedAt:                     time.Now(),
-					})
-					if errAdd != nil {
-						logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "provider item", providerDownloadItem.IDString())
-					}
-					logger.Log.Infow("Added download Item Id", "download", localDownload.ID, "item", downloadItemId)
-				}
 			default:
 				continue
 			}
@@ -332,9 +312,12 @@ func ProcessDownloadItemsQueue() (string, error) {
 	for _, localDownloadItem := range localDownloadItems {
 		switch localDownloadItem.Status {
 		case config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_ADDED, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_RETRY:
-			if localDownloadItem.DownloadType == config.DOWNLOAD_TYPE_CREATE_SYMLINK {
+			switch localDownloadItem.DownloadType {
+			case config.DOWNLOAD_TYPE_CREATE_SYMLINK:
 				services.CreateSymlink(localDownloadItem)
-			} else {
+			case config.DOWNLOAD_TYPE_CREATE_STRM:
+				services.CreateStrmlink(localDownloadItem)
+			default:
 				allDownloaderItems := downloader.Status()
 				activeDownloads := 0
 				for _, downloaderItem := range allDownloaderItems {
