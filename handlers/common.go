@@ -116,11 +116,11 @@ func HandleDownlaodsList(writer http.ResponseWriter) {
 
 	combinedDownloads, combineError := models.GetCombinedDownloadDetails(gdlDownloads)
 	if combineError != nil {
-		logger.Log.Debugw("List downloads result", "result", combinedDownloads)
+		logger.Log.Debugw("Unable to list all combined result")
 		combinedDownloads = make([]models.CombinedDownloadDetails, 0)
 	}
 
-	logger.Log.Debugw("List downloads result", "result", combinedDownloads)
+	logger.Log.Debugw("Successfully fetched combined downloads!")
 
 	writer.WriteHeader(http.StatusOK)
 	writer.Write([]byte(models.CombinedDownloadsToJSONArray(combinedDownloads)))

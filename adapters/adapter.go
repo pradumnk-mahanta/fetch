@@ -289,6 +289,7 @@ func ProcessDownloadsQueue() (string, error) {
 
 		case config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED:
 			localDownload.Status = config.DOWNLOAD_STATUS_CLIENT_COMPLETED
+			localDownload.CompletedAt = time.Now()
 			databases.UpdateLocalDownload(localDownload)
 			continue
 
