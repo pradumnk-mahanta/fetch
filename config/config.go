@@ -22,20 +22,29 @@ const (
 	DownloaderIdInternal      = "internal"
 	DownloaderIdSymlink       = "symlink"
 	DownloaderIdDoNotDownload = "donotdownload"
+	DownloaderIdStrmLink      = "strmlink"
 )
 
 var SupportedDownloaders = []DownloaderInfo{
 	{
-		ID:   DownloaderIdInternal,
-		Name: "Internal Downloader",
+		ID:          DownloaderIdInternal,
+		Name:        "Internal Downloader",
+		Description: "All the files will be downloaded to host.",
 	},
 	{
-		ID:   DownloaderIdSymlink,
-		Name: "Create Symlink (WIP)",
+		ID:          DownloaderIdSymlink,
+		Name:        "Create Symlink (WIP)",
+		Description: "All the files will be symlinked to the provided mount path. Keep the mountpath in all the applications same. If mounting to /mnt/provoder in fetch, mount at the same location in Emby/Jellyfin/Plex. Please be advised, using this method relies on the media being available on the provider. If it is deleted from the Provider (goes out of cache), links will not resolve to anything. ",
 	},
 	{
-		ID:   DownloaderIdDoNotDownload,
-		Name: "Do Not Download",
+		ID:          DownloaderIdDoNotDownload,
+		Name:        "Do Not Download",
+		Description: "Downloads will not be downloaded to host.",
+	},
+	{
+		ID:          DownloaderIdStrmLink,
+		Name:        "Strm Files",
+		Description: "Strm Files are created for the downloads. Not dependent on mount paths. Please be advised, using this method relies on the media being available on the provider. If it is deleted from the Provider (goes out of cache), links will not resolve to anything.",
 	},
 }
 
@@ -73,8 +82,9 @@ type Config struct {
 }
 
 type DownloaderInfo struct {
-	ID   string `json:"downloader_id,omitempty"`
-	Name string `json:"downloader_name,omitempty"`
+	ID          string `json:"downloader_id,omitempty"`
+	Name        string `json:"downloader_name,omitempty"`
+	Description string `json:"downloader_description,omitempty"`
 }
 
 type ProviderInfo struct {

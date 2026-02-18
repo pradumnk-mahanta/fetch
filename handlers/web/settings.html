@@ -83,6 +83,10 @@
                             class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
                         />
                     </div>
+
+                    <div id="downloader-description"
+                        class="md:col-span-3 mt-3 text-xs text-gray-500 leading-relaxed">
+                    </div>
                 </div>
             </div>
 
@@ -141,6 +145,20 @@
                     </option>`;
             });
 
+            if (fullConfig.configured_downloaders?.downloader_id) {
+                downloaderSelect.value = fullConfig.configured_downloaders.downloader_id;
+            }
+
+            function renderDescription() {
+                const descEl = document.getElementById('downloader-description');
+                const selected = fullConfig.supported_downloaders.find(
+                    d => d.downloader_id === downloaderSelect.value
+                );
+                descEl.textContent = selected?.downloader_description || "";
+            }
+            downloaderSelect.addEventListener("change", renderDescription);
+            renderDescription();
+
             document.getElementById('downloader_max_downloads_concurrent').value = fullConfig.downloader_max_downloads_concurrent;
             document.getElementById('downloader_max_downloads_retry').value = fullConfig.downloader_max_downloads_retry;
 
@@ -149,6 +167,17 @@
 
             renderProviders('debrid', fullConfig.configured_debrid_providers);
             renderProviders('usenet', fullConfig.configured_usenet_providers);
+        }
+
+        function renderDownloaderDescription() {
+            const downloaderSelect = document.getElementById('downloader-select');
+            const descEl = document.getElementById('downloader-description');
+
+            const selected = fullConfig.supported_downloaders.find(
+                d => d.downloader_id === downloaderSelect.value
+            );
+
+            descEl.textContent = selected?.downloader_description || "";
         }
 
         function populateSupported(elId, list, type) {
