@@ -21,6 +21,7 @@ type LocalDownloadsInstanceItem struct {
 	ID                          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	DownloadID                  uint      `gorm:"index;column:download_id" json:"download_id"`
 	DownloadType                string    `gorm:"column:download_type" json:"download_type"`
+	Protocol                    string    `gorm:"column:protocol" json:"protocol"`
 	Category                    string    `gorm:"column:category" json:"category"`
 	FileName                    string    `gorm:"column:file_name" json:"file_name"`
 	FilePath                    string    `gorm:"column:file_path" json:"file_path"`
@@ -236,19 +237,6 @@ func GetLocalDownloadByFilter(downloadFilters LocalDownloadsInstance) *LocalDown
 	return &download
 }
 
-func GetLocalDownloadsByProtocol(protocol string) []LocalDownloadsInstance {
-	var downloads []LocalDownloadsInstance
-	result := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
-		return db.Order("file_size DESC")
-	}).Model(&LocalDownloadsInstance{}).
-		Where("protocol = ?", protocol).
-		Find(&downloads)
-	if result.Error != nil {
-		logger.Log.Errorw("Database error while fetching by references", "protocol", protocol, "error", result.Error)
-	}
-	return downloads
-}
-
 func GetLocalDownloadItemDetails(id string) (LocalDownloadsInstanceItem, error) {
 	var downloadItem LocalDownloadsInstanceItem
 
@@ -266,25 +254,6 @@ func GetLocalDownloadItemDetails(id string) (LocalDownloadsInstanceItem, error) 
 	}
 
 	return downloadItem, nil
-}
-
-func UpdateLocalDownloadItemExternalUrl(id string, externalDownloadUrl string) error {
-	uID, err := strconv.ParseUint(id, 10, 64)
-	if err != nil {
-		logger.Log.Errorw("Invalid ID format", "id", id, "error", err)
-		return err
-	}
-
-	result := DB.Model(&LocalDownloadsInstanceItem{}).
-		Where("id = ?", uint(uID)).
-		Update("external_provider_download_url", externalDownloadUrl)
-
-	if result.Error != nil {
-		logger.Log.Errorw("Failed to update external URL", "id", id, "error", result.Error)
-		return result.Error
-	}
-
-	return nil
 }
 
 func UpdateLocalDownload(localDownload LocalDownloadsInstance) error {
@@ -329,31 +298,9 @@ func UpdateLocalDownloadItemStatus(id string, status string) error {
 	return nil
 }
 
-func UpdateLocalDownloadItemRetryCounter(id string, retryCount int) error {
-	uID, err := strconv.ParseUint(id, 10, 64)
-	if err != nil {
-		logger.Log.Errorw("Invalid ID for retry counter update", "id", id, "error", err)
-		return err
-	}
-
-	result := DB.Model(&LocalDownloadsInstanceItem{}).
-		Where("id = ?", uint(uID)).
-		Update("retry_counter", retryCount)
-
-	if result.Error != nil {
-		logger.Log.Errorw("Failed to update download item retry count", "id", id, "error", result.Error)
-		return result.Error
-	}
-
-	logger.Log.Debugw("Updated Download Item RetryCount", "Item", id, "RetryCount", retryCount)
-	return nil
-}
-
 func GetLocalDownloads() ([]LocalDownloadsInstance, error) {
 	var downloads []LocalDownloadsInstance
-
 	logger.Log.Debugw("Fetching all local downloads from database")
-
 	result := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
 		return db.Order("added_at ASC")
 	}).Find(&downloads)
@@ -374,43 +321,34 @@ func GetLocalDownloads() ([]LocalDownloadsInstance, error) {
 }
 
 func GetLocalPendingDownloads(protocol string) ([]LocalDownloadsInstance, error) {
-	var downloads []LocalDownloadsInstance
-
 	logger.Log.Debugw("Fetching pending downloads from DB", "protocol", protocol)
-
+	var downloads []LocalDownloadsInstance
 	query := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
 		return db.Order("added_at ASC")
 	}).Where("status NOT IN ?", []string{
 		config.DOWNLOAD_STATUS_CLIENT_COMPLETED,
 		config.DOWNLOAD_STATUS_CLIENT_FAILED,
 	})
-
 	if protocol != "" {
 		query = query.Where("protocol = ?", protocol)
 	}
-
 	err := query.Find(&downloads).Error
-
 	if err != nil {
 		logger.Log.Errorw("Failed to fetch pending downloads", "protocol", protocol, "error", err)
 		return nil, err
 	}
-
 	for i := range downloads {
 		if downloads[i].DownloadItems == nil {
 			downloads[i].DownloadItems = []LocalDownloadsInstanceItem{}
 		}
 	}
-
 	logger.Log.Debugw("Pending downloads retrieved", "protocol", protocol, "count", len(downloads))
 	return downloads, nil
 }
 
 func GetLocalCompletedDownloads(protocol string) ([]LocalDownloadsInstance, error) {
 	var downloads []LocalDownloadsInstance
-
 	logger.Log.Debugw("Fetching completed/failed downloads from DB")
-
 	query := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
 		return db.Order("added_at ASC")
 	}).Where("status IN ?", []string{
@@ -423,7 +361,6 @@ func GetLocalCompletedDownloads(protocol string) ([]LocalDownloadsInstance, erro
 	}
 
 	err := query.Find(&downloads).Error
-
 	if err != nil {
 		logger.Log.Errorw("Failed to fetch completed downloads", "error", err)
 		return nil, err
@@ -439,69 +376,17 @@ func GetLocalCompletedDownloads(protocol string) ([]LocalDownloadsInstance, erro
 	return downloads, nil
 }
 
-func UpdateLocalDownloadProviderData(id string, providerDownloadName string, providerData string) error {
-	uID, err := strconv.ParseUint(id, 10, 64)
-	if err != nil {
-		logger.Log.Errorw("Invalid ID for provider data update", "id", id, "error", err)
-		return err
-	}
-
-	result := DB.Model(&LocalDownloadsInstance{}).
-		Where("id = ?", uint(uID)).
-		Updates(map[string]interface{}{
-			"download_name":                 providerDownloadName,
-			"external_provider_data_object": providerData,
-		})
-
-	if result.Error != nil {
-		logger.Log.Errorw("Failed to update provider data object", "id", id, "error", result.Error)
-		return result.Error
-	}
-
-	logger.Log.Debugw("Successfully updated provider data", "id", id)
-	return nil
-}
-
-func GetLocalDownloadsAddedToProviderCount() int {
-	var count int64
-
-	targetStatuses := []string{
-		config.DOWNLOAD_STATUS_PROVIDER_ADDED,
-		config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING,
-		config.DOWNLOAD_STATUS_PROVIDER_PROCESSING,
-	}
-
-	logger.Log.Debugw("Counting downloads by provider status", "target_statuses", targetStatuses)
-
-	err := DB.Model(&LocalDownloadsInstance{}).
-		Where("status IN ?", targetStatuses).
-		Count(&count).Error
-
-	if err != nil {
-		logger.Log.Errorw("Database error while counting provider downloads", "error", err)
-		return 999
-	}
-
-	logger.Log.Debugw("Provider download count retrieved", "count", count)
-	return int(count)
-}
-
 func GetLocalDownloadItems() ([]LocalDownloadsInstanceItem, error) {
 	var items []LocalDownloadsInstanceItem
-
 	logger.Log.Debugw("Fetching all local download items from DB")
-
 	result := DB.Order("added_at ASC").Find(&items)
-
 	if result.Error != nil {
 		logger.Log.Errorw("Failed to fetch all download items", "error", result.Error)
 		return nil, result.Error
 	}
-
 	if items == nil {
 		items = []LocalDownloadsInstanceItem{}
 	}
-
 	logger.Log.Debugw("Successfully retrieved all download items", "count", len(items))
 	return items, nil
 }
