@@ -142,8 +142,8 @@ func ReadConfig() error {
 		cfg.Version = newVersion
 	}
 
-	// cfg.SupportedDebridProviders = SupportedDebridProviders
-	// cfg.SupportedUsenetProviders = SupportedUsenetProviders
+	cfg.SupportedDebridProviders = SupportedDebridProviders
+	cfg.SupportedUsenetProviders = SupportedUsenetProviders
 	cfg.SupportedDownloaders = SupportedDownloaders
 	if cfg.ConfiguredDownloaders == nil {
 		cfg.ConfiguredDownloaders = &cfg.SupportedDownloaders[0]
