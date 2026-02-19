@@ -440,14 +440,14 @@ func DeleteLocalDownload(id string) error {
 		logger.Log.Errorw("Invalid ID for download deletion", "id", id, "error", err)
 		return err
 	}
-	result := DB.Delete(&LocalDownloadsInstance{}, uint(uID))
-	if result.Error != nil {
-		logger.Log.Errorw("Failed to delete download", "id", id, "error", result.Error)
-		return result.Error
-	}
-	logger.Log.Debugw("Deleted Local Download and associated items",
-		"id", id,
-		"rows_affected", result.RowsAffected,
-	)
-	return nil
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("download_id = ?", uint(uID)).Delete(&LocalDownloadsInstanceItem{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&LocalDownloadsInstance{}, uint(uID)).Error; err != nil {
+			return err
+		}
+		logger.Log.Debugw("Deleted Local Download and associated items", "id", id, "rows_affected", result.RowsAffected)
+		return nil
+	})
 }
