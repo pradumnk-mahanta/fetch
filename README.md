@@ -19,15 +19,19 @@ I only have access to the below right now. So I might just add the integration w
 - Real-Debrid
 - Offcloud
 
+## Supported Features
+- SABnzbd and qBittorrent Mock APIs
+- Multiple Downloader Options
+    - Internal 
+    - Strm Files
+    - Symlinks
+    - Do Not Download
+
 ## Planned Features
-I use this primarily as downloader so, I am not sure what other features are popular right now. I plan to add the following features for now, any other feature requests are welcome.
-- Better UI (I suck at UI)
-- Better Automated Flows, right now I have brute forced things, which I would like to optimize. 
+I plan to add the following features for now, any other feature requests are welcome,
 - Better Validations (Right now it trusts you that the API keys are genuine, and it will work.)
 - Retry Buttons to retry failed downloads/items.
-- Downloader Option - Symlink
-- Downloader Option - Do Not Download (Maybe also to remove from client when downloded on provider)
-- Filter Files based on Extensios? (I usually download zipped folders so based on demand)
+- Filter Files based on Extensions? (I usually download zipped folders so based on demand)
 
 Please raise a Feature Request if there is something you would like to get added.
 
