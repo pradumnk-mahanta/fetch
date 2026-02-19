@@ -36,12 +36,14 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 	mode := query.Get("mode")
 	name := query.Get("name")
 	nzo_id := query.Get("value")
-	category := query.Get("cat")
+	category := query.Get("category")
 
 	if category == "" {
-		category = "default"
+		category = query.Get("cat")
+		if category == "" {
+			category = "default"
+		}
 	}
-
 	logger.Log.Infow("Received SABNzbd API Request", "mode", mode, "name", name, "nzo_id", nzo_id, "category", category)
 
 	switch mode {

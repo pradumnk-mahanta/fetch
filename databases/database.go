@@ -221,6 +221,7 @@ func GetLocalDownloadsByFilter(downloadFilters LocalDownloadsInstance) []LocalDo
 	if errFind != nil {
 		logger.Log.Errorw("Database error while fetching by references", "filters", downloadFilters, "error", errFind)
 	}
+	logger.Log.Debugw("Geting downloads by Filter", "downloadFilters", downloadFilters)
 	return downloads
 }
 
