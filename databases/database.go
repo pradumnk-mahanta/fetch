@@ -217,10 +217,11 @@ func GetLocalDownloadsByFilter(downloadFilters LocalDownloadsInstance) []LocalDo
 		return db.Order("file_size DESC")
 	}).Model(&downloadFilters)
 
-	errFind := query.Find(&downloads).Error
+	errFind := query.Where(&downloadFilters).Find(&downloads).Error
 	if errFind != nil {
 		logger.Log.Errorw("Database error while fetching by references", "filters", downloadFilters, "error", errFind)
 	}
+	logger.Log.Debugw("Geting downloads by Filter", "downloadFilters", downloadFilters)
 	return downloads
 }
 

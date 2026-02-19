@@ -27,7 +27,7 @@ func QBittorrentHandler(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimSuffix(r.URL.Path, "/")
 	method := r.Method
 
-	logger.Log.Infow("qBittorrent Request", "method", method, "path", path)
+	logger.Log.Infow("Received qBittorrent API Request", "method", method, "path", path)
 
 	switch path {
 	case "/qbittorrent/api/v2/auth/login", "/api/v2/auth/login":
