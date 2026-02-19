@@ -135,7 +135,7 @@ func TorboxUsenetGetDownloadList() ([]models.DAT, error) {
 
 func TranslateTorboxDownloadStatusToLocalStatus(status string) string {
 	switch {
-	case strings.Contains(status, "processing"):
+	case strings.Contains(status, "processing"), strings.Contains(status, "unpacking]"):
 		return config.DOWNLOAD_STATUS_PROVIDER_PROCESSING
 	case strings.Contains(status, "downloading"):
 		return config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING

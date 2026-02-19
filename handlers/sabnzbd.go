@@ -11,6 +11,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/forest6511/gdl"
@@ -141,7 +142,7 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 			return
 		}
 
-		id, err := adapters.CreateDownload(config.ProtocolUsenet, header.Filename, fileBytes, "", "", category)
+		id, err := adapters.CreateDownload(config.ProtocolUsenet, adapters.GetSanitizedPath(header.Filename), fileBytes, "", "", category)
 		if err != nil {
 			writer.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to create download"))
@@ -253,16 +254,16 @@ func GetConfigCategories(downloadRoot string) []map[string]interface{} {
 	categories := strings.Split(appConfigCategoriesString, ",")
 
 	var result []map[string]interface{}
-	for _, c := range categories {
-		c = strings.TrimSpace(c)
-		if c == "" {
+	for _, category := range categories {
+		category = strings.TrimSpace(category)
+		if category == "" {
 			continue
 		}
 		result = append(result, map[string]interface{}{
-			"name":   c,
+			"name":   category,
 			"pp":     "3",
 			"script": "Default",
-			"dir":    downloadRoot + "/" + c,
+			"dir":    filepath.Join(downloadRoot, category),
 		})
 	}
 	return result

@@ -40,6 +40,57 @@
                 </div>
             </div>
 
+            <div class="bg-gray-900 rounded-2xl border border-gray-700 shadow-sm p-6">
+                <h3 class="text-sm font-semibold text-gray-300 mb-6 uppercase tracking-wider">
+                    Downloader Core
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-2">
+                            Active Downloader
+                        </label>
+                        <select
+                            id="downloader-select"
+                            name="configured_downloader_id"
+                            class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                        >
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-2">
+                            Max Parallel Downloads
+                        </label>
+                        <input
+                            id="downloader_max_downloads_concurrent"
+                            type="number"
+                            min="1"
+                            name="downloader_max_downloads_concurrent"
+                            class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                        />
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-400 mb-2">
+                            Max Retry Per Download
+                        </label>
+                        <input
+                            id="downloader_max_downloads_retry"
+                            type="number"
+                            min="0"
+                            name="downloader_max_downloads_retry"
+                            class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
+                        />
+                    </div>
+
+                    <div id="downloader-description"
+                        class="md:col-span-3 mt-3 text-xs text-gray-500 leading-relaxed">
+                    </div>
+                </div>
+            </div>
+
+
             <section>
                 <div class="flex justify-between items-center mb-4 px-2">
                     <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Debrid Providers</h2>
@@ -85,11 +136,48 @@
                 logSelect.innerHTML += `<option value="${lvl}" ${lvl === fullConfig.application_log_level ? 'selected' : ''}>${lvl}</option>`;
             });
 
+            const downloaderSelect = document.getElementById('downloader-select');
+            fullConfig.supported_downloaders.forEach(d => {
+                downloaderSelect.innerHTML += `
+                    <option value="${d.downloader_id}"
+                        ${d.downloader_id === fullConfig.configured_downloaders?.downloader_id ? 'selected' : ''}>
+                        ${d.downloader_name}
+                    </option>`;
+            });
+
+            if (fullConfig.configured_downloaders?.downloader_id) {
+                downloaderSelect.value = fullConfig.configured_downloaders.downloader_id;
+            }
+
+            function renderDescription() {
+                const descEl = document.getElementById('downloader-description');
+                const selected = fullConfig.supported_downloaders.find(
+                    d => d.downloader_id === downloaderSelect.value
+                );
+                descEl.textContent = selected?.downloader_description || "";
+            }
+            downloaderSelect.addEventListener("change", renderDescription);
+            renderDescription();
+
+            document.getElementById('downloader_max_downloads_concurrent').value = fullConfig.downloader_max_downloads_concurrent;
+            document.getElementById('downloader_max_downloads_retry').value = fullConfig.downloader_max_downloads_retry;
+
             populateSupported('supported-debrid-list', fullConfig.supported_debrid_providers, 'debrid');
             populateSupported('supported-usenet-list', fullConfig.supported_usenet_providers, 'usenet');
 
             renderProviders('debrid', fullConfig.configured_debrid_providers);
             renderProviders('usenet', fullConfig.configured_usenet_providers);
+        }
+
+        function renderDownloaderDescription() {
+            const downloaderSelect = document.getElementById('downloader-select');
+            const descEl = document.getElementById('downloader-description');
+
+            const selected = fullConfig.supported_downloaders.find(
+                d => d.downloader_id === downloaderSelect.value
+            );
+
+            descEl.textContent = selected?.downloader_description || "";
         }
 
         function populateSupported(elId, list, type) {
@@ -128,6 +216,16 @@
                             <label class="text-[10px] uppercase font-bold text-gray-500 mb-2 block">Max Parallel</label>
                             <input type="number" name="${type}[${i}].max" value="${p[`${type}_provider_max_send`]}" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm outline-none">
                         </div>
+                        <div class="md:col-span-2">
+                            <label class="text-[10px] uppercase font-bold text-gray-500 mb-2 block">
+                                Mount Path
+                            </label>
+                            <input type="text"
+                                name="${type}[${i}].mount"
+                                value="${p[`${type}_provider_rclone_mount`] || ''}"
+                                placeholder="/mnt/torbox"
+                                class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm outline-none">
+                        </div>
                         <div class="md:col-span-2 flex items-center gap-3 mt-4">
                             <input type="checkbox" id="${type}-${i}-zip" name="${type}[${i}].zipped" value="true" ${p[`${type}_provider_prefer_zipped_folder`] ? 'checked' : ''} class="w-4 h-4 rounded border-gray-700 bg-gray-900 text-blue-600 focus:ring-blue-500">
                             <label for="${type}-${i}-zip" class="text-xs font-bold text-gray-400 uppercase tracking-widest">Prefer Zipped Folders</label>
@@ -152,7 +250,8 @@
                 [`${type}_provider_api_endpoint`]: template[`${type}_provider_api_endpoint`] || template[`usenet_provider_api_endpoint`],
                 [`${type}_provider_api_key`]: "",
                 [`${type}_provider_prefer_zipped_folder`]: true,
-                [`${type}_provider_max_send`]: 2
+                [`${type}_provider_max_send`]: 2,
+                [`${type}_provider_rclone_mount`]: ""
             });
             renderProviders(type, newList);
         }
@@ -169,6 +268,19 @@
             const update = { ...fullConfig };
             update.application_log_level = formData.get('application_log_level');
             update.application_categories = formData.get('application_categories');
+
+            const selectedDownloaderId = formData.get('configured_downloader_id');
+            const downloaderObj = fullConfig.supported_downloaders.find(
+                d => d.downloader_id === selectedDownloaderId
+            );
+            update.configured_downloaders = downloaderObj || null;   
+            
+            update.downloader_max_downloads_concurrent =
+                parseInt(formData.get('downloader_max_downloads_concurrent')) || 1;
+
+            update.downloader_max_downloads_retry =
+                parseInt(formData.get('downloader_max_downloads_retry')) || 0;
+
             update.configured_debrid_providers = mapFormToList(formData, 'debrid');
             update.configured_usenet_providers = mapFormToList(formData, 'usenet');
 
@@ -177,7 +289,10 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(update)
             });
-            if (res.ok) alert("Settings successfully saved.");
+            if (res.ok) {
+                alert("Settings successfully saved.");
+                init();
+            }
         };
 
         function mapFormToList(formData, type) {
@@ -191,7 +306,8 @@
                     [`${type}_provider_api_endpoint`]: formData.get(`${type}[${i}].endpoint`),
                     [`${type}_provider_api_key`]: formData.get(`${type}[${i}].api_key`),
                     [`${type}_provider_prefer_zipped_folder`]: formData.get(`${type}[${i}].zipped`) === 'true',
-                    [`${type}_provider_max_send`]: parseInt(formData.get(`${type}[${i}].max`))
+                    [`${type}_provider_max_send`]: parseInt(formData.get(`${type}[${i}].max`)) || 1,
+                    [`${type}_provider_rclone_mount`]: formData.get(`${type}[${i}].mount`) || "",
                 });
             }
             return list;

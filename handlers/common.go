@@ -24,7 +24,7 @@ func CommonHandler(writer http.ResponseWriter, request *http.Request) {
 	case "downloads":
 		switch task {
 		case "process":
-			result, err := adapters.ProcessUsenetDownloadsQueue()
+			result, err := adapters.ProcessDownloadsQueue()
 			if err != nil {
 				writer.WriteHeader(http.StatusInternalServerError)
 				writer.Write([]byte(`{"error": "Failed to update downloads"}`))
@@ -35,17 +35,17 @@ func CommonHandler(writer http.ResponseWriter, request *http.Request) {
 		case "list":
 			HandleDownlaodsList(writer)
 
-		case "update_status":
-			id := query.Get("id")
-			status := query.Get("status")
-			err := adapters.LocalDownloadUpdateStatus(id, status)
-			if err != nil {
-				writer.WriteHeader(http.StatusInternalServerError)
-				writer.Write([]byte(`{"error": "Failed to update download status in database"}`))
-				return
-			}
-			writer.WriteHeader(http.StatusOK)
-			writer.Write([]byte(`{"result": "Downloader Download status updated to ` + status + ` with ID ` + id + `"}`))
+		// case "update_status":
+		// 	id := query.Get("id")
+		// 	status := query.Get("status")
+		// 	err := adapters.LocalDownloadUpdateStatus(id, status)
+		// 	if err != nil {
+		// 		writer.WriteHeader(http.StatusInternalServerError)
+		// 		writer.Write([]byte(`{"error": "Failed to update download status in database"}`))
+		// 		return
+		// 	}
+		// 	writer.WriteHeader(http.StatusOK)
+		// 	writer.Write([]byte(`{"result": "Downloader Download status updated to ` + status + ` with ID ` + id + `"}`))
 		default:
 			return
 		}
@@ -116,11 +116,11 @@ func HandleDownlaodsList(writer http.ResponseWriter) {
 
 	combinedDownloads, combineError := models.GetCombinedDownloadDetails(gdlDownloads)
 	if combineError != nil {
-		logger.Log.Debugw("List downloads result", "result", combinedDownloads)
+		logger.Log.Debugw("Unable to list all combined result")
 		combinedDownloads = make([]models.CombinedDownloadDetails, 0)
 	}
 
-	logger.Log.Debugw("List downloads result", "result", combinedDownloads)
+	logger.Log.Debugw("Successfully fetched combined downloads!")
 
 	writer.WriteHeader(http.StatusOK)
 	writer.Write([]byte(models.CombinedDownloadsToJSONArray(combinedDownloads)))
@@ -137,7 +137,7 @@ func DeleteLocalDownload(downloadId string) error {
 		downloader.Delete(downloadItem.IDString())
 		if downloadItem.FilePath != "" {
 			pathOnDisk := config.ApplicationDownloadRoot + "/" + downloadItem.Category + "/" + downloadItem.FilePath
-			if downloadItem.DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
+			if downloadItem.DownloadType == config.DOWNLOAD_TYPE_FULL_ARCHIVE {
 				pathOnDisk = strings.TrimSuffix(pathOnDisk, filepath.Ext(downloadItem.FilePath))
 			} else {
 				pathOnDisk = filepath.Dir(pathOnDisk)

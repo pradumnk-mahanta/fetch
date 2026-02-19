@@ -5,6 +5,7 @@ import (
 	"fetch/databases"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -253,8 +254,12 @@ func BuildSabHistoryResponse(
 			}
 		}
 
-		root := config.ApplicationDownloadRoot
-		storagePath := filepath.Join(root, download.Category, download.DownloadName)
+		var storagePath = filepath.Join(config.ApplicationDownloadRoot, download.Category)
+		if download.DownloadType == config.DOWNLOAD_TYPE_FULL_ARCHIVE {
+			storagePath = strings.TrimSuffix(filepath.Join(storagePath, download.DownloadItems[0].FilePath), filepath.Ext(download.DownloadItems[0].FilePath))
+		} else {
+			storagePath = filepath.Join(storagePath, GetTopFolderFromPath(download.DownloadItems[0].FilePath))
+		}
 
 		completedUnix := download.CompletedAt.Unix()
 		addedUnix := download.AddedAt.Unix()

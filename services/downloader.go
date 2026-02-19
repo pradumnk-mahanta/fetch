@@ -161,7 +161,7 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 	task.mu.Unlock()
 
 	downloadItem, err := databases.GetLocalDownloadItemDetails(task.ID)
-	if err == nil && downloadItem.DownloadType == config.DOWNLOAD_ITEM_TYPE_FULL_ARCHIVE {
+	if err == nil && downloadItem.DownloadType == config.DOWNLOAD_TYPE_FULL_ARCHIVE {
 		databases.UpdateLocalDownloadItemStatus(task.ID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_PROCESSING)
 		logger.Log.Infow("Extracting archive", "id", task.ID, "path", task.OutputPath)
 		extractDir := filepath.Dir(task.OutputPath)
