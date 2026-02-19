@@ -493,6 +493,34 @@ func HandleQBTorrentFiles(w http.ResponseWriter, r *http.Request) {
 		if files == nil {
 			files = make([]map[string]interface{}, 0)
 		}
+	} else if download.OriginalDownloadUrl != "" {
+		statusWithFilesPresent := []string{config.DOWNLOAD_STATUS_CLIENT_DOWNLOADING,
+			config.DOWNLOAD_STATUS_CLIENT_PROCESSING,
+			config.DOWNLOAD_STATUS_CLIENT_COMPLETED,
+			config.DOWNLOAD_STATUS_CLIENT_COMPLETED_NOT_DOWNLOADED,
+			config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING,
+			config.DOWNLOAD_STATUS_PROVIDER_COMPLETED,
+			config.DOWNLOAD_STATUS_DOWNLOADER_ADDED,
+			config.DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING,
+			config.DOWNLOAD_STATUS_DOWNLOADER_PAUSED,
+			config.DOWNLOAD_STATUS_DOWNLOADER_FAILED,
+			config.DOWNLOAD_STATUS_DOWNLOADER_PROCESSING,
+			config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED,
+		}
+
+		if contains(statusWithFilesPresent, download.Status) {
+			var providerDownloadFromStorage models.DAT
+			providerDownloadFromStorage.LoadJSON(download.ExternalProviderDataObject)
+
+			for _, providerDownloadItem := range providerDownloadFromStorage.Files {
+				files = append(files, map[string]interface{}{
+					"name": providerDownloadItem.ShortName,
+				})
+			}
+
+		} else {
+			files = make([]map[string]interface{}, 0)
+		}
 	} else {
 		files = make([]map[string]interface{}, 0)
 	}
@@ -669,4 +697,13 @@ func GetTorrentsInfoList(downloads []databases.LocalDownloadsInstance) []models.
 	}
 
 	return result
+}
+
+func contains(s []string, str string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+	return false
 }
