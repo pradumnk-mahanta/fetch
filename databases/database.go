@@ -52,6 +52,14 @@ func (i *LocalDownloadsInstanceItem) DownloadIDString() string {
 	return strconv.FormatUint(uint64(i.DownloadID), 10)
 }
 
+func LocalDownloadsInstanceItemsToJSONArray(items []LocalDownloadsInstanceItem) string {
+	if items == nil {
+		items = []LocalDownloadsInstanceItem{}
+	}
+	b, _ := json.Marshal(items)
+	return string(b)
+}
+
 type LocalDownloadsInstance struct {
 	ID                         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
 	Protocol                   string    `gorm:"column:protocol" json:"protocol"`
@@ -101,14 +109,6 @@ func LocalDownloadsInstancesToJSONArray(downloads []LocalDownloadsInstance) stri
 	return string(b)
 }
 
-func LocalDownloadsInstanceItemsToJSONArray(items []LocalDownloadsInstanceItem) string {
-	if items == nil {
-		items = []LocalDownloadsInstanceItem{}
-	}
-	b, _ := json.Marshal(items)
-	return string(b)
-}
-
 func InitDB() error {
 	var err error
 	DB, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
@@ -130,6 +130,8 @@ func InitDB() error {
 	err = DB.AutoMigrate(
 		&LocalDownloadsInstance{},
 		&LocalDownloadsInstanceItem{},
+		&LocalArchivedDownloadsInstance{},
+		&LocalArchivedDownloadsInstanceItem{},
 	)
 
 	if err != nil {
@@ -450,4 +452,116 @@ func DeleteLocalDownload(id string) error {
 		logger.Log.Debugw("Deleted Local Download and associated items", "id", id)
 		return nil
 	})
+}
+
+type LocalArchivedDownloadsInstance struct {
+	ID                         uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	Protocol                   string    `gorm:"column:protocol" json:"protocol"`
+	Provider                   string    `gorm:"column:provider" json:"provider"`
+	DownloadName               string    `gorm:"column:download_name" json:"download_name"`
+	DownloadType               string    `gorm:"column:download_type:default:'Individual File for Download'" json:"download_type"`
+	OriginalDownloadUrl        string    `gorm:"column:original_download_url" json:"original_download_url"`
+	OriginalDownloadFile       []byte    `gorm:"column:original_download_file;type:blob" json:"-"`
+	OriginalDownloadReference  string    `gorm:"column:original_download_reference;type:blob" json:"original_download_reference"` //hash store
+	Category                   string    `gorm:"column:category" json:"category"`
+	Status                     string    `gorm:"column:status" json:"status"`
+	ExternalProviderID         string    `gorm:"column:external_provider_id" json:"external_provider_id"`
+	ExternalProviderDataObject string    `gorm:"column:external_provider_data_object" json:"-"`
+	AddedAt                    time.Time `gorm:"column:added_at" json:"added_at"`
+	CompletedAt                time.Time `gorm:"column:completed_at" json:"completed_at"`
+
+	DownloadItems []LocalArchivedDownloadsInstanceItem `gorm:"foreignKey:DownloadID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"download_items,omitempty"`
+}
+
+func (d *LocalArchivedDownloadsInstance) ToJSON() string {
+	if d.DownloadItems == nil {
+		d.DownloadItems = []LocalArchivedDownloadsInstanceItem{}
+	}
+	b, _ := json.Marshal(d)
+	return string(b)
+}
+
+func (d *LocalArchivedDownloadsInstance) Add() error {
+	result := DB.Create(d)
+	return result.Error
+}
+
+func (d *LocalArchivedDownloadsInstance) IDString() string {
+	return strconv.FormatUint(uint64(d.ID), 10)
+}
+
+func LocalDownloadsInstancesArchiveToJSONArray(downloads []LocalArchivedDownloadsInstance) string {
+	if downloads == nil {
+		downloads = []LocalArchivedDownloadsInstance{}
+	}
+	for i := range downloads {
+		if downloads[i].DownloadItems == nil {
+			downloads[i].DownloadItems = []LocalArchivedDownloadsInstanceItem{}
+		}
+	}
+	b, _ := json.Marshal(downloads)
+	return string(b)
+}
+
+type LocalArchivedDownloadsInstanceItem struct {
+	ID                          uint      `gorm:"primaryKey;autoIncrement" json:"id"`
+	DownloadID                  uint      `gorm:"index;column:download_id" json:"download_id"`
+	DownloadType                string    `gorm:"column:download_type" json:"download_type"`
+	Protocol                    string    `gorm:"column:protocol" json:"protocol"`
+	Category                    string    `gorm:"column:category" json:"category"`
+	FileName                    string    `gorm:"column:file_name" json:"file_name"`
+	FilePath                    string    `gorm:"column:file_path" json:"file_path"`
+	FileSize                    int64     `gorm:"column:file_size" json:"file_size"`
+	Status                      string    `gorm:"column:status" json:"status"`
+	ExternalProviderID          string    `gorm:"column:external_provider_id" json:"external_provider_id"`
+	ExternalProviderItemID      string    `gorm:"column:external_provider_item_id" json:"external_provider_item_id"`
+	ExternalProviderDownloadURL string    `gorm:"column:external_provider_download_url" json:"external_provider_download_url"`
+	RetryCounter                int       `gorm:"column:retry_counter;default:0" json:"retry_counter"`
+	AddedAt                     time.Time `gorm:"column:added_at" json:"added_at"`
+}
+
+func (i *LocalArchivedDownloadsInstanceItem) ToJSON() string {
+	b, _ := json.Marshal(i)
+	return string(b)
+}
+
+func (i *LocalArchivedDownloadsInstanceItem) Add() error {
+	result := DB.Create(i)
+	return result.Error
+}
+
+func (i *LocalArchivedDownloadsInstanceItem) IDString() string {
+	return strconv.FormatUint(uint64(i.ID), 10)
+}
+
+func (i *LocalArchivedDownloadsInstanceItem) DownloadIDString() string {
+	return strconv.FormatUint(uint64(i.DownloadID), 10)
+}
+
+func LocalArchivedDownloadsInstanceItemsToJSONArray(items []LocalArchivedDownloadsInstanceItem) string {
+	if items == nil {
+		items = []LocalArchivedDownloadsInstanceItem{}
+	}
+	b, _ := json.Marshal(items)
+	return string(b)
+}
+
+func AddArchivedLocalDownload(download LocalArchivedDownloadsInstance) (string, error) {
+	dl := download
+	if err := dl.Add(); err != nil {
+		logger.Log.Errorw("Failed to add download to db", "error", err)
+		return "", err
+	}
+	logger.Log.Infow("Archive Download Added", "protocol", dl.Protocol, "cat", dl.Category, "name", dl.DownloadName, "id", dl.IDString())
+	return dl.IDString(), nil
+}
+
+func AddArchivedLocalDownloadItem(localDownloadsInstanceItem LocalArchivedDownloadsInstanceItem) (string, error) {
+	item := &localDownloadsInstanceItem
+	if err := item.Add(); err != nil {
+		logger.Log.Errorw("Failed to add download item to db", "error", err)
+		return "", err
+	}
+	logger.Log.Infow("Archive Download Item Added", "id", item.IDString())
+	return item.IDString(), nil
 }

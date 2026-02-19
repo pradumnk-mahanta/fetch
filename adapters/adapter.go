@@ -174,7 +174,9 @@ func ProcessDownloadsQueue() (string, error) {
 						continue
 					}
 					localDownload.Status = services.TranslateTorboxDownloadStatusToLocalStatus(*providerDownload.DownloadState)
-					localDownload.DownloadName = *providerDownload.Name
+					if localDownload.OriginalDownloadUrl != "" {
+						localDownload.DownloadName = *providerDownload.Name
+					}
 					localDownload.ExternalProviderDataObject = provData
 					errLocalDownloadUpdate := databases.UpdateLocalDownload(localDownload)
 					if errLocalDownloadUpdate != nil {
@@ -291,6 +293,24 @@ func ProcessDownloadsQueue() (string, error) {
 			localDownload.Status = config.DOWNLOAD_STATUS_CLIENT_COMPLETED
 			localDownload.CompletedAt = time.Now()
 			databases.UpdateLocalDownload(localDownload)
+			if localDownload.DownloadType == config.DOWNLOAD_TYPE_CREATE_STRM || localDownload.DownloadType == config.DOWNLOAD_TYPE_CREATE_SYMLINK {
+				databases.AddArchivedLocalDownload(databases.LocalArchivedDownloadsInstance{
+					Protocol:                   localDownload.Protocol,
+					Provider:                   localDownload.Provider,
+					DownloadName:               localDownload.DownloadName,
+					DownloadType:               localDownload.DownloadType,
+					OriginalDownloadUrl:        localDownload.OriginalDownloadUrl,
+					OriginalDownloadFile:       localDownload.OriginalDownloadFile,
+					OriginalDownloadReference:  localDownload.OriginalDownloadReference,
+					Category:                   localDownload.Category,
+					Status:                     localDownload.Status,
+					ExternalProviderID:         localDownload.ExternalProviderID,
+					ExternalProviderDataObject: localDownload.ExternalProviderDataObject,
+					AddedAt:                    localDownload.AddedAt,
+					CompletedAt:                localDownload.CompletedAt,
+					DownloadItems:              []databases.LocalArchivedDownloadsInstanceItem{},
+				})
+			}
 			continue
 
 		default:
