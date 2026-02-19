@@ -447,7 +447,7 @@ func DeleteLocalDownload(id string) error {
 		if err := tx.Delete(&LocalDownloadsInstance{}, uint(uID)).Error; err != nil {
 			return err
 		}
-		logger.Log.Debugw("Deleted Local Download and associated items", "id", id, "rows_affected", result.RowsAffected)
+		logger.Log.Debugw("Deleted Local Download and associated items", "id", id)
 		return nil
 	})
 }
