@@ -1,19 +1,26 @@
+FROM --platform=$BUILDPLATFORM tonistiigi/xx AS xx
+
 ARG VERSION=dev
-FROM golang:1.25-bookworm AS builder
+
+FROM --platform=$BUILDPLATFORM golang:1.25-bookworm AS builder
+
+COPY --from=xx / /
 
 ARG VERSION
+ARG TARGETPLATFORM
+
 WORKDIR /app
 
+RUN apt-get update && xx-apt-get install -y gcc g++ libc6-dev
+
 ENV CGO_ENABLED=1
-ENV GOOS=linux
-ENV GOARCH=amd64
 
 COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
 
-RUN go build -ldflags="-X fetch/config.version=$VERSION" -o fetch
+RUN xx-go build -ldflags="-X fetch/config.version=$VERSION" -o fetch && xx-verify fetch
 
 FROM debian:bookworm-slim
 
