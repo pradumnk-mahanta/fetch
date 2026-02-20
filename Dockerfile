@@ -1,12 +1,15 @@
 ARG VERSION=dev
-FROM golang:1.25-bookworm AS builder
+FROM --platform=$BUILDPLATFORM golang:1.25-bookworm AS builder
 
 ARG VERSION
+ARG TARGETOS
+ARG TARGETARCH
+
 WORKDIR /app
 
 ENV CGO_ENABLED=1
-ENV GOOS=linux
-ENV GOARCH=amd64
+ENV GOOS=$TARGETOS
+ENV GOARCH=$TARGETARCH
 
 COPY go.mod go.sum ./
 RUN go mod download
@@ -15,7 +18,7 @@ COPY . .
 
 RUN go build -ldflags="-X fetch/config.version=$VERSION" -o fetch
 
-FROM debian:bookworm-slim
+FROM --platform=$TARGETPLATFORM debian:bookworm-slim
 
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates tzdata sqlite3 && \
