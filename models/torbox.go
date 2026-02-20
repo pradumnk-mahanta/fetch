@@ -61,7 +61,7 @@ type DAT struct {
 	UploadSpeed       *int64     `json:"upload_speed,omitempty"`
 	TorrentFile       *bool      `json:"torrent_file,omitempty"`
 	DownloadPath      *string    `json:"download_path,omitempty"`
-	Availability      *int64     `json:"availability,omitempty"`
+	Availability      *float64   `json:"availability,omitempty"`
 	Tracker           *string    `json:"tracker,omitempty"`
 	TotalUploaded     *int64     `json:"total_uploaded,omitempty"`
 	TotalDownloaded   *int64     `json:"total_downloaded,omitempty"`

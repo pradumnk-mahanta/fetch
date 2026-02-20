@@ -121,12 +121,7 @@ func TorboxUsenetGetDownloadList() ([]models.DAT, error) {
 
 	response, requestError := models.UnmarshalTorBoxAPIRespose(body)
 	if requestError != nil {
-		logger.Log.Errorw("Failed to unmarshal Torbox API response", "error", requestError, "responseBody", string(body))
-		return tbDownloads, requestError
-	}
-
-	if response.Success != true {
-		logger.Log.Errorw("Failed to create usenet download in Torbox", "responseBody", string(body))
+		logger.Log.Errorw("Failed to unmarshal Torbox API response", "error", requestError)
 		return tbDownloads, requestError
 	}
 
@@ -261,12 +256,7 @@ func TorboxTorrentGetDownloadList() ([]models.DAT, error) {
 
 	response, requestError := models.UnmarshalTorBoxAPIRespose(body)
 	if requestError != nil {
-		logger.Log.Errorw("Failed to unmarshal Torbox API response", "error", requestError, "responseBody", string(body))
-		return tbDownloads, requestError
-	}
-
-	if response.Success != true {
-		logger.Log.Errorw("Failed to create usenet download in Torbox", "responseBody", string(body))
+		logger.Log.Errorw("Failed to unmarshal Torbox API response", "error", requestError)
 		return tbDownloads, requestError
 	}
 
