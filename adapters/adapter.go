@@ -111,7 +111,7 @@ func ProcessDownloadsQueue() (string, error) {
 	if usernetDownloadsCount > 0 {
 		provDl, err := services.TorboxUsenetGetDownloadList()
 		if err != nil {
-			logger.Log.Errorw("Failed to get download status from provider", "error", err)
+			logger.Log.Errorw("Failed to get usenet downloads list from provider", "error", err)
 			return "Unable to retrieve pending downloads at this time. Please try again later!", err
 		}
 		for _, dl := range provDl {
@@ -122,7 +122,7 @@ func ProcessDownloadsQueue() (string, error) {
 	if torrentsDownloadsCount > 0 {
 		provDl, err := services.TorboxTorrentGetDownloadList()
 		if err != nil {
-			logger.Log.Errorw("Failed to get download status from provider", "error", err)
+			logger.Log.Errorw("Failed to get torrents downloads list from provider", "error", err)
 			return "Unable to retrieve pending downloads at this time. Please try again later!", err
 		}
 		for _, dl := range provDl {
