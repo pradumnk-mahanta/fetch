@@ -20,7 +20,7 @@ RUN go mod download
 
 COPY . .
 
-RUN xx-go build -ldflags="-X fetch/config.version=$VERSION" -o fetch && xx-verify fetch
+RUN xx-go build -ldflags="-X fetch/config.version=$VERSION -s -w" -o fetch && xx-verify fetch
 
 FROM debian:bookworm-slim
 
