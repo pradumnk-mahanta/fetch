@@ -231,7 +231,7 @@ func GetMaxSendToProvider() int {
 	if len(AppConfig.ConfiguredUsenetProviders) > 0 {
 		usenetMax = AppConfig.ConfiguredUsenetProviders[0].MaxSend
 	}
-	if len(AppConfig.ConfiguredUsenetProviders) > 0 {
+	if len(AppConfig.ConfiguredDebridProviders) > 0 {
 		torrentsMax = AppConfig.ConfiguredDebridProviders[0].MaxSend
 	}
 	return min(usenetMax, torrentsMax)
