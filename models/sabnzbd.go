@@ -227,42 +227,32 @@ type StageLog struct {
 	Actions []string `json:"actions"`
 }
 
-func BuildSabHistoryResponse(
-	downloads []databases.LocalDownloadsInstance,
-) SabHistoryResponse {
+func BuildSabHistoryResponse(downloads []databases.LocalDownloadsInstance) SabHistoryResponse {
 
 	slots := make([]SabHistoryItem, 0)
-	var totalBytes int64
+	var totalBytes int64 = 0
 	now := time.Now().Unix()
 
 	for _, download := range downloads {
-
 		status := TransaltedClientStatusforSABNzbd(download.Status)
 
-		if status != "Completed" && status != "Failed" {
-			continue
-		}
-
-		var totalSize int64
-		var downloaded int64
-
-		for _, item := range download.DownloadItems {
-			totalSize += item.FileSize
-
-			if item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED {
-				downloaded += item.FileSize
-			}
-		}
+		var totalSize int64 = 0
+		var downloaded int64 = 0
 
 		var storagePath = filepath.Join(config.ApplicationDownloadRoot, download.Category)
-		if download.DownloadType == config.DOWNLOAD_TYPE_FULL_ARCHIVE {
-			storagePath = strings.TrimSuffix(filepath.Join(storagePath, download.DownloadItems[0].FilePath), filepath.Ext(download.DownloadItems[0].FilePath))
-		} else {
-			storagePath = filepath.Join(storagePath, GetTopFolderFromPath(download.DownloadItems[0].FilePath))
+		if status == "Completed" {
+			for _, item := range download.DownloadItems {
+				totalSize += item.FileSize
+				if item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED {
+					downloaded += item.FileSize
+				}
+			}
+			if download.DownloadType == config.DOWNLOAD_TYPE_FULL_ARCHIVE {
+				storagePath = strings.TrimSuffix(filepath.Join(storagePath, download.DownloadItems[0].FilePath), filepath.Ext(download.DownloadItems[0].FilePath))
+			} else {
+				storagePath = filepath.Join(storagePath, GetTopFolderFromPath(download.DownloadItems[0].FilePath))
+			}
 		}
-
-		completedUnix := download.CompletedAt.Unix()
-		addedUnix := download.AddedAt.Unix()
 
 		totalBytes += totalSize
 
@@ -283,8 +273,8 @@ func BuildSabHistoryResponse(
 			HasRating:    false,
 			Status:       status,
 			ScriptLine:   "",
-			Completed:    completedUnix,
-			TimeAdded:    addedUnix,
+			Completed:    download.CompletedAt.Unix(),
+			TimeAdded:    download.AddedAt.Unix(),
 			NzoID:        download.IDString(),
 			Downloaded:   downloaded,
 			Report:       "",
