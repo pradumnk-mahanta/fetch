@@ -186,6 +186,12 @@ func ProcessDownloadsQueue() (string, error) {
 				}
 			}
 
+		case config.DOWNLOAD_STATUS_PROVIDER_FAILED:
+			logger.Log.Infow("Download failed on provider! Marking as failed.", "download", localDownload.DownloadName)
+			localDownload.Status = config.DOWNLOAD_STATUS_CLIENT_FAILED
+			databases.UpdateLocalDownload(localDownload)
+			continue
+
 		case config.DOWNLOAD_STATUS_PROVIDER_COMPLETED:
 			switch localDownload.DownloadType {
 			case config.DOWNLOAD_TYPE_DO_NOT_DOWNLOAD:
