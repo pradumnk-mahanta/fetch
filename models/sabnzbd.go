@@ -256,6 +256,11 @@ func BuildSabHistoryResponse(downloads []databases.LocalDownloadsInstance) SabHi
 
 		totalBytes += totalSize
 
+		var completedAt time.Time = download.AddedAt
+		if download.CompletedAt.Unix() > 0 {
+			completedAt = download.CompletedAt
+		}
+
 		slots = append(slots, SabHistoryItem{
 			ActionLine:   "",
 			DuplicateKey: "",
@@ -268,12 +273,12 @@ func BuildSabHistoryResponse(downloads []databases.LocalDownloadsInstance) SabHi
 			Retry:        0,
 			Script:       "None",
 			NzbName:      download.DownloadName + ".nzb",
-			DownloadTime: int(download.CompletedAt.Sub(download.AddedAt).Seconds()),
+			DownloadTime: int(completedAt.Sub(download.AddedAt).Seconds()),
 			Storage:      storagePath,
 			HasRating:    false,
 			Status:       status,
 			ScriptLine:   "",
-			Completed:    download.CompletedAt.Unix(),
+			Completed:    completedAt.Unix(),
 			TimeAdded:    download.AddedAt.Unix(),
 			NzoID:        download.IDString(),
 			Downloaded:   downloaded,

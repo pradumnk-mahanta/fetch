@@ -292,6 +292,7 @@ func ProcessDownloadsQueue() (string, error) {
 			if hasFailedMoreThanMaxAllowed {
 				logger.Log.Debugw("Download failed due to no retry attempts left!")
 				localDownload.Status = config.DOWNLOAD_STATUS_CLIENT_FAILED
+				localDownload.CompletedAt = time.Now()
 				databases.UpdateLocalDownload(localDownload)
 			}
 			continue
