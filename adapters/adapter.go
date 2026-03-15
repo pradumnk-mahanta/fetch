@@ -245,7 +245,7 @@ func ProcessDownloadsQueue() (string, error) {
 				}
 				fileInfo, errFile := gdl.GetFileInfo(context.Background(), downloadLink)
 				if errFile != nil {
-					logger.Log.Errorw("Unable to retrieve file metadata: " + errFile.Error())
+					logger.Log.Errorw("Unable to retrieve file metadata: ", errFile.Error())
 					continue
 				}
 				downloadItemId, errAdd := databases.AddLocalDownloadItem(databases.LocalDownloadsInstanceItem{

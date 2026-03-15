@@ -4,7 +4,9 @@ import (
 	"fetch/config"
 	"fetch/databases"
 	"fmt"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -55,6 +57,65 @@ type SabSlot struct {
 type SabAddResponse struct {
 	Status bool     `json:"status"`
 	NzoIDs []string `json:"nzo_ids"`
+}
+
+type SabFullStatusResponse struct {
+	Status SabStatus `json:"status"`
+}
+
+type SabStatus struct {
+	LocalIPv4        string          `json:"localipv4"`
+	IPv6             *string         `json:"ipv6"`
+	PublicIPv4       string          `json:"publicipv4"`
+	DNSLookup        string          `json:"dnslookup"`
+	Folders          []string        `json:"folders"`
+	CPUModel         string          `json:"cpumodel"`
+	Pystone          int             `json:"pystone"`
+	LoadAvg          string          `json:"loadavg"`
+	DownloadDir      string          `json:"downloaddir"`
+	DownloadDirSpeed int             `json:"downloaddirspeed"`
+	CompleteDir      string          `json:"completedir"`
+	CompleteDirSpeed int             `json:"completedirspeed"`
+	LogLevel         string          `json:"loglevel"`
+	LogFile          string          `json:"logfile"`
+	ConfigFile       string          `json:"configfn"`
+	NT               bool            `json:"nt"`
+	Darwin           bool            `json:"darwin"`
+	ConfigHelpURI    string          `json:"confighelpuri"`
+	Uptime           string          `json:"uptime"`
+	ColorScheme      string          `json:"color_scheme"`
+	WebDir           string          `json:"webdir"`
+	ActiveLang       string          `json:"active_lang"`
+	RestartReq       bool            `json:"restart_req"`
+	PowerOptions     bool            `json:"power_options"`
+	PPPauseEvent     bool            `json:"pp_pause_event"`
+	PID              int             `json:"pid"`
+	WebLogFile       *string         `json:"weblogfile"`
+	NewRelease       bool            `json:"new_release"`
+	NewRelURL        *string         `json:"new_rel_url"`
+	HaveWarnings     string          `json:"have_warnings"`
+	Warnings         []string        `json:"warnings"`
+	Servers          []SabServerInfo `json:"servers"`
+}
+
+type SabServerInfo struct {
+	ServerName        string                `json:"servername"`
+	ServerTotalConn   int                   `json:"servertotalconn"`
+	ServerSSL         int                   `json:"serverssl"`
+	ServerActiveConn  int                   `json:"serveractiveconn"`
+	ServerOptional    int                   `json:"serveroptional"`
+	ServerActive      bool                  `json:"serveractive"`
+	ServerError       string                `json:"servererror"`
+	ServerPriority    int                   `json:"serverpriority"`
+	ServerBPS         string                `json:"serverbps"`
+	ServerConnections []SabServerConnection `json:"serverconnections"`
+}
+
+type SabServerConnection struct {
+	ThreadNum int    `json:"thrdnum"`
+	NzoName   string `json:"nzo_name"`
+	NzfName   string `json:"nzf_name"`
+	ArtName   string `json:"art_name"`
 }
 
 func BuildSabQueueOutput(
@@ -313,4 +374,79 @@ func BuildSabHistoryResponse(downloads []databases.LocalDownloadsInstance) SabHi
 func formatBytesHistory(b int64) string {
 	gb := float64(b) / 1024 / 1024 / 1024
 	return fmt.Sprintf("%.1f G", gb)
+}
+
+func BuildSabFullStatusOutput(
+	downloads []databases.LocalDownloadsInstance,
+	downloaderItems []GDLDownload,
+) SabFullStatusResponse {
+
+	var folders []string
+	var globalSpeed float64
+
+	downloaderMap := make(map[string]GDLDownload, len(downloaderItems))
+	for _, d := range downloaderItems {
+		downloaderMap[d.ID] = d
+	}
+
+	for _, download := range downloads {
+
+		folders = append(folders, download.DownloadName)
+
+		for _, item := range download.DownloadItems {
+			if runtime, exists := downloaderMap[item.IDString()]; exists {
+				globalSpeed += runtime.AverageSpeed
+			}
+		}
+	}
+
+	server := SabServerInfo{
+		ServerName:        "FetchDownloader",
+		ServerTotalConn:   len(downloaderItems),
+		ServerSSL:         0,
+		ServerActiveConn:  len(downloaderItems),
+		ServerOptional:    0,
+		ServerActive:      true,
+		ServerError:       "",
+		ServerPriority:    0,
+		ServerBPS:         formatSpeed(globalSpeed),
+		ServerConnections: []SabServerConnection{},
+	}
+
+	return SabFullStatusResponse{
+		Status: SabStatus{
+			LocalIPv4:        "127.0.0.1",
+			IPv6:             nil,
+			PublicIPv4:       "",
+			DNSLookup:        "OK",
+			Folders:          folders,
+			CPUModel:         "",
+			Pystone:          0,
+			LoadAvg:          "",
+			DownloadDir:      filepath.Join(config.ApplicationDownloadRoot),
+			DownloadDirSpeed: 0,
+			CompleteDir:      filepath.Join(config.ApplicationDownloadRoot),
+			CompleteDirSpeed: 0,
+			LogLevel:         "0",
+			LogFile:          "",
+			ConfigFile:       "",
+			NT:               runtime.GOOS == "windows",
+			Darwin:           runtime.GOOS == "darwin",
+			ConfigHelpURI:    "https://sabnzbd.org/wiki/",
+			Uptime:           "",
+			ColorScheme:      "Default",
+			WebDir:           "",
+			ActiveLang:       "en",
+			RestartReq:       false,
+			PowerOptions:     false,
+			PPPauseEvent:     false,
+			PID:              os.Getpid(),
+			WebLogFile:       nil,
+			NewRelease:       false,
+			NewRelURL:        nil,
+			HaveWarnings:     "0",
+			Warnings:         []string{},
+			Servers:          []SabServerInfo{server},
+		},
+	}
 }
