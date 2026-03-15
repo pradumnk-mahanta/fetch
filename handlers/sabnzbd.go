@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fetch/adapters"
 	"fetch/config"
@@ -74,6 +75,7 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 		default:
 			HandleSabHistory(writer)
 		}
+
 	case "addurl":
 		nzbURL := query.Get("name")
 		if nzbURL == "" {
@@ -84,12 +86,23 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 
 		fileBytes, fileStats, err := gdl.DownloadToMemory(request.Context(), nzbURL)
 
-		customName := query.Get("nzbname")
-		if customName == "" {
-			customName = fileStats.Filename
+		fileName := query.Get("nzbname")
+		if fileName == "" {
+			if fileStats.Filename != "" {
+				fileName = fileStats.Filename
+			} else {
+				fileInfo, errFile := gdl.GetFileInfo(context.Background(), nzbURL)
+				if errFile != nil {
+					logger.Log.Errorw("Unable to retrieve file metadata:", errFile.Error())
+					writer.WriteHeader(http.StatusBadRequest)
+					json.NewEncoder(writer).Encode(GetSABNzbdError("Missing NZB Name"))
+					return
+				}
+				fileName = fileInfo.Filename
+			}
 		}
 
-		id, err := adapters.CreateDownload(config.ProtocolUsenet, customName, fileBytes, "", "", category)
+		id, err := adapters.CreateDownload(config.ProtocolUsenet, fileName, fileBytes, "", "", category)
 		if err != nil {
 			writer.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to create download"))
@@ -159,6 +172,9 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 	case "version":
 		writer.Write([]byte(`{"version": "5.0.0"}`))
 
+	case "fullstatus", "status":
+		HandleFullStatus(writer, request)
+
 	default:
 		HandleSabQueue(writer)
 	}
@@ -212,16 +228,14 @@ func GetSABNzbdError(message string) map[string]interface{} {
 func HandleConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	downloadRoot := config.ApplicationDownloadRoot
-
 	resp := map[string]interface{}{
 		"config": map[string]interface{}{
 			"misc": map[string]interface{}{
 				"host":          "0.0.0.0",
 				"port":          "9090",
 				"api_key":       "",
-				"download_dir":  downloadRoot,
-				"complete_dir":  downloadRoot,
+				"download_dir":  filepath.Join(config.ApplicationDownloadRoot),
+				"complete_dir":  filepath.Join(config.ApplicationDownloadRoot),
 				"max_art_tries": 3,
 				"enable_https":  false,
 				"refresh_rate":  1,
@@ -230,7 +244,7 @@ func HandleConfig(w http.ResponseWriter, r *http.Request) {
 				"flat_unpack":   0,
 			},
 
-			"categories": GetConfigCategories(downloadRoot),
+			"categories": GetConfigCategories(),
 
 			"servers": []map[string]interface{}{
 				{
@@ -247,7 +261,7 @@ func HandleConfig(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
-func GetConfigCategories(downloadRoot string) []map[string]interface{} {
+func GetConfigCategories() []map[string]interface{} {
 	appConfigCategoriesString := config.AppConfig.ApplicationCategories
 	if appConfigCategoriesString == "" {
 		appConfigCategoriesString = "*"
@@ -265,8 +279,24 @@ func GetConfigCategories(downloadRoot string) []map[string]interface{} {
 			"name":   category,
 			"pp":     "3",
 			"script": "Default",
-			"dir":    filepath.Join(downloadRoot, category),
+			"dir":    filepath.Join(config.ApplicationDownloadRoot, category),
 		})
 	}
 	return result
+}
+
+func HandleFullStatus(w http.ResponseWriter, r *http.Request) {
+	var sabFullHistoryResponse models.SabFullStatusResponse
+	var downloads []databases.LocalDownloadsInstance
+	localDownloads, localDownloadsError := databases.GetLocalPendingDownloads(config.ProtocolUsenet)
+	if localDownloadsError != nil {
+		logger.Log.Debugw("Unable to get Local Download Items. Defaulting to Empty Queue")
+
+	}
+	downloads = localDownloads
+
+	downloaderDownloads := services.GetGDLService().Status()
+	sabFullHistoryResponse = models.BuildSabFullStatusOutput(downloads, downloaderDownloads)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(sabFullHistoryResponse)
 }

@@ -245,7 +245,7 @@ func ProcessDownloadsQueue() (string, error) {
 				}
 				fileInfo, errFile := gdl.GetFileInfo(context.Background(), downloadLink)
 				if errFile != nil {
-					logger.Log.Errorw("Unable to retrieve file metadata: " + errFile.Error())
+					logger.Log.Errorw("Unable to retrieve file metadata: ", errFile.Error())
 					continue
 				}
 				downloadItemId, errAdd := databases.AddLocalDownloadItem(databases.LocalDownloadsInstanceItem{
@@ -292,6 +292,7 @@ func ProcessDownloadsQueue() (string, error) {
 			if hasFailedMoreThanMaxAllowed {
 				logger.Log.Debugw("Download failed due to no retry attempts left!")
 				localDownload.Status = config.DOWNLOAD_STATUS_CLIENT_FAILED
+				localDownload.CompletedAt = time.Now()
 				databases.UpdateLocalDownload(localDownload)
 			}
 			continue
