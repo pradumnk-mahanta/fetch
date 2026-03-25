@@ -115,6 +115,9 @@ func WebProtectedHandler(w http.ResponseWriter, r *http.Request) {
 	case "/internal/api/delete":
 		HandleDownloadDelete(w, r)
 
+	case "/internal/api/retry":
+		HandleDownloadRetry(w, r)
+
 	case "/logout":
 		cookie, err := r.Cookie(sessionCookieName)
 		if err == nil {
@@ -220,4 +223,27 @@ func HandleDownloadDelete(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status": "deleted"}`))
+}
+
+func HandleDownloadRetry(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		http.Error(w, "Missing ID", http.StatusBadRequest)
+		return
+	}
+
+	err := RetryLocalDownload(id)
+	if err != nil {
+		logger.Log.Errorw("Failed to update download", "id", id, "error", err)
+		http.Error(w, "Retry Failed", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status": "updated"}`))
 }

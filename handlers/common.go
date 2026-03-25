@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -156,5 +157,49 @@ func DeleteLocalDownload(downloadId string) error {
 		}
 	}
 	databases.DeleteLocalDownload(downloadId)
+	return nil
+}
+
+func RetryLocalDownload(downloadId string) error {
+	localDownlaodItems, err := databases.GetLocalDownloadItemsForDownload(downloadId)
+	if err != nil {
+		return err
+	}
+
+	downloader := services.GetGDLService()
+	for _, downloadItem := range localDownlaodItems {
+		downloader.Delete(downloadItem.IDString())
+		if downloadItem.FilePath != "" {
+			pathOnDisk := config.ApplicationDownloadRoot + "/" + downloadItem.Category + "/" + downloadItem.FilePath
+			if downloadItem.DownloadType == config.DOWNLOAD_TYPE_FULL_ARCHIVE {
+				pathOnDisk = strings.TrimSuffix(pathOnDisk, filepath.Ext(downloadItem.FilePath))
+			} else {
+				pathOnDisk = filepath.Dir(pathOnDisk)
+			}
+			err := os.RemoveAll(pathOnDisk)
+			if err != nil {
+				if os.IsNotExist(err) {
+					logger.Log.Debugw("Path not present on disk", "path", pathOnDisk)
+				} else {
+					logger.Log.Errorw("Failed to delete", "path", pathOnDisk, "error", err)
+				}
+			} else {
+				logger.Log.Infow("Deleted", "path", pathOnDisk)
+			}
+
+		}
+	}
+
+	uID, err := strconv.ParseUint(downloadId, 10, 64)
+	if err != nil {
+		logger.Log.Errorw("Invalid Item ID format", "id", downloadId, "error", err)
+		return err
+	}
+
+	databases.UpdateLocalDownload(databases.LocalDownloadsInstance{
+		ID:     uint(uID),
+		Status: config.DOWNLOAD_STATUS_CLIENT_ADDED,
+	})
+
 	return nil
 }
