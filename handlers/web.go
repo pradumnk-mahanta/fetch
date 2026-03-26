@@ -105,6 +105,12 @@ func WebProtectedHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write(content)
 		return
 
+	case "/add":
+		content, _ := staticFiles.ReadFile("web/add.html")
+		w.Header().Set("Content-Type", "text/html")
+		w.Write(content)
+		return
+
 	case "/internal/api/config":
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(config.AppConfig)
@@ -243,6 +249,18 @@ func HandleDownloadRetry(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Retry Failed", http.StatusInternalServerError)
 		return
 	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status": "updated"}`))
+}
+
+func HandleDownloadAdd(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	//ADDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status": "updated"}`))

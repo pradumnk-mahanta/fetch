@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fetch | Add Download</title>
+<link rel="icon" type="image/png" href="/assets/favicon.png">
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 font-sans min-h-screen">
+
+<div class="container mx-auto px-4 py-8">
+    <header class="mb-10 pb-6 border-b border-gray-800 flex justify-between items-center">
+        <h1 class="text-3xl font-extrabold text-white">
+            <span class="text-blue-500">Fetch</span> Add
+        </h1>
+        <div class="flex items-center gap-4">
+            <a href="/" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition">Back to Dashboard</a>
+        </div>
+    </header>
+
+    <form id="add-download-form" class="bg-gray-900 p-6 rounded-2xl border border-gray-800 max-w-md mx-auto space-y-6" enctype="multipart/form-data">
+
+        <!-- Protocol -->
+        <div>
+            <label for="protocol" class="block text-sm font-bold mb-1">Protocol</label>
+            <select id="protocol" name="protocol" required class="w-full p-2 bg-gray-800 rounded-lg border border-gray-700 text-gray-100">
+                <option value="">Select Protocol</option>
+                <option value="Usenet">Usenet</option>
+                <option value="Torrent">Torrent</option>
+            </select>
+        </div>
+
+        <!-- Download Type -->
+        <div>
+            <label for="downloadType" class="block text-sm font-bold mb-1">Downloader</label>
+            <select id="downloadType" name="downloadType" required class="w-full p-2 bg-gray-800 rounded-lg border border-gray-700 text-gray-100">
+                <option value="">Loading...</option>
+            </select>
+        </div>
+
+        <!-- Category -->
+        <div>
+            <label for="category" class="block text-sm font-bold mb-1">Category</label>
+            <select id="category" name="category" required class="w-full p-2 bg-gray-800 rounded-lg border border-gray-700 text-gray-100">
+                <option value="">Loading...</option>
+            </select>
+        </div>
+
+        <!-- Input Type Selector -->
+        <div>
+            <label for="inputType" class="block text-sm font-bold mb-1">Add by</label>
+            <select id="inputType" name="inputType" required class="w-full p-2 bg-gray-800 rounded-lg border border-gray-700 text-gray-100">
+                <option value="url">URL</option>
+                <option value="file">File</option>
+            </select>
+        </div>
+
+        <!-- URL Input -->
+        <div id="url-container">
+            <label for="urlInput" class="block text-sm font-bold mb-1">URL</label>
+            <input type="text" id="urlInput" name="urlInput" placeholder="Paste URL here"
+                   class="w-full p-2 bg-gray-800 rounded-lg border border-gray-700 text-gray-100" />
+        </div>
+
+        <!-- File Input -->
+        <div id="file-container" class="hidden">
+            <label for="fileInput" class="block text-sm font-bold mb-1">File</label>
+            <input type="file" id="fileInput" name="fileInput" class="w-full text-gray-100" />
+        </div>
+
+        <button type="submit" class="w-full py-2.5 bg-green-600 hover:bg-green-500 rounded-lg font-semibold transition">
+            Add Download
+        </button>
+
+    </form>
+
+    <div id="message" class="text-center mt-6 text-sm"></div>
+</div>
+
+<script>
+async function loadConfigData() {
+    try {
+        const res = await fetch('/internal/api/config');
+        if (!res.ok) throw new Error('Failed to fetch config');
+
+        const config = await res.json();
+
+        // Download Type
+        const downloadTypeSelect = document.getElementById('downloadType');
+        downloadTypeSelect.innerHTML = '';
+        (config.supported_downloaders || []).forEach(d => {
+            const option = document.createElement('option');
+            option.value = d.downloader_id;
+            option.textContent = d.downloader_name;
+            downloadTypeSelect.appendChild(option);
+        });
+
+        // Category
+        const categorySelect = document.getElementById('category');
+        categorySelect.innerHTML = '';
+        (config.application_categories || '').split(',').map(c => c.trim()).forEach(cat => {
+            if (!cat) return;
+            const option = document.createElement('option');
+            option.value = cat;
+            option.textContent = cat;
+            categorySelect.appendChild(option);
+        });
+
+    } catch (err) {
+        console.error(err);
+    }
+}
+
+// Show/hide URL or File input based on selection
+const inputTypeSelect = document.getElementById('inputType');
+const urlContainer = document.getElementById('url-container');
+const fileContainer = document.getElementById('file-container');
+
+inputTypeSelect.addEventListener('change', () => {
+    if (inputTypeSelect.value === 'url') {
+        urlContainer.classList.remove('hidden');
+        fileContainer.classList.add('hidden');
+    } else {
+        fileContainer.classList.remove('hidden');
+        urlContainer.classList.add('hidden');
+    }
+});
+
+const form = document.getElementById('add-download-form');
+const message = document.getElementById('message');
+
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const protocol = form.protocol.value;
+    const downloadType = form.downloadType.value;
+    const category = form.category.value || 'default';
+    const inputType = form.inputType.value;
+    const url = form.urlInput.value.trim();
+    const file = form.fileInput.files[0];
+
+    if ((inputType === 'url' && !url) || (inputType === 'file' && !file)) {
+        message.textContent = 'Please provide a ' + inputType.toUpperCase() + '.';
+        message.className = 'text-red-400 mt-4';
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('protocol', protocol);
+    formData.append('download_type', downloadType);
+    formData.append('category', category);
+
+    if (protocol === 'Torrent') {
+        if (inputType === 'file') formData.append('torrents', file);
+        if (inputType === 'url') formData.append('urls', url);
+    } else if (protocol === 'Usenet') {
+        if (inputType === 'file') formData.append('name', file);
+        if (inputType === 'url') formData.append('name', url);
+    }
+
+    try {
+        const response = await fetch('/internal/api/add', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            message.textContent = 'Download added successfully!';
+            message.className = 'text-green-400 mt-4';
+            form.reset();
+            inputTypeSelect.dispatchEvent(new Event('change')); // reset input visibility
+        } else {
+            const errData = await response.json();
+            message.textContent = errData.error || 'Failed to add download.';
+            message.className = 'text-red-400 mt-4';
+        }
+    } catch (err) {
+        console.error(err);
+        message.textContent = 'Error occurred while adding download.';
+        message.className = 'text-red-400 mt-4';
+    }
+});
+
+// Load config on page load
+loadConfigData();
+</script>
+</body>
+</html>
