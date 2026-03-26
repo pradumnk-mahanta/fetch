@@ -1,14 +1,23 @@
 package handlers
 
 import (
+	"context"
 	"crypto/rand"
 	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"fetch/config"
+	"fetch/databases"
 	"fetch/logger"
+	"fmt"
+	"io"
 	"net/http"
+	"net/url"
+	"path/filepath"
+	"strings"
 	"time"
+
+	"github.com/forest6511/gdl"
 )
 
 //go:embed web/*
@@ -123,6 +132,9 @@ func WebProtectedHandler(w http.ResponseWriter, r *http.Request) {
 
 	case "/internal/api/retry":
 		HandleDownloadRetry(w, r)
+
+	case "/internal/api/add":
+		HandleDownloadAdd(w, r)
 
 	case "/logout":
 		cookie, err := r.Cookie(sessionCookieName)
@@ -260,8 +272,158 @@ func HandleDownloadAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//ADDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD
+	if err := r.ParseMultipartForm(100 << 20); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"Failed to parse form: %v"}`, err), http.StatusBadRequest)
+		return
+	}
+
+	protocol := strings.ToLower(r.FormValue("protocol"))
+	downloadType := r.FormValue("downloadType")
+	category := r.FormValue("category")
+	inputType := r.FormValue("inputType")
+	provider := r.FormValue("provider")
+
+	if protocol == "" || downloadType == "" || category == "" || inputType == "" || provider == "" {
+		http.Error(w, `{"error":"Missing Required Fields"}`, http.StatusBadRequest)
+		return
+	}
+
+	var download databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
+		Protocol:      protocol,
+		Provider:      provider,
+		Category:      category,
+		DownloadType:  GetTranslatedDownloadType(protocol, provider, downloadType),
+		Status:        config.DOWNLOAD_STATUS_CLIENT_ADDED,
+		AddedAt:       time.Now(),
+		DownloadItems: []databases.LocalDownloadsInstanceItem{},
+	}
+
+	switch inputType {
+	case "file":
+		fileData, fileHeader, errFile := r.FormFile("fileUpload")
+		if errFile != nil {
+			http.Error(w, `{"error":"Unable to Parse File Data"}`, http.StatusBadRequest)
+			logger.Log.Warnw("Unable to Parse File Data", "error", errFile)
+			return
+		}
+
+		fileBytes, errFileBytes := io.ReadAll(fileData)
+		if errFileBytes != nil {
+			http.Error(w, `{"error":"Unable to Parse File Data"}`, http.StatusBadRequest)
+			logger.Log.Warnw("Unable to Parse File Data", "error", errFile)
+			return
+		}
+
+		download.DownloadName = GetCleanName(strings.TrimSuffix(fileHeader.Filename, filepath.Ext(fileHeader.Filename)))
+		download.OriginalDownloadFile = fileBytes
+		databases.AddLocalDownload(download)
+
+	case "url":
+		urlInput := r.FormValue("url")
+		if urlInput == "" {
+			logger.Log.Errorw("Missing urlInput Fields")
+			http.Error(w, `{"error":"Missing urlInput Fields"}`, http.StatusBadRequest)
+			return
+		}
+
+		if strings.HasPrefix(urlInput, "magnet:") {
+			fileName, infoHash, infoError := GetTorrentInfo([]byte{}, urlInput)
+			if infoError != nil {
+				logger.Log.Errorw("Unable to retrieve Magnet metadata:", infoError.Error())
+				http.Error(w, `{"error":"Unable to retrieve Magnet Metadata"}`, http.StatusBadRequest)
+				return
+			}
+
+			download.DownloadName = GetCleanName(strings.TrimSuffix(fileName, filepath.Ext(fileName)))
+			download.OriginalDownloadUrl = urlInput
+			download.OriginalDownloadReference = infoHash
+			databases.AddLocalDownload(download)
+
+		} else {
+			fileInfo, errFile := gdl.GetFileInfo(context.Background(), urlInput)
+			if errFile != nil {
+				logger.Log.Errorw("Unable to retrieve file metadata:", errFile.Error())
+				http.Error(w, `{"error":"Unable to retrieve file Metadata"}`, http.StatusBadRequest)
+				return
+			}
+
+			fileBytes, fileStats, errFileBytes := gdl.DownloadToMemory(r.Context(), urlInput)
+			if errFileBytes != nil {
+				logger.Log.Errorw("Unable to retrieve file metadata:", errFileBytes.Error())
+				http.Error(w, `{"error":"Unable to retrieve file Metadata"}`, http.StatusBadRequest)
+				return
+			}
+
+			var fileName string
+			if fileStats.Filename != "" {
+				fileName = fileStats.Filename
+			} else if fileInfo.Filename != "" {
+				fileName = fileInfo.Filename
+			} else {
+				logger.Log.Errorw("Unable to retrieve file Name from Url")
+				http.Error(w, `{"error":"Unable to retrieve file Name from Url"}`, http.StatusBadRequest)
+				return
+			}
+
+			download.DownloadName = GetCleanName(strings.TrimSuffix(fileName, filepath.Ext(fileName)))
+			download.OriginalDownloadFile = fileBytes
+			databases.AddLocalDownload(download)
+		}
+
+	default:
+		http.Error(w, "Invalid Input", http.StatusBadRequest)
+		return
+	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status": "updated"}`))
+	w.Write([]byte(`{"status": "Added"}`))
+}
+
+func GetTranslatedDownloadType(protocol string, provider string, downloadType string) string {
+	var preferZipped bool
+	switch protocol {
+	case config.ProtocolTorrent:
+		for _, item := range config.AppConfig.ConfiguredDebridProviders {
+			if item.ID == provider {
+				preferZipped = item.PreferZippedFolder
+				continue
+			}
+		}
+	case config.ProtocolUsenet:
+		for _, item := range config.AppConfig.ConfiguredUsenetProviders {
+			if item.ID == provider {
+				preferZipped = item.PreferZippedFolder
+				continue
+			}
+		}
+	}
+
+	switch downloadType {
+	case config.DownloaderIdInternal:
+		if preferZipped {
+			return config.DOWNLOAD_TYPE_FULL_ARCHIVE
+		} else {
+			return config.DOWNLOAD_TYPE_INDIVIDUAL_FILE
+		}
+	case config.DownloaderIdStrmLink:
+		return config.DOWNLOAD_TYPE_CREATE_STRM
+
+	case config.DownloaderIdSymlink:
+		return config.DOWNLOAD_TYPE_CREATE_SYMLINK
+
+	default:
+		return config.DOWNLOAD_TYPE_DO_NOT_DOWNLOAD
+	}
+}
+
+func GetCleanName(name string) string {
+	for strings.Contains(name, "..") {
+		name = strings.ReplaceAll(name, "..", ".")
+	}
+	decodedName, err := url.QueryUnescape(name)
+	if err != nil {
+		logger.Log.Debug("Unable to decode the file name, using as is.")
+		return name
+	}
+	return decodedName
 }
