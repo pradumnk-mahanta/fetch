@@ -23,6 +23,12 @@
                     <p class="text-sm font-mono text-blue-400"><span id="timer">10</span>s</p>
                 </div>
 
+                <a href="/add" class="p-2.5 bg-green-700 hover:bg-green-600 text-white rounded-lg transition" title="Add New">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                </a>
+
                 <a href="/settings" class="p-2.5 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-lg transition" title="Settings">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -116,12 +122,34 @@
                             <p class="text-xs text-gray-400 mt-1">${completedItems} of ${totalItems} files finished (${parentProgress}%)</p>
                         </div>
                         
-                        <div class="flex items-center gap-6">
+                        <div class="flex items-center gap-3 flex-shrink-0">
+                            <button onclick="event.stopPropagation(); retryDownload('${dl.id}')"
+                                    class="p-2 text-orange-400 bg-orange-900/20 hover:bg-orange-800/30 hover:text-orange-300 rounded-lg transition"
+                                    title="Retry Download">
+
+                                <svg xmlns="http://www.w3.org/2000/svg" 
+                                    class="h-5 w-5" 
+                                    fill="none" 
+                                    viewBox="0 0 24 24" 
+                                    stroke="currentColor">
+                                    <path stroke-linecap="round" 
+                                        stroke-linejoin="round" 
+                                        stroke-width="2" 
+                                        d="M21 12a9 9 0 11-3-6.7M21 3v6h-6" />
+                                </svg>
+
+                            </button>
+
                             <button onclick="event.stopPropagation(); deleteDownload('${dl.id}')" 
-                                    class="p-2 text-gray-500 hover:text-red-500 hover:bg-red-900/20 rounded-lg transition-all group"
+                                    class="p-2 text-red-400 bg-red-900/20 hover:bg-red-800/30 hover:text-red-300 rounded-lg transition-all group"
                                     title="Delete Download">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                <svg xmlns="http://www.w3.org/2000/svg" 
+                                    class="h-5 w-5" 
+                                    fill="none" 
+                                    viewBox="0 0 24 24" 
+                                    stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
                             </button>
 
@@ -133,7 +161,7 @@
                                     ${dl.status}
                                 </span>
                             </div>
-                            
+
                             <svg id="icon-${cardId}" xmlns="http://www.w3.org/2000/svg" 
                                 class="h-6 w-6 text-gray-500 transition-transform duration-300" 
                                 style="transform: ${isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'}"
@@ -151,7 +179,7 @@
                             const speed = isFinished ? "Finished" : (stats.average_speed ? (stats.average_speed / 1024).toFixed(2) + " MB/s" : "0.00 MB/s");
 
                             return `
-                            <div class="bg-gray-900/80 p-4 rounded-xl border border-gray-800 flex flex-col lg:flex-row lg:items-center gap-4">
+                            <div class="bg-gray-900/80 p-4 rounded-xl border border-gray-800 flex flex-col lg:flex-row lg:items-center gap-4">  
                                 <div class="flex-1 min-w-0">
                                     <p class="text-sm font-semibold text-gray-200 truncate">${item.file_name}</p>
                                     <div class="flex gap-4 mt-1 text-[11px]">
@@ -200,7 +228,7 @@
             try {
                 const response = await fetch(`/internal/api/delete?id=${id}`, { method: 'DELETE' });
                 if (response.ok) {
-                    fetchData(); // Refresh list immediately
+                    fetchData();
                 } else {
                     alert("Error: Could not delete from database.");
                 }
@@ -208,6 +236,19 @@
                 console.error("Delete failed:", err);
             }
         }
+
+        async function retryDownload(id) {
+            try {
+                const response = await fetch(`/internal/api/retry?id=${id}`, {method: 'POST' });
+                if (response.ok) {
+                    fetchData();
+                } else {
+                    alert("Retry failed.");
+                }
+            } catch (err) {
+                console.error("Retry error:", err);
+            }
+        }        
 
         setInterval(() => {
             countdown--;

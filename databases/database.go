@@ -68,7 +68,7 @@ type LocalDownloadsInstance struct {
 	DownloadType               string    `gorm:"column:download_type:default:'Individual File for Download'" json:"download_type"`
 	OriginalDownloadUrl        string    `gorm:"column:original_download_url" json:"original_download_url"`
 	OriginalDownloadFile       []byte    `gorm:"column:original_download_file;type:blob" json:"-"`
-	OriginalDownloadReference  string    `gorm:"column:original_download_reference;type:blob" json:"original_download_reference"` //hash store
+	OriginalDownloadReference  string    `gorm:"column:original_download_reference;type:string" json:"original_download_reference"` //hash store
 	Category                   string    `gorm:"column:category" json:"category"`
 	Status                     string    `gorm:"column:status" json:"status"`
 	ExternalProviderID         string    `gorm:"column:external_provider_id" json:"external_provider_id"`

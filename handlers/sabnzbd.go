@@ -77,94 +77,10 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 		}
 
 	case "addurl":
-		nzbURL := query.Get("name")
-		if nzbURL == "" {
-			writer.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(writer).Encode(GetSABNzbdError("Missing NZB URL"))
-			return
-		}
-
-		fileBytes, fileStats, err := gdl.DownloadToMemory(request.Context(), nzbURL)
-
-		fileName := query.Get("nzbname")
-		if fileName == "" {
-			if fileStats.Filename != "" {
-				fileName = fileStats.Filename
-			} else {
-				fileInfo, errFile := gdl.GetFileInfo(context.Background(), nzbURL)
-				if errFile != nil {
-					logger.Log.Errorw("Unable to retrieve file metadata:", errFile.Error())
-					writer.WriteHeader(http.StatusBadRequest)
-					json.NewEncoder(writer).Encode(GetSABNzbdError("Missing NZB Name"))
-					return
-				}
-				fileName = fileInfo.Filename
-			}
-		}
-
-		id, err := adapters.CreateDownload(config.ProtocolUsenet, fileName, fileBytes, "", "", category)
-		if err != nil {
-			writer.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to create download"))
-			logger.Log.Errorw("Failed to create download", "error", err)
-			return
-		}
-		RespondAdd(writer, id)
+		HandleSabAddUrl(writer, request)
 
 	case "addfile":
-		err := request.ParseMultipartForm(32 << 20)
-		if err != nil {
-			writer.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to parse multipart form"))
-			logger.Log.Errorw("Failed to parse multipart form", "error", err)
-			return
-		}
-
-		formCat := request.FormValue("cat")
-		if formCat != "" {
-			category = formCat
-		}
-
-		var file multipart.File
-		var header multipart.FileHeader
-
-		fromNameKey, headerNameKey, errName := request.FormFile("name")
-		if errName != nil {
-			logger.Log.Warnw("No nzbfile found in request for Key name, Searching with nzbfile key", "error", err)
-			fromNzbFileKey, headerNzbFileKey, errNzbFile := request.FormFile("nzbfile")
-			if errNzbFile != nil {
-				writer.WriteHeader(http.StatusBadRequest)
-				json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to retrieve nzb file form request"))
-				logger.Log.Warnw("No nzbfile found in request for Key nzbfile", "error", err)
-				return
-			}
-			header = *headerNzbFileKey
-			file = fromNzbFileKey
-			defer fromNzbFileKey.Close()
-		} else {
-			header = *headerNameKey
-			file = fromNameKey
-			defer fromNameKey.Close()
-		}
-
-		logger.Log.Infow("Received nzbfile", "filename", header.Filename, "size", header.Size)
-
-		fileBytes, err := io.ReadAll(file)
-		if err != nil {
-			writer.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to read download file"))
-			logger.Log.Errorw("Failed to read download file", "error", err)
-			return
-		}
-
-		id, err := adapters.CreateDownload(config.ProtocolUsenet, adapters.GetSanitizedPath(header.Filename), fileBytes, "", "", category)
-		if err != nil {
-			writer.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to create download"))
-			logger.Log.Errorw("Failed to create download", "error", err)
-			return
-		}
-		RespondAdd(writer, id)
+		HandleSabAddFile(writer, request)
 
 	case "get_config":
 		HandleConfig(writer, request)
@@ -180,8 +96,116 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 	}
 }
 
-func HandleNzbDownload() {
+func HandleSabAddFile(writer http.ResponseWriter, request *http.Request) {
+	query := request.URL.Query()
+	category := query.Get("category")
 
+	if category == "" {
+		category = query.Get("cat")
+		if category == "" {
+			category = "default"
+		}
+	}
+
+	err := request.ParseMultipartForm(32 << 20)
+	if err != nil {
+		writer.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to parse multipart form"))
+		logger.Log.Errorw("Failed to parse multipart form", "error", err)
+		return
+	}
+
+	formCat := request.FormValue("cat")
+	if formCat != "" {
+		category = formCat
+	}
+
+	var file multipart.File
+	var header multipart.FileHeader
+
+	fromNameKey, headerNameKey, errName := request.FormFile("name")
+	if errName != nil {
+		logger.Log.Warnw("No nzbfile found in request for Key name, Searching with nzbfile key", "error", err)
+		fromNzbFileKey, headerNzbFileKey, errNzbFile := request.FormFile("nzbfile")
+		if errNzbFile != nil {
+			writer.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to retrieve nzb file form request"))
+			logger.Log.Warnw("No nzbfile found in request for Key nzbfile", "error", err)
+			return
+		}
+		header = *headerNzbFileKey
+		file = fromNzbFileKey
+		defer fromNzbFileKey.Close()
+	} else {
+		header = *headerNameKey
+		file = fromNameKey
+		defer fromNameKey.Close()
+	}
+
+	logger.Log.Infow("Received nzbfile", "filename", header.Filename, "size", header.Size)
+
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		writer.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to read download file"))
+		logger.Log.Errorw("Failed to read download file", "error", err)
+		return
+	}
+
+	id, err := adapters.CreateDownload(config.ProtocolUsenet, adapters.GetSanitizedPath(header.Filename), fileBytes, "", "", category)
+	if err != nil {
+		writer.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to create download"))
+		logger.Log.Errorw("Failed to create download", "error", err)
+		return
+	}
+	RespondAdd(writer, id)
+}
+
+func HandleSabAddUrl(writer http.ResponseWriter, request *http.Request) {
+	query := request.URL.Query()
+	category := query.Get("category")
+
+	if category == "" {
+		category = query.Get("cat")
+		if category == "" {
+			category = "default"
+		}
+	}
+
+	nzbURL := query.Get("name")
+	if nzbURL == "" {
+		writer.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(writer).Encode(GetSABNzbdError("Missing NZB URL"))
+		return
+	}
+
+	fileBytes, fileStats, err := gdl.DownloadToMemory(request.Context(), nzbURL)
+
+	fileName := query.Get("nzbname")
+	if fileName == "" {
+		if fileStats.Filename != "" {
+			fileName = fileStats.Filename
+		} else {
+			fileInfo, errFile := gdl.GetFileInfo(context.Background(), nzbURL)
+			if errFile != nil {
+				logger.Log.Errorw("Unable to retrieve file metadata:", errFile.Error())
+				writer.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(writer).Encode(GetSABNzbdError("Missing NZB Name"))
+				return
+			}
+			fileName = fileInfo.Filename
+		}
+	}
+
+	id, err := adapters.CreateDownload(config.ProtocolUsenet, fileName, fileBytes, "", "", category)
+	if err != nil {
+		writer.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to create download"))
+		logger.Log.Errorw("Failed to create download", "error", err)
+		return
+	}
+	RespondAdd(writer, id)
 }
 
 func HandleSabQueue(writer http.ResponseWriter) {

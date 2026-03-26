@@ -141,6 +141,7 @@ func ProcessDownloadsQueue() (string, error) {
 						continue
 					}
 					localDownload.ExternalProviderID = usenetdownload_id
+					usernetDownloadsCount++
 				} else {
 					torrent_id, errAdd := services.TorboxTorrentCreateDownload(localDownload)
 					if errAdd != nil {
@@ -148,6 +149,7 @@ func ProcessDownloadsQueue() (string, error) {
 						continue
 					}
 					localDownload.ExternalProviderID = torrent_id
+					torrentsDownloadsCount++
 				}
 				localDownload.Status = config.DOWNLOAD_STATUS_PROVIDER_ADDED
 				errorUpdate := databases.UpdateLocalDownload(localDownload)
