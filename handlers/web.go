@@ -108,6 +108,9 @@ func WebProtectedHandler(w http.ResponseWriter, r *http.Request) {
 	case "/internal/api/stats":
 		HandleDownlaodsList(w)
 
+	case "/internal/api/archive":
+		HandleArchiveList(w)
+
 	case "/settings":
 		content, _ := staticFiles.ReadFile("web/settings.html")
 		w.Header().Set("Content-Type", "text/html")
@@ -116,6 +119,12 @@ func WebProtectedHandler(w http.ResponseWriter, r *http.Request) {
 
 	case "/add":
 		content, _ := staticFiles.ReadFile("web/add.html")
+		w.Header().Set("Content-Type", "text/html")
+		w.Write(content)
+		return
+
+	case "/archive":
+		content, _ := staticFiles.ReadFile("web/archive.html")
 		w.Header().Set("Content-Type", "text/html")
 		w.Write(content)
 		return
