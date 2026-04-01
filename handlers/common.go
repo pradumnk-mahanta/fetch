@@ -35,18 +35,8 @@ func CommonHandler(writer http.ResponseWriter, request *http.Request) {
 			writer.Write([]byte(`{"result": "` + result + `"}`))
 		case "list":
 			HandleDownlaodsList(writer)
-
-		// case "update_status":
-		// 	id := query.Get("id")
-		// 	status := query.Get("status")
-		// 	err := adapters.LocalDownloadUpdateStatus(id, status)
-		// 	if err != nil {
-		// 		writer.WriteHeader(http.StatusInternalServerError)
-		// 		writer.Write([]byte(`{"error": "Failed to update download status in database"}`))
-		// 		return
-		// 	}
-		// 	writer.WriteHeader(http.StatusOK)
-		// 	writer.Write([]byte(`{"result": "Downloader Download status updated to ` + status + ` with ID ` + id + `"}`))
+		case "archive":
+			HandleArchiveList(writer)
 		default:
 			return
 		}
@@ -125,6 +115,16 @@ func HandleDownlaodsList(writer http.ResponseWriter) {
 
 	writer.WriteHeader(http.StatusOK)
 	writer.Write([]byte(models.CombinedDownloadsToJSONArray(combinedDownloads)))
+}
+
+func HandleArchiveList(writer http.ResponseWriter) {
+	var archivedDownloads []databases.LocalArchivedDownloadsInstance
+
+	archivedDownloads = databases.GetArchivedLocalDownloadsAll()
+	logger.Log.Debugw("Successfully fetched archived downloads!")
+
+	writer.WriteHeader(http.StatusOK)
+	writer.Write([]byte(databases.LocalArchivedDownloadsInstancesToJSONArray(archivedDownloads)))
 }
 
 func DeleteLocalDownload(downloadId string) error {

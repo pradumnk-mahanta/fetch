@@ -470,6 +470,8 @@ type LocalArchivedDownloadsInstance struct {
 	ExternalProviderDataObject string    `gorm:"column:external_provider_data_object" json:"-"`
 	AddedAt                    time.Time `gorm:"column:added_at" json:"added_at"`
 	CompletedAt                time.Time `gorm:"column:completed_at" json:"completed_at"`
+	Refresh                    bool      `gorm:"column:refresh" json:"refresh"`
+	LastRefreshAt              time.Time `gorm:"column:last_refresh_at" json:"last_refresh_at"`
 
 	DownloadItems []LocalArchivedDownloadsInstanceItem `gorm:"foreignKey:DownloadID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"download_items,omitempty"`
 }
@@ -491,7 +493,7 @@ func (d *LocalArchivedDownloadsInstance) IDString() string {
 	return strconv.FormatUint(uint64(d.ID), 10)
 }
 
-func LocalDownloadsInstancesArchiveToJSONArray(downloads []LocalArchivedDownloadsInstance) string {
+func LocalArchivedDownloadsInstancesToJSONArray(downloads []LocalArchivedDownloadsInstance) string {
 	if downloads == nil {
 		downloads = []LocalArchivedDownloadsInstance{}
 	}
@@ -557,12 +559,116 @@ func AddArchivedLocalDownload(download LocalArchivedDownloadsInstance) (string, 
 	return dl.IDString(), nil
 }
 
-func AddArchivedLocalDownloadItem(localDownloadsInstanceItem LocalArchivedDownloadsInstanceItem) (string, error) {
-	item := &localDownloadsInstanceItem
-	if err := item.Add(); err != nil {
-		logger.Log.Errorw("Failed to add download item to db", "error", err)
-		return "", err
+func GetArchivedLocalDownloadsAll() []LocalArchivedDownloadsInstance {
+	var downloads []LocalArchivedDownloadsInstance
+	query := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+		return db.Order("file_size DESC")
+	})
+
+	errFind := query.Find(&downloads).Error
+	if errFind != nil {
+		logger.Log.Errorw("Database error while fetching archived downloads", "error", errFind)
 	}
-	logger.Log.Infow("Archive Download Item Added", "id", item.IDString())
-	return item.IDString(), nil
+	return downloads
+}
+
+func GetArchivedLocalDownloadsByFilter(downloadFilters LocalArchivedDownloadsInstance) []LocalArchivedDownloadsInstance {
+	var downloads []LocalArchivedDownloadsInstance
+	query := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+		return db.Order("file_size DESC")
+	}).Model(&downloadFilters)
+
+	errFind := query.Where(&downloadFilters).Find(&downloads).Error
+	if errFind != nil {
+		logger.Log.Errorw("Database error while fetching archived downloads by filter", "filters", downloadFilters, "error", errFind)
+	}
+	logger.Log.Debugw("Geting archived downloads by Filter", "downloadFilters", downloadFilters)
+	return downloads
+}
+
+func GetArchivedLocalDownload(id string) (LocalArchivedDownloadsInstance, error) {
+	var download LocalArchivedDownloadsInstance
+	uID, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		logger.Log.Errorw("Invalid ID format", "id", id, "error", err)
+		return LocalArchivedDownloadsInstance{}, err
+	}
+	result := DB.Preload("DownloadItems").First(&download, uint(uID))
+	if result.Error != nil {
+		return LocalArchivedDownloadsInstance{}, result.Error
+	}
+	if download.DownloadItems == nil {
+		download.DownloadItems = []LocalArchivedDownloadsInstanceItem{}
+	}
+	return download, nil
+}
+
+func DeleteLocalArchivedDownload(id string) error {
+	uID, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		logger.Log.Errorw("Invalid ID for download deletion", "id", id, "error", err)
+		return err
+	}
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("download_id = ?", uint(uID)).Delete(&LocalArchivedDownloadsInstanceItem{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&LocalArchivedDownloadsInstance{}, uint(uID)).Error; err != nil {
+			return err
+		}
+		logger.Log.Debugw("Deleted Local Archived Download and associated items", "id", id)
+		return nil
+	})
+}
+
+func UpdateLocalArchivedDownload(localArchivedDownload LocalArchivedDownloadsInstance) error {
+	result := DB.Model(&LocalArchivedDownloadsInstance{}).
+		Where("id = ?", localArchivedDownload.ID).
+		Updates(localArchivedDownload)
+	if result.Error != nil {
+		logger.Log.Errorw("Failed to update download provider info", "id", localArchivedDownload.ID, "error", result.Error)
+		return result.Error
+	}
+	logger.Log.Infow("Updating refresh", "id", localArchivedDownload.ID, "refresh", localArchivedDownload.Refresh)
+	return nil
+}
+
+func UpdateLocalArchivedDownloadSelected(localArchivedDownload LocalArchivedDownloadsInstance) error {
+	result := DB.Model(&LocalArchivedDownloadsInstance{}).
+		Where("id = ?", localArchivedDownload.ID).
+		Select("refresh", "status", "last_refresh_at").
+		Updates(localArchivedDownload)
+
+	if result.Error != nil {
+		logger.Log.Errorw("Failed to update download provider info", "id", localArchivedDownload.ID, "error", result.Error)
+		return result.Error
+	}
+	return nil
+}
+
+func GetArchivedLocalDownloadsOlderThan(olderThan time.Time) []LocalArchivedDownloadsInstance {
+	var downloads []LocalArchivedDownloadsInstance
+
+	err := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+		return db.Order("file_size DESC")
+	}).
+		Model(&LocalArchivedDownloadsInstance{}).
+		Where("last_refresh_at < ?", olderThan).
+		Where("refresh = ?", true).
+		Find(&downloads).Error
+
+	if err != nil {
+		logger.Log.Errorw(
+			"Database error while fetching archived downloads older than time",
+			"olderThan", olderThan,
+			"error", err,
+		)
+	}
+
+	logger.Log.Debugw(
+		"Getting archived downloads older than with refresh enabled",
+		"olderThan", olderThan,
+	)
+
+	return downloads
 }

@@ -108,6 +108,9 @@ func WebProtectedHandler(w http.ResponseWriter, r *http.Request) {
 	case "/internal/api/stats":
 		HandleDownlaodsList(w)
 
+	case "/internal/api/archives":
+		HandleArchiveList(w)
+
 	case "/settings":
 		content, _ := staticFiles.ReadFile("web/settings.html")
 		w.Header().Set("Content-Type", "text/html")
@@ -116,6 +119,12 @@ func WebProtectedHandler(w http.ResponseWriter, r *http.Request) {
 
 	case "/add":
 		content, _ := staticFiles.ReadFile("web/add.html")
+		w.Header().Set("Content-Type", "text/html")
+		w.Write(content)
+		return
+
+	case "/archive":
+		content, _ := staticFiles.ReadFile("web/archive.html")
 		w.Header().Set("Content-Type", "text/html")
 		w.Write(content)
 		return
@@ -135,6 +144,9 @@ func WebProtectedHandler(w http.ResponseWriter, r *http.Request) {
 
 	case "/internal/api/add":
 		HandleDownloadAdd(w, r)
+
+	case "/internal/api/archive":
+		HandleArchiveDownloadAction(w, r)
 
 	case "/logout":
 		cookie, err := r.Cookie(sessionCookieName)
@@ -426,4 +438,64 @@ func GetCleanName(name string) string {
 		return name
 	}
 	return decodedName
+}
+
+func HandleArchiveDownloadAction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		http.Error(w, "Missing ID", http.StatusBadRequest)
+		return
+	}
+
+	action := r.URL.Query().Get("action")
+	if id == "" {
+		http.Error(w, "Missing Action", http.StatusBadRequest)
+		return
+	}
+
+	archiveDownload, err := databases.GetArchivedLocalDownload(id)
+	if err != nil {
+		logger.Log.Errorw("Failed to fetch archive download", "id", id, "error", err)
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	switch action {
+	case "download":
+		databases.AddLocalDownload(databases.LocalDownloadsInstance{
+			Protocol:                   archiveDownload.Protocol,
+			Provider:                   archiveDownload.Provider,
+			DownloadName:               archiveDownload.DownloadName,
+			DownloadType:               archiveDownload.DownloadType,
+			OriginalDownloadUrl:        archiveDownload.OriginalDownloadUrl,
+			OriginalDownloadFile:       archiveDownload.OriginalDownloadFile,
+			OriginalDownloadReference:  archiveDownload.OriginalDownloadReference,
+			Category:                   archiveDownload.Category,
+			Status:                     config.DOWNLOAD_STATUS_CLIENT_ADDED,
+			ExternalProviderID:         archiveDownload.ExternalProviderID,
+			ExternalProviderDataObject: archiveDownload.ExternalProviderDataObject,
+			AddedAt:                    time.Now(),
+			DownloadItems:              []databases.LocalDownloadsInstanceItem{},
+		})
+	case "delete":
+		databases.DeleteLocalArchivedDownload(archiveDownload.IDString())
+	case "refresh":
+		archiveDownload.LastRefreshAt = time.Now().Add(time.Hour * 24 * 30 * -1)
+		databases.UpdateLocalArchivedDownloadSelected(archiveDownload)
+	case "togglerefresh":
+		refreshEnabled := r.URL.Query().Get("enabled") == "true"
+		archiveDownload.Refresh = refreshEnabled
+		databases.UpdateLocalArchivedDownloadSelected(archiveDownload)
+	default:
+		http.Error(w, "Invalid Action", http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status": "actioned"}`))
 }

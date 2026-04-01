@@ -318,6 +318,8 @@ func ProcessDownloadsQueue() (string, error) {
 					ExternalProviderDataObject: localDownload.ExternalProviderDataObject,
 					AddedAt:                    localDownload.AddedAt,
 					CompletedAt:                localDownload.CompletedAt,
+					Refresh:                    true,
+					LastRefreshAt:              localDownload.CompletedAt,
 					DownloadItems:              []databases.LocalArchivedDownloadsInstanceItem{},
 				})
 			}
@@ -465,4 +467,47 @@ func GetSanitizedPath(path string) string {
 		path = strings.ReplaceAll(path, "..", ".")
 	}
 	return path
+}
+
+func ProcessArchivedDownloadsQueue() (string, error) {
+	logger.Log.Debugw("Processing Archived Downloads!")
+	localArchivedDownloads := databases.GetArchivedLocalDownloadsOlderThan(time.Now().Add(time.Hour * 24 * 15 * -1))
+
+	for _, localArchivedDownload := range localArchivedDownloads {
+		var localDownload databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
+			Protocol:                   localArchivedDownload.Protocol,
+			Provider:                   localArchivedDownload.Provider,
+			DownloadName:               localArchivedDownload.DownloadName,
+			DownloadType:               localArchivedDownload.DownloadType,
+			OriginalDownloadUrl:        localArchivedDownload.OriginalDownloadUrl,
+			OriginalDownloadFile:       localArchivedDownload.OriginalDownloadFile,
+			OriginalDownloadReference:  localArchivedDownload.OriginalDownloadReference,
+			Category:                   localArchivedDownload.Category,
+			Status:                     config.DOWNLOAD_STATUS_CLIENT_ADDED,
+			ExternalProviderID:         localArchivedDownload.ExternalProviderID,
+			ExternalProviderDataObject: localArchivedDownload.ExternalProviderDataObject,
+			AddedAt:                    time.Now(),
+			DownloadItems:              []databases.LocalDownloadsInstanceItem{},
+		}
+
+		if localArchivedDownload.Protocol == config.ProtocolUsenet {
+			_, errAdd := services.TorboxUsenetCreateDownload(localDownload)
+			if errAdd != nil {
+				logger.Log.Errorw("Failed to add download to provider", "error", errAdd)
+				continue
+			}
+			localArchivedDownload.LastRefreshAt = time.Now()
+			databases.UpdateLocalArchivedDownload(localArchivedDownload)
+		} else {
+			_, errAdd := services.TorboxTorrentCreateDownload(localDownload)
+			if errAdd != nil {
+				logger.Log.Errorw("Failed to add download to provider", "error", errAdd)
+				continue
+			}
+			localArchivedDownload.LastRefreshAt = time.Now()
+			databases.UpdateLocalArchivedDownload(localArchivedDownload)
+		}
+	}
+
+	return "Successfully Updated Archived Downloads", nil
 }
