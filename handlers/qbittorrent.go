@@ -542,8 +542,10 @@ func HandleQBTorrentProperties(w http.ResponseWriter, r *http.Request) {
 	}
 
 	download := databases.GetLocalDownloadByFilter(databases.LocalDownloadsInstance{
-		Protocol: config.ProtocolTorrent,
+		Protocol:                  config.ProtocolTorrent,
+		OriginalDownloadReference: hash,
 	})
+
 	if download == nil {
 		json.NewEncoder(w).Encode([]interface{}{})
 		return
@@ -634,15 +636,13 @@ func GetTorrentsInfoList(downloads []databases.LocalDownloadsInstance) []models.
 		}
 
 		switch download.Status {
-		case config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING,
-			config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_PROCESSING,
-			config.DOWNLOAD_STATUS_PROVIDER_COMPLETED,
-			config.DOWNLOAD_STATUS_DOWNLOADER_ADDED,
+		case config.DOWNLOAD_STATUS_DOWNLOADER_ADDED,
 			config.DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING,
 			config.DOWNLOAD_STATUS_DOWNLOADER_FAILED,
 			config.DOWNLOAD_STATUS_DOWNLOADER_PAUSED,
 			config.DOWNLOAD_STATUS_DOWNLOADER_PROCESSING,
-			config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED:
+			config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED,
+			config.DOWNLOAD_STATUS_CLIENT_COMPLETED:
 			if download.DownloadType == config.DOWNLOAD_TYPE_FULL_ARCHIVE {
 				contentPath = strings.TrimSuffix(filepath.Join(savePath, download.DownloadItems[0].FilePath), filepath.Ext(download.DownloadItems[0].FilePath))
 			} else {
