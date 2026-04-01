@@ -51,6 +51,8 @@ func (s *Scheduler) run() {
 
 	adapters.ProcessDownloadsQueue()
 	adapters.ProcessDownloadItemsQueue()
+
+	adapters.ProcessArchivedDownloadsQueue()
 }
 
 func (s *Scheduler) Stop() {

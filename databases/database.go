@@ -645,3 +645,30 @@ func UpdateLocalArchivedDownloadSelected(localArchivedDownload LocalArchivedDown
 	}
 	return nil
 }
+
+func GetArchivedLocalDownloadsOlderThan(olderThan time.Time) []LocalArchivedDownloadsInstance {
+	var downloads []LocalArchivedDownloadsInstance
+
+	err := DB.Preload("DownloadItems", func(db *gorm.DB) *gorm.DB {
+		return db.Order("file_size DESC")
+	}).
+		Model(&LocalArchivedDownloadsInstance{}).
+		Where("last_refresh_at < ?", olderThan).
+		Where("refresh = ?", true).
+		Find(&downloads).Error
+
+	if err != nil {
+		logger.Log.Errorw(
+			"Database error while fetching archived downloads older than time",
+			"olderThan", olderThan,
+			"error", err,
+		)
+	}
+
+	logger.Log.Debugw(
+		"Getting archived downloads older than with refresh enabled",
+		"olderThan", olderThan,
+	)
+
+	return downloads
+}
