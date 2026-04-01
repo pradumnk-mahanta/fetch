@@ -651,7 +651,7 @@ func GetTorrentsInfoList(downloads []databases.LocalDownloadsInstance) []models.
 
 			for _, item := range download.DownloadItems {
 				totalSize += item.FileSize
-				if strings.ToLower(item.Status) == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED {
+				if item.Status == config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED {
 					completedSize += item.FileSize
 					continue
 				}
