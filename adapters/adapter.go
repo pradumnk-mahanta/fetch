@@ -318,6 +318,7 @@ func ProcessDownloadsQueue() (string, error) {
 					ExternalProviderDataObject: localDownload.ExternalProviderDataObject,
 					AddedAt:                    localDownload.AddedAt,
 					CompletedAt:                localDownload.CompletedAt,
+					Refresh:                    true,
 					LastRefreshAt:              localDownload.CompletedAt,
 					DownloadItems:              []databases.LocalArchivedDownloadsInstanceItem{},
 				})

@@ -585,3 +585,63 @@ func GetArchivedLocalDownloadsByFilter(downloadFilters LocalArchivedDownloadsIns
 	logger.Log.Debugw("Geting archived downloads by Filter", "downloadFilters", downloadFilters)
 	return downloads
 }
+
+func GetArchivedLocalDownload(id string) (LocalArchivedDownloadsInstance, error) {
+	var download LocalArchivedDownloadsInstance
+	uID, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		logger.Log.Errorw("Invalid ID format", "id", id, "error", err)
+		return LocalArchivedDownloadsInstance{}, err
+	}
+	result := DB.Preload("DownloadItems").First(&download, uint(uID))
+	if result.Error != nil {
+		return LocalArchivedDownloadsInstance{}, result.Error
+	}
+	if download.DownloadItems == nil {
+		download.DownloadItems = []LocalArchivedDownloadsInstanceItem{}
+	}
+	return download, nil
+}
+
+func DeleteLocalArchivedDownload(id string) error {
+	uID, err := strconv.ParseUint(id, 10, 64)
+	if err != nil {
+		logger.Log.Errorw("Invalid ID for download deletion", "id", id, "error", err)
+		return err
+	}
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("download_id = ?", uint(uID)).Delete(&LocalArchivedDownloadsInstanceItem{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Delete(&LocalArchivedDownloadsInstance{}, uint(uID)).Error; err != nil {
+			return err
+		}
+		logger.Log.Debugw("Deleted Local Archived Download and associated items", "id", id)
+		return nil
+	})
+}
+
+func UpdateLocalArchivedDownload(localArchivedDownload LocalArchivedDownloadsInstance) error {
+	result := DB.Model(&LocalArchivedDownloadsInstance{}).
+		Where("id = ?", localArchivedDownload.ID).
+		Updates(localArchivedDownload)
+	if result.Error != nil {
+		logger.Log.Errorw("Failed to update download provider info", "id", localArchivedDownload.ID, "error", result.Error)
+		return result.Error
+	}
+	logger.Log.Infow("Updating refresh", "id", localArchivedDownload.ID, "refresh", localArchivedDownload.Refresh)
+	return nil
+}
+
+func UpdateLocalArchivedDownloadSelected(localArchivedDownload LocalArchivedDownloadsInstance) error {
+	result := DB.Model(&LocalArchivedDownloadsInstance{}).
+		Where("id = ?", localArchivedDownload.ID).
+		Select("refresh", "status", "last_refresh_at").
+		Updates(localArchivedDownload)
+
+	if result.Error != nil {
+		logger.Log.Errorw("Failed to update download provider info", "id", localArchivedDownload.ID, "error", result.Error)
+		return result.Error
+	}
+	return nil
+}
