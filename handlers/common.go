@@ -7,10 +7,10 @@ import (
 	"fetch/logger"
 	"fetch/models"
 	"fetch/services"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 )
 
@@ -24,34 +24,10 @@ func CommonHandler(writer http.ResponseWriter, request *http.Request) {
 	switch domain {
 	case "downloads":
 		switch task {
-		case "process":
-			result, err := adapters.ProcessDownloadsQueue()
-			if err != nil {
-				writer.WriteHeader(http.StatusInternalServerError)
-				writer.Write([]byte(`{"error": "Failed to update downloads"}`))
-				return
-			}
-			writer.WriteHeader(http.StatusOK)
-			writer.Write([]byte(`{"result": "` + result + `"}`))
 		case "list":
 			HandleDownlaodsList(writer)
 		case "archive":
 			HandleArchiveList(writer)
-		default:
-			return
-		}
-
-	case "download_items":
-		switch task {
-		case "process":
-			result, err := adapters.ProcessDownloadItemsQueue()
-			if err != nil {
-				writer.WriteHeader(http.StatusInternalServerError)
-				writer.Write([]byte(`{"error": "Failed to update downloads"}`))
-				return
-			}
-			writer.WriteHeader(http.StatusOK)
-			writer.Write([]byte(`{"result": "` + result + `"}`))
 		default:
 			return
 		}
@@ -120,7 +96,11 @@ func HandleDownlaodsList(writer http.ResponseWriter) {
 func HandleArchiveList(writer http.ResponseWriter) {
 	var archivedDownloads []databases.LocalArchivedDownloadsInstance
 
-	archivedDownloads = databases.GetArchivedLocalDownloadsAll()
+	archivedDownloads = databases.GetLocalArchivedDownloadsByFilter(databases.LocalArchivedDownloadsInstance{})
+	if archivedDownloads == nil {
+		logger.Log.Debugw("No archived downloads to process.")
+		archivedDownloads = make([]databases.LocalArchivedDownloadsInstance, 0)
+	}
 	logger.Log.Debugw("Successfully fetched archived downloads!")
 
 	writer.WriteHeader(http.StatusOK)
@@ -128,13 +108,17 @@ func HandleArchiveList(writer http.ResponseWriter) {
 }
 
 func DeleteLocalDownload(downloadId string) error {
-	localDownlaodItems, err := databases.GetLocalDownloadItemsForDownload(downloadId)
-	if err != nil {
+	localDownload := databases.GetLocalDownloadByFilter(databases.LocalDownloadsInstance{
+		ID: databases.GetParsedUint(downloadId),
+	})
+	if localDownload == nil {
+		err := fmt.Errorf("local download not found: id=%s", downloadId)
+		logger.Log.Warnw("Local download not found", "id", downloadId)
 		return err
 	}
 
 	downloader := services.GetGDLService()
-	for _, downloadItem := range localDownlaodItems {
+	for _, downloadItem := range localDownload.DownloadItems {
 		downloader.Delete(downloadItem.IDString())
 		if downloadItem.FilePath != "" {
 			pathOnDisk := config.ApplicationDownloadRoot + "/" + downloadItem.Category + "/" + downloadItem.FilePath
@@ -153,21 +137,25 @@ func DeleteLocalDownload(downloadId string) error {
 			} else {
 				logger.Log.Infow("Deleted", "path", pathOnDisk)
 			}
-
 		}
 	}
-	databases.DeleteLocalDownload(downloadId)
+
+	localDownload.Delete()
 	return nil
 }
 
 func RetryLocalDownload(downloadId string) error {
-	localDownlaodItems, err := databases.GetLocalDownloadItemsForDownload(downloadId)
-	if err != nil {
+	localDownlaodItems := databases.GetLocalDownloadByFilter(databases.LocalDownloadsInstance{
+		ID: databases.GetParsedUint(downloadId),
+	})
+	if localDownlaodItems == nil {
+		err := fmt.Errorf("local download not found: id=%s", downloadId)
+		logger.Log.Warnw("Local download not found", "id", downloadId)
 		return err
 	}
 
 	downloader := services.GetGDLService()
-	for _, downloadItem := range localDownlaodItems {
+	for _, downloadItem := range localDownlaodItems.DownloadItems {
 		downloader.Delete(downloadItem.IDString())
 		if downloadItem.FilePath != "" {
 			pathOnDisk := config.ApplicationDownloadRoot + "/" + downloadItem.Category + "/" + downloadItem.FilePath
@@ -190,14 +178,8 @@ func RetryLocalDownload(downloadId string) error {
 		}
 	}
 
-	uID, err := strconv.ParseUint(downloadId, 10, 64)
-	if err != nil {
-		logger.Log.Errorw("Invalid Item ID format", "id", downloadId, "error", err)
-		return err
-	}
-
 	databases.UpdateLocalDownload(databases.LocalDownloadsInstance{
-		ID:     uint(uID),
+		ID:     databases.GetParsedUint(downloadId),
 		Status: config.DOWNLOAD_STATUS_CLIENT_ADDED,
 	})
 

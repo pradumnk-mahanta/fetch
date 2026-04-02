@@ -211,7 +211,7 @@ func HandleSabAddUrl(writer http.ResponseWriter, request *http.Request) {
 func HandleSabQueue(writer http.ResponseWriter) {
 	var sabQueueResponse models.SabQueueResponse
 	var downloads []databases.LocalDownloadsInstance
-	localDownloads, localDownloadsError := databases.GetLocalPendingDownloads(config.ProtocolUsenet)
+	localDownloads, localDownloadsError := databases.GetLocalDownloadsPending(config.ProtocolUsenet)
 	if localDownloadsError != nil {
 		logger.Log.Debugw("Unable to get Local Download Items. Defaulting to Empty Queue")
 
@@ -225,7 +225,7 @@ func HandleSabQueue(writer http.ResponseWriter) {
 
 func HandleSabHistory(writer http.ResponseWriter) {
 	var downloads []databases.LocalDownloadsInstance
-	localDownloads, localDownloadsError := databases.GetLocalCompletedDownloads(config.ProtocolUsenet)
+	localDownloads, localDownloadsError := databases.GetLocalDownloadsCompleted(config.ProtocolUsenet)
 	if localDownloadsError != nil {
 		logger.Log.Debugw("Unable to get Local Download Items. Defaulting to Empty Queue")
 	}
@@ -312,7 +312,7 @@ func GetConfigCategories() []map[string]interface{} {
 func HandleFullStatus(w http.ResponseWriter, r *http.Request) {
 	var sabFullHistoryResponse models.SabFullStatusResponse
 	var downloads []databases.LocalDownloadsInstance
-	localDownloads, localDownloadsError := databases.GetLocalPendingDownloads(config.ProtocolUsenet)
+	localDownloads, localDownloadsError := databases.GetLocalDownloadsPending(config.ProtocolUsenet)
 	if localDownloadsError != nil {
 		logger.Log.Debugw("Unable to get Local Download Items. Defaulting to Empty Queue")
 

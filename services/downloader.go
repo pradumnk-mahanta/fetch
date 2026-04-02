@@ -63,7 +63,10 @@ type GDLService struct {
 func (s *GDLService) Download(parentCtx context.Context, localDownloadItem databases.LocalDownloadsInstanceItem) error {
 	ctx, cancel := context.WithCancel(parentCtx)
 
-	databases.UpdateLocalDownloadItemStatus(localDownloadItem.IDString(), config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_DOWNLOADING)
+	databases.UpdateLocalDownloadItem(databases.LocalDownloadsInstanceItem{
+		ID:     localDownloadItem.ID,
+		Status: config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_DOWNLOADING,
+	})
 
 	dir, err := GetDownloadRootPath(localDownloadItem.Category)
 	if err != nil {
@@ -133,7 +136,10 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 			task.Status = config.DOWNLOAD_STATUS_DOWNLOADER_PAUSED
 			task.mu.Unlock()
 
-			databases.UpdateLocalDownloadItemStatus(task.ID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_PAUSED)
+			databases.UpdateLocalDownloadItem(databases.LocalDownloadsInstanceItem{
+				ID:     databases.GetParsedUint(task.ID),
+				Status: config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_PAUSED,
+			})
 			logger.Log.Infow("Download paused", "id", task.ID)
 
 			s.mu.Lock()
@@ -146,7 +152,10 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 		task.Status = config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED
 		task.mu.Unlock()
 
-		databases.UpdateLocalDownloadItemStatus(task.ID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED)
+		databases.UpdateLocalDownloadItem(databases.LocalDownloadsInstanceItem{
+			ID:     databases.GetParsedUint(task.ID),
+			Status: config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED,
+		})
 		logger.Log.Errorw("Failed to download", "error", err, "url", task.URL, "outputPath", task.OutputPath)
 
 		s.mu.Lock()
@@ -160,10 +169,17 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 	task.Stats = stats
 	task.mu.Unlock()
 
-	downloadItem, err := databases.GetLocalDownloadItemDetails(task.ID)
-	if err == nil && downloadItem.DownloadType == config.DOWNLOAD_TYPE_FULL_ARCHIVE {
-		databases.UpdateLocalDownloadItemStatus(task.ID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_PROCESSING)
+	localDownloadItem := databases.GetLocalDownloadItemByFilter(databases.LocalDownloadsInstanceItem{
+		ID: databases.GetParsedUint(task.ID),
+	})
+
+	if localDownloadItem != nil && localDownloadItem.DownloadType == config.DOWNLOAD_TYPE_FULL_ARCHIVE {
+		databases.UpdateLocalDownloadItem(databases.LocalDownloadsInstanceItem{
+			ID:     databases.GetParsedUint(task.ID),
+			Status: config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_PROCESSING,
+		})
 		logger.Log.Infow("Extracting archive", "id", task.ID, "path", task.OutputPath)
+
 		extractDir := filepath.Dir(task.OutputPath)
 		if err := extractZip(task.OutputPath, extractDir); err != nil {
 			logger.Log.Errorw("Failed to extract archive", "error", err, "id", task.ID)
@@ -172,7 +188,10 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 			task.Status = config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED
 			task.mu.Unlock()
 
-			databases.UpdateLocalDownloadItemStatus(task.ID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED)
+			databases.UpdateLocalDownloadItem(databases.LocalDownloadsInstanceItem{
+				ID:     databases.GetParsedUint(task.ID),
+				Status: config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_FAILED,
+			})
 
 			s.mu.Lock()
 			delete(s.tasks, task.ID)
@@ -187,8 +206,10 @@ func (s *GDLService) startDownload(task *DownloadTask) {
 	task.Status = config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED
 	task.mu.Unlock()
 
-	databases.UpdateLocalDownloadItemStatus(task.ID, config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED)
-
+	databases.UpdateLocalDownloadItem(databases.LocalDownloadsInstanceItem{
+		ID:     databases.GetParsedUint(task.ID),
+		Status: config.DOWNLOAD_ITEM_STATUS_DOWNLOADER_COMPLETED,
+	})
 	logger.Log.Infow("Download completed", "id", task.ID)
 }
 
@@ -217,12 +238,14 @@ func (s *GDLService) Resume(prntCtx context.Context, id string) error {
 		return errors.New("Download already running!")
 	}
 
-	detail, err := databases.GetLocalDownloadItemDetails(id)
-	if err != nil {
-		return err
+	localDownloadItem := databases.GetLocalDownloadItemByFilter(databases.LocalDownloadsInstanceItem{
+		ID: databases.GetParsedUint(id),
+	})
+	if localDownloadItem == nil {
+		return errors.New("Download not found!")
 	}
 
-	return s.Download(prntCtx, detail)
+	return s.Download(prntCtx, *localDownloadItem)
 }
 
 func (s *GDLService) Delete(id string) error {

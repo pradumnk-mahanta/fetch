@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fetch/databases"
 	"fetch/logger"
+	"fmt"
 )
 
 type CombinedDownloadDetails struct {
@@ -17,9 +18,10 @@ type CombinedItemDetails struct {
 }
 
 func GetCombinedDownloadDetails(liveDownloads []GDLDownload) ([]CombinedDownloadDetails, error) {
-	localDownloads, err := databases.GetLocalDownloads()
-	if err != nil {
-		logger.Log.Errorw("Failed to fetch local downloads for combination", "error", err)
+	localDownloads := databases.GetLocalDownloadsByFilter(databases.LocalDownloadsInstance{})
+	if localDownloads == nil {
+		err := fmt.Errorf("Failed to fetch local downloads!")
+		logger.Log.Errorw(err.Error(), "error", err)
 		return nil, err
 	}
 
