@@ -181,6 +181,28 @@ function renderArchives(list) {
 
                     </button>
 
+                    <button onclick="readdDownload('${dl.id}')"
+                        class="p-2 text-purple-400 bg-purple-900/20 hover:bg-purple-800/30 rounded-lg transition"
+                        title="Re-Add to Queue">
+
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor">
+
+                            <!-- circle -->
+                            <circle cx="12" cy="12" r="9" stroke-width="2" />
+
+                            <!-- plus -->
+                            <path stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M12 8v8M8 12h8" />
+                        </svg>
+
+                    </button>
+
                 </div>
             </div>
 
@@ -256,6 +278,10 @@ function deleteDownload(id) {
 
 function toggleRefresh(id, enabled) {
     handleAction(`/internal/api/archive?action=togglerefresh&id=${id}&enabled=${enabled}`, "Auto-Refresh Updated!");
+}
+
+function readdDownload(id) {
+    handleAction(`/internal/api/archive?action=readd&id=${id}`,"Download Re-Added to Queue!");
 }
 
 fetchArchives();

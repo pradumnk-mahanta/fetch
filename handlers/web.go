@@ -470,19 +470,17 @@ func HandleArchiveDownloadAction(w http.ResponseWriter, r *http.Request) {
 	switch action {
 	case "download":
 		var localDownload databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
-			Protocol:                   archiveDownload.Protocol,
-			Provider:                   archiveDownload.Provider,
-			DownloadName:               archiveDownload.DownloadName,
-			DownloadType:               archiveDownload.DownloadType,
-			OriginalDownloadUrl:        archiveDownload.OriginalDownloadUrl,
-			OriginalDownloadFile:       archiveDownload.OriginalDownloadFile,
-			OriginalDownloadReference:  archiveDownload.OriginalDownloadReference,
-			Category:                   archiveDownload.Category,
-			Status:                     config.DOWNLOAD_STATUS_CLIENT_ADDED,
-			ExternalProviderID:         archiveDownload.ExternalProviderID,
-			ExternalProviderDataObject: archiveDownload.ExternalProviderDataObject,
-			AddedAt:                    time.Now(),
-			DownloadItems:              []databases.LocalDownloadsInstanceItem{},
+			Protocol:                  archiveDownload.Protocol,
+			Provider:                  archiveDownload.Provider,
+			DownloadName:              archiveDownload.DownloadName,
+			DownloadType:              config.DOWNLOAD_TYPE_FULL_ARCHIVE,
+			OriginalDownloadUrl:       archiveDownload.OriginalDownloadUrl,
+			OriginalDownloadFile:      archiveDownload.OriginalDownloadFile,
+			OriginalDownloadReference: archiveDownload.OriginalDownloadReference,
+			Category:                  archiveDownload.Category,
+			Status:                    config.DOWNLOAD_STATUS_CLIENT_ADDED,
+			AddedAt:                   time.Now(),
+			DownloadItems:             []databases.LocalDownloadsInstanceItem{},
 		}
 		localDownload.Add()
 	case "delete":
@@ -494,6 +492,22 @@ func HandleArchiveDownloadAction(w http.ResponseWriter, r *http.Request) {
 		refreshEnabled := r.URL.Query().Get("enabled") == "true"
 		archiveDownload.Refresh = refreshEnabled
 		databases.UpdateLocalArchivedDownloadSelected(*archiveDownload)
+	case "readd":
+		var localDownload databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
+			Protocol:                  archiveDownload.Protocol,
+			Provider:                  archiveDownload.Provider,
+			DownloadName:              archiveDownload.DownloadName,
+			DownloadType:              archiveDownload.DownloadType,
+			OriginalDownloadUrl:       archiveDownload.OriginalDownloadUrl,
+			OriginalDownloadFile:      archiveDownload.OriginalDownloadFile,
+			OriginalDownloadReference: archiveDownload.OriginalDownloadReference,
+			Category:                  archiveDownload.Category,
+			Status:                    config.DOWNLOAD_STATUS_CLIENT_ADDED,
+			AddedAt:                   time.Now(),
+			DownloadItems:             []databases.LocalDownloadsInstanceItem{},
+		}
+		localDownload.Add()
+		archiveDownload.Delete()
 	default:
 		http.Error(w, `{"error":"Invalid Action"}`, http.StatusBadRequest)
 		return

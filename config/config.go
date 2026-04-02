@@ -33,7 +33,7 @@ var SupportedDownloaders = []DownloaderInfo{
 	},
 	{
 		ID:          DownloaderIdSymlink,
-		Name:        "Create Symlink (Experimental)",
+		Name:        "Create Symlink",
 		Description: "All the files will be symlinked to the provided mount path. Keep the mountpath in all the applications same. If mounting to /mnt/provoder in fetch, mount at the same location in Emby/Jellyfin/Plex. Please be advised, using this method relies on the media being available on the provider. If it is deleted from the Provider (goes out of cache), links will not resolve to anything. ",
 	},
 	{
