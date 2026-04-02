@@ -88,14 +88,34 @@ function renderArchives(list) {
 
                     <h2 class="text-lg font-bold text-white">${dl.download_name}</h2>
 
-                    <div class="text-xs text-gray-400 mt-2 space-y-1">
-                        <p>Added: ${formatDate(dl.added_at)}</p>
-                        <p>Completed: ${formatDate(dl.completed_at)}</p>
+                    <div class="text-xs text-gray-400 mt-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+
+                        <!-- Added -->
+                        <span class="flex items-center gap-1">
+                            <span class="text-gray-500">Added:</span>
+                            <span>${formatDate(dl.added_at)}</span>
+                        </span>
+
+                        <!-- Divider -->
+                        <span class="hidden sm:block h-3 w-px bg-gray-700"></span>
+
+                        <!-- Completed -->
+                        <span class="flex items-center gap-1">
+                            <span class="text-gray-500">Completed:</span>
+                            <span>${formatDate(dl.completed_at)}</span>
+                        </span>
+
+                        <!-- Divider -->
+                        <span class="hidden sm:block h-3 w-px bg-gray-700"></span>
+
+                        <!-- Last Refresh -->
                         ${dl.refresh ? `
-                            <p class="text-blue-400">
-                                Last Refresh: ${formatDate(dl.last_refresh_at)}
-                            </p>
+                            <span class="flex items-center gap-1 text-blue-400">
+                                <span class="text-gray-500">Last Refresh:</span>
+                                <span>${formatDate(dl.last_refresh_at)}</span>
+                            </span>
                         ` : ''}
+
                     </div>
                 </div>
 
