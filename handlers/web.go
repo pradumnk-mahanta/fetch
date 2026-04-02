@@ -483,6 +483,7 @@ func HandleArchiveDownloadAction(w http.ResponseWriter, r *http.Request) {
 			DownloadItems:             []databases.LocalDownloadsInstanceItem{},
 		}
 		localDownload.Add()
+		archiveDownload.Delete()
 	case "delete":
 		archiveDownload.Delete()
 	case "refresh":

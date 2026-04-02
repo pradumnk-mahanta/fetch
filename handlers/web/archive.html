@@ -105,17 +105,16 @@ function renderArchives(list) {
                             <span>${formatDate(dl.completed_at)}</span>
                         </span>
 
-                        <!-- Divider -->
+<!--
                         <span class="hidden sm:block h-3 w-px bg-gray-700"></span>
-
-                        <!-- Last Refresh -->
+                        
                         ${dl.refresh ? `
                             <span class="flex items-center gap-1 text-blue-400">
                                 <span class="text-gray-500">Last Refresh:</span>
                                 <span>${formatDate(dl.last_refresh_at)}</span>
                             </span>
                         ` : ''}
-
+-->
                     </div>
                 </div>
 
@@ -213,7 +212,7 @@ function renderArchives(list) {
                     ${dl.status}
                 </span>
 
-                <!-- Refresh Toggle -->
+<!--
                 <label class="flex items-center gap-2 cursor-pointer">
                     <span class="text-xs text-gray-400">Auto Refresh</span>
                     
@@ -230,7 +229,7 @@ function renderArchives(list) {
 
                     </div>
                 </label>
-
+ -->
             </div>
 
         </div>

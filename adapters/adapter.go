@@ -296,7 +296,7 @@ func ProcessDownloadsQueue() {
 					ExternalProviderDataObject: localDownload.ExternalProviderDataObject,
 					AddedAt:                    localDownload.AddedAt,
 					CompletedAt:                localDownload.CompletedAt,
-					Refresh:                    true,
+					Refresh:                    false,
 					LastRefreshAt:              localDownload.CompletedAt,
 					DownloadItems:              []databases.LocalArchivedDownloadsInstanceItem{},
 				}
@@ -442,7 +442,7 @@ func ProcessArchivedDownloadsQueue() {
 	localArchivedDownloads := databases.GetLocalArchivedDownloadsByFilter(databases.LocalArchivedDownloadsInstance{}) // 1 Day Old
 
 	for _, localArchivedDownload := range localArchivedDownloads {
-		if time.Since(localArchivedDownload.LastRefreshAt) > 24*time.Hour { // 1 Day Old
+		if time.Since(localArchivedDownload.LastRefreshAt) > 25*24*time.Hour { // 25 Day Old
 			var localDownload databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
 				Protocol:                  localArchivedDownload.Protocol,
 				Provider:                  localArchivedDownload.Provider,
