@@ -104,7 +104,7 @@ type DebridConfig struct {
 	APIKey             string `json:"debrid_provider_api_key"`
 	PreferZippedFolder bool   `json:"debrid_provider_prefer_zipped_folder"`
 	MaxSend            int    `json:"debrid_provider_max_send"`
-	MountPoint         string `json:"usenet_provider_rclone_mount"`
+	MountPoint         string `json:"debrid_provider_rclone_mount"`
 }
 
 type UsenetConfig struct {
