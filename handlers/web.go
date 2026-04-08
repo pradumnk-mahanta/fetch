@@ -469,11 +469,27 @@ func HandleArchiveDownloadAction(w http.ResponseWriter, r *http.Request) {
 
 	switch action {
 	case "download":
+		dType := r.URL.Query().Get("type")
+		if dType == "" {
+			http.Error(w, "Missing Download Type", http.StatusBadRequest)
+			return
+		}
+
+		var downloadType string
+		switch dType {
+		case "strmlink":
+			downloadType = config.DOWNLOAD_TYPE_CREATE_STRM
+		case "symlink":
+			downloadType = config.DOWNLOAD_TYPE_CREATE_SYMLINK
+		default:
+			downloadType = config.DOWNLOAD_TYPE_INDIVIDUAL_FILE
+		}
+
 		var localDownload databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
 			Protocol:                  archiveDownload.Protocol,
 			Provider:                  archiveDownload.Provider,
 			DownloadName:              archiveDownload.DownloadName,
-			DownloadType:              config.DOWNLOAD_TYPE_FULL_ARCHIVE,
+			DownloadType:              downloadType,
 			OriginalDownloadUrl:       archiveDownload.OriginalDownloadUrl,
 			OriginalDownloadFile:      archiveDownload.OriginalDownloadFile,
 			OriginalDownloadReference: archiveDownload.OriginalDownloadReference,
@@ -484,16 +500,20 @@ func HandleArchiveDownloadAction(w http.ResponseWriter, r *http.Request) {
 		}
 		localDownload.Add()
 		archiveDownload.Delete()
+
 	case "delete":
 		archiveDownload.Delete()
+
 	case "refresh":
 		archiveDownload.LastRefreshAt = time.Now().Add(time.Hour * 24 * 30 * -1)
 		databases.UpdateLocalArchivedDownloadSelected(*archiveDownload)
+
 	case "togglerefresh":
 		refreshEnabled := r.URL.Query().Get("enabled") == "true"
 		archiveDownload.Refresh = refreshEnabled
 		databases.UpdateLocalArchivedDownloadSelected(*archiveDownload)
-	case "readd":
+
+	case "reset":
 		var localDownload databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
 			Protocol:                  archiveDownload.Protocol,
 			Provider:                  archiveDownload.Provider,
@@ -509,6 +529,7 @@ func HandleArchiveDownloadAction(w http.ResponseWriter, r *http.Request) {
 		}
 		localDownload.Add()
 		archiveDownload.Delete()
+
 	default:
 		http.Error(w, `{"error":"Invalid Action"}`, http.StatusBadRequest)
 		return

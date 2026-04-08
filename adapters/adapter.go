@@ -200,9 +200,15 @@ func ProcessDownloadsQueue() {
 					} else {
 						downloadLink = services.TorboxTorrentRequestDownloadLink(localDownload.ExternalProviderID, providerDownloadItem.IDString(), false)
 					}
+
+					var itemDownloadType string = localDownload.DownloadType
+					if localDownload.DownloadType == config.DOWNLOAD_TYPE_CREATE_STRM && !strings.Contains(providerDownloadItem.Mimetype, "video") {
+						itemDownloadType = config.DOWNLOAD_TYPE_INDIVIDUAL_FILE
+					}
+
 					var downloadItem databases.LocalDownloadsInstanceItem = databases.LocalDownloadsInstanceItem{
 						DownloadID:                  localDownload.ID,
-						DownloadType:                localDownload.DownloadType,
+						DownloadType:                itemDownloadType,
 						Protocol:                    localDownload.Protocol,
 						Category:                    localDownload.Category,
 						FileName:                    providerDownloadItem.ShortName,
@@ -433,10 +439,12 @@ func GetSanitizedPath(path string) string {
 
 func ProcessArchivedDownloadsQueue() {
 	logger.Log.Debugw("Processing Archived Downloads!")
-	localArchivedDownloads := databases.GetLocalArchivedDownloadsByFilter(databases.LocalArchivedDownloadsInstance{}) // 1 Day Old
+	localArchivedDownloads := databases.GetLocalArchivedDownloadsByFilter(databases.LocalArchivedDownloadsInstance{
+		Refresh: true,
+	})
 
 	for _, localArchivedDownload := range localArchivedDownloads {
-		if time.Since(localArchivedDownload.LastRefreshAt) > 25*24*time.Hour { // 25 Day Old
+		if time.Since(localArchivedDownload.LastRefreshAt) > 25*24*time.Hour { // 25 Days Old
 			var localDownload databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
 				Protocol:                  localArchivedDownload.Protocol,
 				Provider:                  localArchivedDownload.Provider,

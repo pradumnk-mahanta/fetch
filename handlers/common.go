@@ -109,17 +109,17 @@ func DeleteLocalDownload(downloadId string) error {
 }
 
 func RetryLocalDownload(downloadId string) error {
-	localDownlaodItems := databases.GetLocalDownloadByFilter(databases.LocalDownloadsInstance{
+	localDownload := databases.GetLocalDownloadByFilter(databases.LocalDownloadsInstance{
 		ID: databases.GetParsedUint(downloadId),
 	})
-	if localDownlaodItems == nil {
+	if localDownload == nil {
 		err := fmt.Errorf("local download not found: id=%s", downloadId)
 		logger.Log.Warnw("Local download not found", "id", downloadId)
 		return err
 	}
 
 	downloader := services.GetGDLService()
-	for _, downloadItem := range localDownlaodItems.DownloadItems {
+	for _, downloadItem := range localDownload.DownloadItems {
 		downloader.Delete(downloadItem.IDString())
 		if downloadItem.FilePath != "" {
 			pathOnDisk := config.ApplicationDownloadRoot + "/" + downloadItem.Category + "/" + downloadItem.FilePath
@@ -138,8 +138,8 @@ func RetryLocalDownload(downloadId string) error {
 			} else {
 				logger.Log.Infow("Deleted", "path", pathOnDisk)
 			}
-
 		}
+		downloadItem.Delete()
 	}
 
 	databases.UpdateLocalDownload(databases.LocalDownloadsInstance{

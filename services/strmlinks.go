@@ -6,11 +6,12 @@ import (
 	"fetch/logger"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func CreateStrmlink(localDownloadsInstanceItem databases.LocalDownloadsInstanceItem) {
 	basePath := filepath.Join(config.ApplicationDownloadRoot, localDownloadsInstanceItem.Category, localDownloadsInstanceItem.FilePath)
-	strmPath := basePath + ".strm"
+	strmPath := strings.TrimSuffix(basePath, filepath.Ext(basePath)) + ".strm"
 
 	if errDir := os.MkdirAll(filepath.Dir(strmPath), 0755); errDir != nil {
 		logger.Log.Errorw("Unable to create STRM Directory", "error", errDir)
