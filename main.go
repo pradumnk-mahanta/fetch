@@ -45,7 +45,7 @@ func main() {
 	http.HandleFunc("/api", handlers.SABNzbdHandler)
 	http.HandleFunc("/api/v2/", handlers.QBittorrentHandler)
 	http.HandleFunc("/qbittorrent/api/v2/", handlers.QBittorrentHandler)
-	http.HandleFunc("/sabnzbd/api", handlers.CommonHandler)
+	http.HandleFunc("/sabnzbd/api", handlers.SABNzbdHandler)
 	http.HandleFunc("/fetch/api", handlers.CommonHandler)
 
 	http.HandleFunc("/login", handlers.WebHandlerLogin)

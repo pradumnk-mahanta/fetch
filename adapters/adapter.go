@@ -43,56 +43,42 @@ func CreateDownload(protocol string, downloadName string, fileBytes []byte, down
 		downloadType = config.DOWNLOAD_TYPE_DO_NOT_DOWNLOAD
 	}
 
+	var localDownload databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
+		Protocol:                  protocol,
+		DownloadName:              GetSanitizedPath(strings.TrimSuffix(downloadName, filepath.Ext(downloadName))),
+		DownloadType:              downloadType,
+		OriginalDownloadFile:      fileBytes,
+		OriginalDownloadUrl:       downloadUrl,
+		OriginalDownloadReference: reference,
+		Category:                  category,
+		Status:                    config.DOWNLOAD_STATUS_CLIENT_ADDED,
+		AddedAt:                   time.Now(),
+		DownloadItems:             []databases.LocalDownloadsInstanceItem{},
+	}
+
 	switch protocol {
 	case config.ProtocolUsenet:
-		var download databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
-			Protocol:             protocol,
-			Provider:             config.GetUsenetProvider().ID,
-			DownloadName:         GetSanitizedPath(strings.TrimSuffix(downloadName, filepath.Ext(downloadName))),
-			DownloadType:         downloadType,
-			OriginalDownloadFile: fileBytes,
-			Category:             category,
-			Status:               config.DOWNLOAD_STATUS_CLIENT_ADDED,
-			AddedAt:              time.Now(),
-			DownloadItems:        []databases.LocalDownloadsInstanceItem{},
-		}
-		locaDownloadId, err := databases.AddLocalDownload(download)
-		if err != nil {
-			return "", err
-		}
-		return locaDownloadId, nil
+		localDownload.Provider = config.GetUsenetProvider().ID
 
 	case config.ProtocolTorrent:
-		var download databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
-			Protocol:                  protocol,
-			Provider:                  config.GetTorrentsProvider().ID,
-			DownloadName:              GetSanitizedPath(strings.TrimSuffix(downloadName, filepath.Ext(downloadName))),
-			DownloadType:              downloadType,
-			OriginalDownloadUrl:       downloadUrl,
-			OriginalDownloadFile:      fileBytes,
-			OriginalDownloadReference: reference,
-			Category:                  category,
-			Status:                    config.DOWNLOAD_STATUS_CLIENT_ADDED,
-			AddedAt:                   time.Now(),
-			DownloadItems:             []databases.LocalDownloadsInstanceItem{},
-		}
-		locaDownloadId, err := databases.AddLocalDownload(download)
-		if err != nil {
-			return "", err
-		}
-		return locaDownloadId, nil
+		localDownload.Provider = config.GetTorrentsProvider().ID
 
 	default:
 		return "", nil
 	}
+
+	errAdd := localDownload.Add()
+	if errAdd != nil {
+		return "", errAdd
+	}
+	return localDownload.IDString(), nil
 }
 
-func ProcessDownloadsQueue() (string, error) {
+func ProcessDownloadsQueue() {
 	logger.Log.Debugw("Processing Downloads!")
-	localDownloads, err := databases.GetLocalPendingDownloads("")
+	localDownloads, err := databases.GetLocalDownloadsPending("")
 	if err != nil {
 		logger.Log.Errorw("Unable to retrieve pending downloads at this time. Please try again later!")
-		return "Unable to retrieve pending downloads at this time. Please try again later!", err
 	}
 
 	var usernetDownloadsCount int = 0
@@ -112,7 +98,6 @@ func ProcessDownloadsQueue() (string, error) {
 		provDl, err := services.TorboxUsenetGetDownloadList()
 		if err != nil {
 			logger.Log.Errorw("Failed to get usenet downloads list from provider", "error", err)
-			return "Unable to retrieve pending downloads at this time. Please try again later!", err
 		}
 		for _, dl := range provDl {
 			providerDownloads = append(providerDownloads, dl)
@@ -123,7 +108,6 @@ func ProcessDownloadsQueue() (string, error) {
 		provDl, err := services.TorboxTorrentGetDownloadList()
 		if err != nil {
 			logger.Log.Errorw("Failed to get torrents downloads list from provider", "error", err)
-			return "Unable to retrieve pending downloads at this time. Please try again later!", err
 		}
 		for _, dl := range provDl {
 			providerDownloads = append(providerDownloads, dl)
@@ -216,9 +200,15 @@ func ProcessDownloadsQueue() (string, error) {
 					} else {
 						downloadLink = services.TorboxTorrentRequestDownloadLink(localDownload.ExternalProviderID, providerDownloadItem.IDString(), false)
 					}
-					downloadItemId, errAdd := databases.AddLocalDownloadItem(databases.LocalDownloadsInstanceItem{
+
+					var itemDownloadType string = localDownload.DownloadType
+					if localDownload.DownloadType == config.DOWNLOAD_TYPE_CREATE_STRM && !strings.Contains(providerDownloadItem.Mimetype, "video") {
+						itemDownloadType = config.DOWNLOAD_TYPE_INDIVIDUAL_FILE
+					}
+
+					var downloadItem databases.LocalDownloadsInstanceItem = databases.LocalDownloadsInstanceItem{
 						DownloadID:                  localDownload.ID,
-						DownloadType:                localDownload.DownloadType,
+						DownloadType:                itemDownloadType,
 						Protocol:                    localDownload.Protocol,
 						Category:                    localDownload.Category,
 						FileName:                    providerDownloadItem.ShortName,
@@ -230,12 +220,9 @@ func ProcessDownloadsQueue() (string, error) {
 						ExternalProviderDownloadURL: downloadLink,
 						RetryCounter:                0,
 						AddedAt:                     time.Now(),
-					})
-					if errAdd != nil {
-						logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "provider item", providerDownloadItem.IDString())
-						continue
 					}
-					logger.Log.Infow("Added download Item Id", "download", localDownload.ID, "item", downloadItemId)
+					downloadItem.Add()
+					logger.Log.Infow("Added download Item Id", "download", localDownload.ID, "item", downloadItem.IDString())
 				}
 
 			case config.DOWNLOAD_TYPE_FULL_ARCHIVE:
@@ -250,7 +237,7 @@ func ProcessDownloadsQueue() (string, error) {
 					logger.Log.Errorw("Unable to retrieve file metadata: ", errFile.Error())
 					continue
 				}
-				downloadItemId, errAdd := databases.AddLocalDownloadItem(databases.LocalDownloadsInstanceItem{
+				var downloadItem databases.LocalDownloadsInstanceItem = databases.LocalDownloadsInstanceItem{
 					DownloadID:                  localDownload.ID,
 					DownloadType:                config.DOWNLOAD_TYPE_FULL_ARCHIVE,
 					Protocol:                    localDownload.Protocol,
@@ -264,12 +251,9 @@ func ProcessDownloadsQueue() (string, error) {
 					ExternalProviderDownloadURL: downloadLink,
 					RetryCounter:                0,
 					AddedAt:                     time.Now(),
-				})
-				if errAdd != nil {
-					logger.Log.Infow("Unable to add download Item Id", "download", localDownload.ID, "item", downloadItemId)
-					continue
 				}
-				logger.Log.Infow("Added download Item Id", "download", localDownload.ID, "item", downloadItemId)
+				downloadItem.Add()
+				logger.Log.Infow("Added download Item Id", "download", localDownload.ID, "item", downloadItem.IDString())
 
 			default:
 				continue
@@ -304,7 +288,7 @@ func ProcessDownloadsQueue() (string, error) {
 			localDownload.CompletedAt = time.Now()
 			databases.UpdateLocalDownload(localDownload)
 			if localDownload.DownloadType == config.DOWNLOAD_TYPE_CREATE_STRM || localDownload.DownloadType == config.DOWNLOAD_TYPE_CREATE_SYMLINK {
-				databases.AddArchivedLocalDownload(databases.LocalArchivedDownloadsInstance{
+				var archivedLocalDownload databases.LocalArchivedDownloadsInstance = databases.LocalArchivedDownloadsInstance{
 					Protocol:                   localDownload.Protocol,
 					Provider:                   localDownload.Provider,
 					DownloadName:               localDownload.DownloadName,
@@ -318,10 +302,11 @@ func ProcessDownloadsQueue() (string, error) {
 					ExternalProviderDataObject: localDownload.ExternalProviderDataObject,
 					AddedAt:                    localDownload.AddedAt,
 					CompletedAt:                localDownload.CompletedAt,
-					Refresh:                    true,
+					Refresh:                    false,
 					LastRefreshAt:              localDownload.CompletedAt,
 					DownloadItems:              []databases.LocalArchivedDownloadsInstanceItem{},
-				})
+				}
+				archivedLocalDownload.Add()
 			}
 			continue
 
@@ -329,16 +314,15 @@ func ProcessDownloadsQueue() (string, error) {
 			continue
 		}
 	}
-	return "Successfully updated downloads", nil
 }
 
-func ProcessDownloadItemsQueue() (string, error) {
+func ProcessDownloadItemsQueue() {
 	logger.Log.Debugw("Processing Download Items!")
 
-	localDownloadItems, err := databases.GetLocalDownloadItems()
-	if err != nil {
-		logger.Log.Errorw("Unable to retrieve downloads at this time. Please try again later!")
-		return "Unable to retrieve downloads at this time. Please try again later!", err
+	localDownloadItems := databases.GetLocalDownloadItemsByFilter(databases.LocalDownloadsInstanceItem{})
+	if localDownloadItems == nil {
+		logger.Log.Debugw("No download items to process.")
+		return
 	}
 
 	downloader := services.GetGDLService()
@@ -382,7 +366,6 @@ func ProcessDownloadItemsQueue() (string, error) {
 			continue
 		}
 	}
-	return "Successfully updated download Items", nil
 }
 
 func GetLocalDownloadStatusBasedOnItems(localDownloadItems []databases.LocalDownloadsInstanceItem, currentStatus string) string {
@@ -417,15 +400,6 @@ func GetLocalDownloadStatusBasedOnItems(localDownloadItems []databases.LocalDown
 	}
 }
 
-func LocalDownloadList() ([]databases.LocalDownloadsInstance, error) {
-	downloads, err := databases.GetLocalDownloads()
-	if err != nil {
-		return nil, err
-	}
-
-	return downloads, nil
-}
-
 func DownloaderActiveDownloads() int {
 	activeDownloads := 0
 	downloader := services.GetGDLService()
@@ -436,12 +410,6 @@ func DownloaderActiveDownloads() int {
 		}
 	}
 	return activeDownloads
-}
-
-func DownloaderListStatus() ([]models.GDLDownload, error) {
-	downloader := services.GetGDLService()
-	downloads := downloader.Status()
-	return downloads, nil
 }
 
 func DownloaderDeleteDownload(id string) (bool, error) {
@@ -469,45 +437,55 @@ func GetSanitizedPath(path string) string {
 	return path
 }
 
-func ProcessArchivedDownloadsQueue() (string, error) {
+func ProcessArchivedDownloadsQueue() {
 	logger.Log.Debugw("Processing Archived Downloads!")
-	localArchivedDownloads := databases.GetArchivedLocalDownloadsOlderThan(time.Now().Add(time.Hour * 24 * 15 * -1))
+	localArchivedDownloads := databases.GetLocalArchivedDownloadsByFilter(databases.LocalArchivedDownloadsInstance{
+		Refresh: true,
+	})
 
 	for _, localArchivedDownload := range localArchivedDownloads {
-		var localDownload databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
-			Protocol:                   localArchivedDownload.Protocol,
-			Provider:                   localArchivedDownload.Provider,
-			DownloadName:               localArchivedDownload.DownloadName,
-			DownloadType:               localArchivedDownload.DownloadType,
-			OriginalDownloadUrl:        localArchivedDownload.OriginalDownloadUrl,
-			OriginalDownloadFile:       localArchivedDownload.OriginalDownloadFile,
-			OriginalDownloadReference:  localArchivedDownload.OriginalDownloadReference,
-			Category:                   localArchivedDownload.Category,
-			Status:                     config.DOWNLOAD_STATUS_CLIENT_ADDED,
-			ExternalProviderID:         localArchivedDownload.ExternalProviderID,
-			ExternalProviderDataObject: localArchivedDownload.ExternalProviderDataObject,
-			AddedAt:                    time.Now(),
-			DownloadItems:              []databases.LocalDownloadsInstanceItem{},
-		}
+		if time.Since(localArchivedDownload.LastRefreshAt) > 25*24*time.Hour { // 25 Days Old
+			var localDownload databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
+				Protocol:                  localArchivedDownload.Protocol,
+				Provider:                  localArchivedDownload.Provider,
+				DownloadName:              localArchivedDownload.DownloadName,
+				DownloadType:              localArchivedDownload.DownloadType,
+				OriginalDownloadUrl:       localArchivedDownload.OriginalDownloadUrl,
+				OriginalDownloadFile:      localArchivedDownload.OriginalDownloadFile,
+				OriginalDownloadReference: localArchivedDownload.OriginalDownloadReference,
+				Category:                  localArchivedDownload.Category,
+				Status:                    config.DOWNLOAD_STATUS_CLIENT_ADDED,
+				AddedAt:                   time.Now(),
+				DownloadItems:             []databases.LocalDownloadsInstanceItem{},
+			}
 
-		if localArchivedDownload.Protocol == config.ProtocolUsenet {
-			_, errAdd := services.TorboxUsenetCreateDownload(localDownload)
-			if errAdd != nil {
-				logger.Log.Errorw("Failed to add download to provider", "error", errAdd)
-				continue
+			if localArchivedDownload.Protocol == config.ProtocolUsenet {
+				torrent_id, errAdd := services.TorboxUsenetCreateDownload(localDownload)
+				if errAdd != nil {
+					logger.Log.Errorw("Failed to add download to provider", "error", errAdd)
+					continue
+				}
+				if torrent_id != localArchivedDownload.ExternalProviderID {
+					localDownload.Add()
+					localArchivedDownload.Delete()
+				} else {
+					localArchivedDownload.LastRefreshAt = time.Now()
+					databases.UpdateLocalArchivedDownload(localArchivedDownload)
+				}
+			} else {
+				usenetdownload_id, errAdd := services.TorboxTorrentCreateDownload(localDownload)
+				if errAdd != nil {
+					logger.Log.Errorw("Failed to add download to provider", "error", errAdd)
+					continue
+				}
+				if usenetdownload_id != localArchivedDownload.ExternalProviderID {
+					localDownload.Add()
+					localArchivedDownload.Delete()
+				} else {
+					localArchivedDownload.LastRefreshAt = time.Now()
+					databases.UpdateLocalArchivedDownload(localArchivedDownload)
+				}
 			}
-			localArchivedDownload.LastRefreshAt = time.Now()
-			databases.UpdateLocalArchivedDownload(localArchivedDownload)
-		} else {
-			_, errAdd := services.TorboxTorrentCreateDownload(localDownload)
-			if errAdd != nil {
-				logger.Log.Errorw("Failed to add download to provider", "error", errAdd)
-				continue
-			}
-			localArchivedDownload.LastRefreshAt = time.Now()
-			databases.UpdateLocalArchivedDownload(localArchivedDownload)
 		}
 	}
-
-	return "Successfully Updated Archived Downloads", nil
 }

@@ -16,6 +16,12 @@ func CreateSymlink(localDownloadsInstanceItem databases.LocalDownloadsInstanceIt
 		remotePath = filepath.Join(config.GetTorrentsProvider().MountPoint, localDownloadsInstanceItem.FilePath)
 	}
 
+	if _, err := os.Stat(remotePath); os.IsNotExist(err) {
+		logger.Log.Warnw("Remote path does not exist for Symlink", "Item", localDownloadsInstanceItem.FileName)
+		logger.Log.Debugw("Remote path does not exist, cannot create symlink", "remotePath", remotePath)
+		return
+	}
+
 	symlinkPath := filepath.Join(config.ApplicationDownloadRoot, localDownloadsInstanceItem.Category, localDownloadsInstanceItem.FilePath)
 	if _, err := os.Lstat(symlinkPath); err == nil {
 		_ = os.Remove(symlinkPath)

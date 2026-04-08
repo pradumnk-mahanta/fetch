@@ -15,7 +15,7 @@ I started with TB Usenet as I wanted to explore it.
 - Torbox - [Referral Link](https://torbox.app/subscription?referral=b664682d-45d8-4320-9d4a-4271972d4abf)
 
 ## Planned Providers
-I only have access to the below right now. So I might just add the integration while I have the 
+I only have access to the below right now. So I might just add the integration while I have the subscription active.
 - Real-Debrid
 - Offcloud
 
@@ -46,10 +46,11 @@ services:
   fetch:
     image: ghcr.io/pradumnk-mahanta/fetch:latest
     container_name: fetch
+    user: 1000:1000 #If you get permission issues on the files created
     environment:
       - TZ=Asia/Kolkata
-      - PUID=0
-      - PGID=0
+      - PUID=1000
+      - PGID=1000
     volumes:
       - data_vol:/data
       - downloads_vol:/downloads:rw

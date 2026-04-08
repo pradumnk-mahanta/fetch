@@ -300,7 +300,7 @@ func HandleDownloadAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var download databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
+	var localDownload databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
 		Protocol:      protocol,
 		Provider:      provider,
 		Category:      category,
@@ -326,9 +326,9 @@ func HandleDownloadAdd(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		download.DownloadName = GetCleanName(strings.TrimSuffix(fileHeader.Filename, filepath.Ext(fileHeader.Filename)))
-		download.OriginalDownloadFile = fileBytes
-		databases.AddLocalDownload(download)
+		localDownload.DownloadName = GetCleanName(strings.TrimSuffix(fileHeader.Filename, filepath.Ext(fileHeader.Filename)))
+		localDownload.OriginalDownloadFile = fileBytes
+		localDownload.Add()
 
 	case "url":
 		urlInput := r.FormValue("url")
@@ -346,10 +346,9 @@ func HandleDownloadAdd(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			download.DownloadName = GetCleanName(strings.TrimSuffix(fileName, filepath.Ext(fileName)))
-			download.OriginalDownloadUrl = urlInput
-			download.OriginalDownloadReference = infoHash
-			databases.AddLocalDownload(download)
+			localDownload.DownloadName = GetCleanName(strings.TrimSuffix(fileName, filepath.Ext(fileName)))
+			localDownload.OriginalDownloadUrl = urlInput
+			localDownload.OriginalDownloadReference = infoHash
 
 		} else {
 			fileInfo, errFile := gdl.GetFileInfo(context.Background(), urlInput)
@@ -377,10 +376,11 @@ func HandleDownloadAdd(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			download.DownloadName = GetCleanName(strings.TrimSuffix(fileName, filepath.Ext(fileName)))
-			download.OriginalDownloadFile = fileBytes
-			databases.AddLocalDownload(download)
+			localDownload.DownloadName = GetCleanName(strings.TrimSuffix(fileName, filepath.Ext(fileName)))
+			localDownload.OriginalDownloadFile = fileBytes
+
 		}
+		localDownload.Add()
 
 	default:
 		http.Error(w, "Invalid Input", http.StatusBadRequest)
@@ -458,41 +458,80 @@ func HandleArchiveDownloadAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	archiveDownload, err := databases.GetArchivedLocalDownload(id)
-	if err != nil {
-		logger.Log.Errorw("Failed to fetch archive download", "id", id, "error", err)
+	archiveDownload := databases.GetLocalArchivedDownloadByFilter(databases.LocalArchivedDownloadsInstance{
+		ID: databases.GetParsedUint(id),
+	})
+	if archiveDownload == nil {
+		logger.Log.Errorw("Failed to fetch archive download", "id", id)
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
 
 	switch action {
 	case "download":
-		databases.AddLocalDownload(databases.LocalDownloadsInstance{
-			Protocol:                   archiveDownload.Protocol,
-			Provider:                   archiveDownload.Provider,
-			DownloadName:               archiveDownload.DownloadName,
-			DownloadType:               archiveDownload.DownloadType,
-			OriginalDownloadUrl:        archiveDownload.OriginalDownloadUrl,
-			OriginalDownloadFile:       archiveDownload.OriginalDownloadFile,
-			OriginalDownloadReference:  archiveDownload.OriginalDownloadReference,
-			Category:                   archiveDownload.Category,
-			Status:                     config.DOWNLOAD_STATUS_CLIENT_ADDED,
-			ExternalProviderID:         archiveDownload.ExternalProviderID,
-			ExternalProviderDataObject: archiveDownload.ExternalProviderDataObject,
-			AddedAt:                    time.Now(),
-			DownloadItems:              []databases.LocalDownloadsInstanceItem{},
-		})
+		dType := r.URL.Query().Get("type")
+		if dType == "" {
+			http.Error(w, "Missing Download Type", http.StatusBadRequest)
+			return
+		}
+
+		var downloadType string
+		switch dType {
+		case "strmlink":
+			downloadType = config.DOWNLOAD_TYPE_CREATE_STRM
+		case "symlink":
+			downloadType = config.DOWNLOAD_TYPE_CREATE_SYMLINK
+		default:
+			downloadType = config.DOWNLOAD_TYPE_INDIVIDUAL_FILE
+		}
+
+		var localDownload databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
+			Protocol:                  archiveDownload.Protocol,
+			Provider:                  archiveDownload.Provider,
+			DownloadName:              archiveDownload.DownloadName,
+			DownloadType:              downloadType,
+			OriginalDownloadUrl:       archiveDownload.OriginalDownloadUrl,
+			OriginalDownloadFile:      archiveDownload.OriginalDownloadFile,
+			OriginalDownloadReference: archiveDownload.OriginalDownloadReference,
+			Category:                  archiveDownload.Category,
+			Status:                    config.DOWNLOAD_STATUS_CLIENT_ADDED,
+			AddedAt:                   time.Now(),
+			DownloadItems:             []databases.LocalDownloadsInstanceItem{},
+		}
+		localDownload.Add()
+		archiveDownload.Delete()
+
 	case "delete":
-		databases.DeleteLocalArchivedDownload(archiveDownload.IDString())
+		archiveDownload.Delete()
+
 	case "refresh":
 		archiveDownload.LastRefreshAt = time.Now().Add(time.Hour * 24 * 30 * -1)
-		databases.UpdateLocalArchivedDownloadSelected(archiveDownload)
+		databases.UpdateLocalArchivedDownloadSelected(*archiveDownload)
+
 	case "togglerefresh":
 		refreshEnabled := r.URL.Query().Get("enabled") == "true"
 		archiveDownload.Refresh = refreshEnabled
-		databases.UpdateLocalArchivedDownloadSelected(archiveDownload)
+		databases.UpdateLocalArchivedDownloadSelected(*archiveDownload)
+
+	case "reset":
+		var localDownload databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
+			Protocol:                  archiveDownload.Protocol,
+			Provider:                  archiveDownload.Provider,
+			DownloadName:              archiveDownload.DownloadName,
+			DownloadType:              archiveDownload.DownloadType,
+			OriginalDownloadUrl:       archiveDownload.OriginalDownloadUrl,
+			OriginalDownloadFile:      archiveDownload.OriginalDownloadFile,
+			OriginalDownloadReference: archiveDownload.OriginalDownloadReference,
+			Category:                  archiveDownload.Category,
+			Status:                    config.DOWNLOAD_STATUS_CLIENT_ADDED,
+			AddedAt:                   time.Now(),
+			DownloadItems:             []databases.LocalDownloadsInstanceItem{},
+		}
+		localDownload.Add()
+		archiveDownload.Delete()
+
 	default:
-		http.Error(w, "Invalid Action", http.StatusBadRequest)
+		http.Error(w, `{"error":"Invalid Action"}`, http.StatusBadRequest)
 		return
 	}
 
