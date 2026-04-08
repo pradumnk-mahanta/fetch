@@ -17,7 +17,8 @@ func CreateSymlink(localDownloadsInstanceItem databases.LocalDownloadsInstanceIt
 	}
 
 	if _, err := os.Stat(remotePath); os.IsNotExist(err) {
-		logger.Log.Warnw("Remote path does not exist, cannot create symlink", "remotePath", remotePath)
+		logger.Log.Warnw("Remote path does not exist for Symlink", "Item", localDownloadsInstanceItem.FileName)
+		logger.Log.Debugw("Remote path does not exist, cannot create symlink", "remotePath", remotePath)
 		return
 	}
 
