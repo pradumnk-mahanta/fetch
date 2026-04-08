@@ -406,12 +406,6 @@ func DownloaderActiveDownloads() int {
 	return activeDownloads
 }
 
-func DownloaderListStatus() ([]models.GDLDownload, error) {
-	downloader := services.GetGDLService()
-	downloads := downloader.Status()
-	return downloads, nil
-}
-
 func DownloaderDeleteDownload(id string) (bool, error) {
 	downloader := services.GetGDLService()
 	err := downloader.Delete(id)

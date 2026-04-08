@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fetch/adapters"
 	"fetch/config"
 	"fetch/databases"
 	"fetch/logger"
@@ -22,51 +21,16 @@ func CommonHandler(writer http.ResponseWriter, request *http.Request) {
 	task := query.Get("task")
 
 	switch domain {
+	case "health":
+		writer.WriteHeader(http.StatusOK)
+		writer.Write([]byte(`{"status": "ok"}`))
+
 	case "downloads":
 		switch task {
 		case "list":
 			HandleDownlaodsList(writer)
 		case "archive":
 			HandleArchiveList(writer)
-		default:
-			return
-		}
-
-	case "downloader":
-		switch task {
-		case "list":
-			var downloads models.GDLDownloads
-			downloads, err := adapters.DownloaderListStatus()
-			if err != nil {
-				writer.WriteHeader(http.StatusInternalServerError)
-				writer.Write([]byte(`{"error": "Failed to get downloader status"}`))
-				return
-			}
-
-			jsonResult, err := downloads.ToJSON()
-			if err != nil {
-				writer.WriteHeader(http.StatusInternalServerError)
-				writer.Write([]byte(`{"error": "Failed to convert downloader status to JSON"}`))
-				return
-			}
-
-			writer.WriteHeader(http.StatusOK)
-			writer.Write([]byte(`{"result": ` + jsonResult + `}`))
-		case "resume", "retry":
-			id := query.Get("id")
-			resumed, err := adapters.DownloaderResumeDownload(id)
-			if err != nil {
-				writer.WriteHeader(http.StatusInternalServerError)
-				writer.Write([]byte(`{"error": "Failed to resume download in downloader"}`))
-				return
-			}
-			if !resumed {
-				writer.WriteHeader(http.StatusNotFound)
-				writer.Write([]byte(`{"error": "Download Item not found in downloader"}`))
-				return
-			}
-			writer.WriteHeader(http.StatusOK)
-			writer.Write([]byte(`{"result": "Downloader Download resumed with ID ` + id + `"}`))
 		default:
 			return
 		}

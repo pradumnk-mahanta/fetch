@@ -25,7 +25,7 @@ RUN xx-go build -ldflags="-X fetch/config.version=$VERSION -s -w" -o fetch && xx
 FROM debian:bookworm-slim
 
 RUN apt-get update && \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates tzdata sqlite3 && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates tzdata sqlite3 curl && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
