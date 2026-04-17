@@ -7,26 +7,29 @@
     <link rel="icon" href="/favicon.ico">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
+
 <body class="bg-gray-950 text-gray-100 font-sans min-h-screen">
 
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-3 md:px-4 py-6 md:py-8">
 
-    <!-- Header -->
-    <header class="flex justify-between items-center mb-10 pb-6 border-b border-gray-800">
+    <!-- HEADER -->
+    <header class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-8 pb-6 border-b border-gray-800">
+
         <div>
-            <h1 class="text-3xl font-extrabold tracking-tight text-white">
+            <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
                 <span class="text-blue-500">Fetch</span> Archives
             </h1>
-            <p class="text-gray-500 text-sm mt-1">Completed & Stored Downloads</p>
+            <p class="text-gray-500 text-xs md:text-sm mt-1">Completed & Stored Downloads</p>
         </div>
 
-        <div class="flex items-center gap-4">
-            <a href="/" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm">Back to Dashboard</a>
-        </div>
+        <a href="/" class="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm">
+            Back
+        </a>
+
     </header>
 
-    <!-- Content -->
-    <div id="archive-container" class="grid grid-cols-1 gap-6">
+    <!-- CONTENT -->
+    <div id="archive-container" class="grid grid-cols-1 gap-4 md:gap-6">
         <div class="flex flex-col items-center justify-center py-20 text-gray-600">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
             <p>Loading archives...</p>
@@ -37,6 +40,11 @@
 
 <script>
 const container = document.getElementById('archive-container');
+
+function formatDate(dateStr) {
+    if (!dateStr || dateStr.startsWith("0001")) return "N/A";
+    return new Date(dateStr).toLocaleString();
+}
 
 async function fetchArchives() {
     try {
@@ -49,17 +57,14 @@ async function fetchArchives() {
 
         const data = await res.json();
         renderArchives(data);
+
     } catch (err) {
         console.error(err);
     }
 }
 
-function formatDate(dateStr) {
-    if (!dateStr || dateStr.startsWith("0001")) return "N/A";
-    return new Date(dateStr).toLocaleString();
-}
-
 function renderArchives(list) {
+
     if (!list || list.length === 0) {
         container.innerHTML = `
             <div class="text-center py-20 bg-gray-900 rounded-2xl border border-dashed border-gray-800 text-gray-500">
@@ -69,215 +74,152 @@ function renderArchives(list) {
     }
 
     container.innerHTML = list.map(dl => `
-        <div class="bg-gray-900 rounded-2xl border border-gray-800 shadow-xl p-6 flex flex-col gap-4">
 
-            <!-- Top -->
-            <div class="flex justify-between items-start gap-4">
-                <div class="flex-1">
-                    <div class="flex items-center gap-2 mb-2">
-                        <span class="px-2 py-0.5 bg-blue-900/40 text-blue-400 text-[10px] font-bold rounded border border-blue-800/50">
+        <div class="bg-gray-900 rounded-2xl border border-gray-800 shadow-xl">
+
+            <div class="relative p-4 md:p-6">
+
+                <!-- MENU BUTTON -->
+                <button onclick="event.stopPropagation(); openMenu(event, '${dl.id}')"
+                    class="absolute top-1/2 right-2 -translate-y-1/2 p-3 rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white text-lg">
+                    ⋮
+                </button>
+
+                <div class="pr-12">
+
+                    <div class="flex flex-wrap items-center gap-2 mb-2">
+                        <span class="px-2 py-0.5 bg-blue-900/40 text-blue-400 text-[10px] rounded border border-blue-800/50">
                             ${dl.protocol}
                         </span>
-                        <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-[10px] font-bold rounded border border-gray-700">
+                        <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-[10px] rounded border border-gray-700">
                             ${dl.category || 'Default'}
                         </span>
-                        <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-[10px] font-bold rounded border border-gray-700">
+                        <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-[10px] rounded border border-gray-700">
                             ${dl.provider || 'Unknown'}
                         </span>
                     </div>
 
-                    <h2 class="text-lg font-bold text-white">${dl.download_name}</h2>
+                    <!-- FULL WRAP NAME -->
+                    <h2 class="text-base md:text-lg font-semibold text-white whitespace-normal break-words leading-snug">
+                        ${dl.download_name}
+                    </h2>
 
-                    <div class="text-xs text-gray-400 mt-2 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                    <div class="text-xs text-gray-400 mt-2 flex flex-col gap-1">
+                        <span>Added: ${formatDate(dl.added_at)}</span>
+                        <span>Completed: ${formatDate(dl.completed_at)}</span>
 
-                        <!-- Added -->
-                        <span class="flex items-center gap-1">
-                            <span class="text-gray-500">Added:</span>
-                            <span>${formatDate(dl.added_at)}</span>
-                        </span>
-
-                        <!-- Divider -->
-                        <span class="hidden sm:block h-3 w-px bg-gray-700"></span>
-
-                        <!-- Completed -->
-                        <span class="flex items-center gap-1">
-                            <span class="text-gray-500">Completed:</span>
-                            <span>${formatDate(dl.completed_at)}</span>
-                        </span>
-
-                      ${dl.refresh ? `
-                        <span class="hidden sm:block h-3 w-px bg-gray-700"></span>
-                        
-                            <span class="flex items-center gap-1 text-blue-400">
-                                <span class="text-gray-500">Last Healthcheck:</span>
-                                <span>${formatDate(dl.last_refresh_at)}</span>
-                            </span>
-                        ` : ''}
+                        ${dl.refresh ? `
+                        <span class="text-blue-400">
+                            Last Healthcheck: ${formatDate(dl.last_refresh_at)}
+                        </span>` : ''}
                     </div>
+
+                    <p class="text-xs mt-2 ${dl.status === 'Completed' ? 'text-green-500' : 'text-yellow-500'}">
+                        ${dl.status}
+                    </p>
+
                 </div>
 
-                <!-- Actions -->
-                <div class="flex items-center gap-2">
-
-                    <!-- Delete -->
-                    <button onclick="deleteDownload('${dl.id}')"
-                        class="p-2 text-red-400 bg-red-900/20 hover:bg-red-800/30 rounded-lg transition"
-                        title="Delete">
-                        
-                        <svg xmlns="http://www.w3.org/2000/svg" 
-                            class="h-5 w-5" 
-                            fill="none" 
-                            viewBox="0 0 24 24" 
-                            stroke="currentColor">
-                            
-                            <!-- Lid -->
-                            <path stroke-linecap="round" 
-                                stroke-linejoin="round" 
-                                stroke-width="2"
-                                d="M4 7h16" />
-
-                            <!-- Handle -->
-                            <path stroke-linecap="round" 
-                                stroke-linejoin="round" 
-                                stroke-width="2"
-                                d="M9 4h6" />
-
-                            <!-- Bin body -->
-                            <path stroke-linecap="round" 
-                                stroke-linejoin="round" 
-                                stroke-width="2"
-                                d="M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12" />
-                        </svg>
-
-                    </button>                    
-
-                    <!-- Restart -->
-                    <button onclick="refreshDownload('${dl.id}')"
-                        class="p-2 text-orange-400 bg-orange-900/20 hover:bg-orange-800/30 rounded-lg transition"
-                        title="Refresh Download">
-
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                            class="h-5 w-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor">
-
-                            <!-- top-right arc -->
-                            <path stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M20 12a8 8 0 00-14.9-3M4 4v5h5" />
-
-                            <!-- bottom-left arc -->
-                            <path stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M4 12a8 8 0 0014.9 3M20 20v-5h-5" />
-                        </svg>
-                        
-                    </button>
-
-                    <!-- Download as Full Files -->
-                    <button onclick="downloadItem('${dl.id}')"
-                        class="p-2 text-green-400 bg-green-900/20 hover:bg-green-800/30 rounded-lg transition"
-                        title="Download with Internal Downloader">
-                        
-                        <svg xmlns="http://www.w3.org/2000/svg" 
-                            class="h-5 w-5" 
-                            fill="none" 
-                            viewBox="0 0 24 24" 
-                            stroke="currentColor">
-                            <path stroke-linecap="round" 
-                                stroke-linejoin="round" 
-                                stroke-width="2"
-                                d="M3 15a2 2 0 002 2h14a2 2 0 002-2M7 10l5 5m0 0l5-5m-5 5V3"/>
-                        </svg>
-
-                    </button>
-
-                    <!-- Download as Symlink -->
-                    <button onclick="downloadSymlink('${dl.id}')"
-                        class="p-2 text-cyan-400 bg-cyan-900/20 hover:bg-cyan-800/30 rounded-lg transition"
-                        title="Download as Symlink">
-
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                            class="h-5 w-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor">
-
-                            <path stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M13.828 10.172a4 4 0 010 5.656l-2.828 2.828a4 4 0 01-5.656-5.656l1.414-1.414M10.172 13.828a4 4 0 010-5.656l2.828-2.828a4 4 0 115.656 5.656l-1.414 1.414" />
-                        </svg>
-
-                    </button>
-
-                    <!-- Download as STRM -->
-                    <button onclick="downloadStrm('${dl.id}')"
-                        class="p-2 text-indigo-400 bg-indigo-900/20 hover:bg-indigo-800/30 rounded-lg transition"
-                        title="Download as STRM File">
-
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                            class="h-5 w-5"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor">
-
-                            <!-- outer circle -->
-                            <circle cx="12" cy="12" r="9" stroke-width="2" />
-
-                            <!-- vertical curve -->
-                            <path stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M12 3c3 3.5 3 14.5 0 18m0-18c-3 3.5-3 14.5 0 18" />
-
-                            <!-- horizontal line -->
-                            <path stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M3 12h18" />
-                        </svg>
-
-                    </button>
-
-                </div>
-            </div>
-
-            <!-- Bottom Row -->
-            <div class="flex justify-between items-center border-t border-gray-800 pt-3">
-
-                <span class="text-sm font-medium ${dl.status === 'Completed' ? 'text-green-500' : 'text-yellow-500'}">
-                    ${dl.status}
-                </span>
-
-<!--
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <span class="text-xs text-gray-400">Heathcheck</span>
-                    
-                    <input type="checkbox" ${dl.refresh ? 'checked' : ''}
-                        onchange="toggleRefresh('${dl.id}', this.checked)"
-                        class="hidden">
-
-                    <div class="w-10 h-5 rounded-full relative transition
-                        ${dl.refresh ? 'bg-green-600' : 'bg-gray-700'}">
-
-                        <div class="absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-200
-                            ${dl.refresh ? 'translate-x-5' : 'translate-x-1'}">
-                        </div>
-
-                    </div>
-                </label>
- -->
             </div>
 
         </div>
+
     `).join('');
 }
 
-/* Actions */
+/* MENU */
+let activeMenu = null;
+
+function openMenu(event, id) {
+    closeMenu();
+
+    const rect = event.target.getBoundingClientRect();
+
+    const menu = document.createElement('div');
+    menu.className = "fixed bg-gray-900 border border-gray-800 rounded-xl shadow-xl z-50 w-48";
+
+    menu.style.visibility = "hidden";
+    menu.style.top = "0px";
+    menu.style.left = "0px";
+
+    menu.innerHTML = `
+        <div class="py-1">
+
+            <button onclick="refreshDownload('${id}'); closeMenu()"
+                class="w-full text-left px-4 py-2 text-sm hover:bg-gray-800">
+                Refresh
+            </button>
+
+            <button onclick="downloadItem('${id}'); closeMenu()"
+                class="w-full text-left px-4 py-2 text-sm hover:bg-gray-800">
+                Download (Full)
+            </button>
+
+            <button onclick="downloadSymlink('${id}'); closeMenu()"
+                class="w-full text-left px-4 py-2 text-sm hover:bg-gray-800">
+                Download (Symlink)
+            </button>
+
+            <button onclick="downloadStrm('${id}'); closeMenu()"
+                class="w-full text-left px-4 py-2 text-sm hover:bg-gray-800">
+                Download (STRM)
+            </button>
+
+            <div class="border-t border-gray-800 my-1"></div>
+
+            <button onclick="deleteDownload('${id}'); closeMenu()"
+                class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-800">
+                Delete
+            </button>
+
+        </div>
+    `;
+
+    document.body.appendChild(menu);
+
+    requestAnimationFrame(() => {
+
+        const menuWidth = menu.offsetWidth;
+        const menuHeight = menu.offsetHeight;
+
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+
+        let top;
+        let left;
+
+        if (rect.bottom + menuHeight + 10 > viewportHeight) {
+            top = rect.top - menuHeight - 6;
+        } else {
+            top = rect.bottom + 6;
+        }
+
+        left = rect.right - menuWidth;
+
+        if (left < 8) left = 8;
+        if (left + menuWidth > viewportWidth - 8) {
+            left = viewportWidth - menuWidth - 8;
+        }
+
+        menu.style.top = top + "px";
+        menu.style.left = left + "px";
+
+        menu.style.visibility = "visible";
+    });
+
+    activeMenu = menu;
+}
+
+function closeMenu() {
+    if (activeMenu) {
+        activeMenu.remove();
+        activeMenu = null;
+    }
+}
+
+document.addEventListener('click', closeMenu);
+
+/* ACTIONS */
 async function handleAction(url, successMsg) {
     try {
         const res = await fetch(url);
@@ -291,7 +233,7 @@ async function handleAction(url, successMsg) {
 
         if (res.ok) {
             alert(message || "Success");
-            fetchArchives(); // refresh UI
+            fetchArchives();
         } else {
             alert(message || "Something went wrong!");
         }
@@ -302,30 +244,25 @@ async function handleAction(url, successMsg) {
     }
 }
 
-
 function downloadItem(id) {
-    handleAction(`/internal/api/archive?action=download&type=internal&id=${id}`, "Download Added to Downloader Queue!");
+    handleAction(`/internal/api/archive?action=download&type=internal&id=${id}`);
 }
 
 function downloadSymlink(id) {
-    handleAction(`/internal/api/archive?action=download&type=symlink&id=${id}`, "Download Added to Downloader Queue!");
+    handleAction(`/internal/api/archive?action=download&type=symlink&id=${id}`);
 }
 
 function downloadStrm(id) {
-    handleAction(`/internal/api/archive?action=download&type=strmlink&id=${id}`, "Download Added to Downloader Queue!");
+    handleAction(`/internal/api/archive?action=download&type=strmlink&id=${id}`);
 }
 
 function refreshDownload(id) {
-    handleAction(`/internal/api/archive?action=refresh&id=${id}`, "Download Added to Refresh Queue!");
+    handleAction(`/internal/api/archive?action=refresh&id=${id}`);
 }
 
 function deleteDownload(id) {
     if (!confirm("Delete this archive?")) return;
-    handleAction(`/internal/api/archive?action=delete&id=${id}`, "Archive Download Deleted!");
-}
-
-function toggleRefresh(id, enabled) {
-    handleAction(`/internal/api/archive?action=togglerefresh&id=${id}&enabled=${enabled}`, "Auto-Refresh Updated!");
+    handleAction(`/internal/api/archive?action=delete&id=${id}`);
 }
 
 fetchArchives();

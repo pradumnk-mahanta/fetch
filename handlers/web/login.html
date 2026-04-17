@@ -7,47 +7,55 @@
     <link rel="icon" href="/favicon.ico">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-950 text-gray-100 flex items-center justify-center min-h-screen font-sans">
-    
-    <div class="w-full max-w-md p-10 bg-gray-900 rounded-2xl shadow-2xl border border-gray-800">
-        
-        <div class="text-center mb-10">
-            <h1 class="text-4xl font-extrabold tracking-tight text-white">
+
+<body class="bg-gray-950 text-gray-100 flex items-center justify-center min-h-screen font-sans px-4">
+
+    <div class="w-full max-w-md bg-gray-900 border border-gray-800 rounded-2xl p-6 md:p-8 space-y-6">
+
+        <!-- Header -->
+        <div class="text-center">
+            <h1 class="text-2xl md:text-3xl font-extrabold text-white">
                 <span class="text-blue-500">Fetch</span> Login
             </h1>
-            <p class="text-gray-500 text-[10px] uppercase font-bold tracking-[0.2em] mt-3">Authentication Required</p>
+            <p class="text-gray-500 text-xs mt-1">Authentication required</p>
         </div>
 
-        <form action="/login" method="POST" class="space-y-6">
-            
-            <div id="error-message" class="hidden p-4 bg-red-900/20 border border-red-500/50 text-red-400 text-xs font-bold rounded-xl text-center uppercase tracking-widest">
-                Invalid username or password
+        <!-- Error -->
+        <div id="error-message"
+            class="hidden p-3 bg-red-900/20 border border-red-500/40 text-red-400 text-xs rounded-lg text-center">
+            Invalid username or password
+        </div>
+
+        <!-- Form -->
+        <form action="/login" method="POST" class="space-y-4">
+
+            <div>
+                <label class="text-xs text-gray-400 mb-1 block">Username</label>
+                <input type="text" name="username" required
+                    class="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none">
             </div>
 
-            <div class="space-y-2">
-                <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-widest ml-1">Username</label>
-                <input type="text" name="username" required 
-                       class="w-full p-4 bg-gray-950 border border-gray-800 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-white placeholder-gray-700">
+            <div>
+                <label class="text-xs text-gray-400 mb-1 block">Password</label>
+                <input type="password" name="password" required
+                    class="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none">
             </div>
 
-            <div class="space-y-2">
-                <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-widest ml-1">Password</label>
-                <input type="password" name="password" required 
-                       class="w-full p-4 bg-gray-950 border border-gray-800 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-white placeholder-gray-700">
-            </div>
-
-            <button type="submit" 
-                    class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-extrabold text-sm uppercase tracking-widest rounded-xl shadow-lg transition duration-200 transform active:scale-95 mt-4">
+            <button type="submit"
+                class="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold transition">
                 Sign In
             </button>
+
         </form>
+
     </div>
 
-    <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('error')) {
-            document.getElementById('error-message').classList.remove('hidden');
-        }
-    </script>
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+if (urlParams.has('error')) {
+    document.getElementById('error-message').classList.remove('hidden');
+}
+</script>
+
 </body>
 </html>

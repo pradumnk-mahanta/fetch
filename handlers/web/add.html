@@ -7,213 +7,210 @@
     <link rel="icon" href="/favicon.ico">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
+
 <body class="bg-gray-950 text-gray-100 font-sans min-h-screen">
 
-<div class="container mx-auto px-4 py-8">
-    <header class="flex justify-between items-center mb-10 pb-6 border-b border-gray-800">
+<div class="container mx-auto px-3 md:px-4 py-6 md:py-8">
+
+    <!-- HEADER -->
+    <header class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-8 pb-6 border-b border-gray-800">
+
         <div>
-            <h1 class="text-3xl font-extrabold tracking-tight text-white">
+            <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
                 <span class="text-blue-500">Fetch</span> Add
             </h1>
-            <p class="text-gray-500 text-sm mt-1">Add New Download</p>
+            <p class="text-gray-500 text-xs md:text-sm mt-1">Add New Download</p>
         </div>
-        <div class="flex items-center gap-4">
-            <a href="/" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition">Back to Dashboard</a>
-        </div>
+
+        <a href="/" class="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm">
+            Back
+        </a>
+
     </header>
 
-    <form id="add-download-form" class="bg-gray-900 p-6 rounded-2xl border border-gray-800 max-w-md mx-auto space-y-6">
+    <!-- FORM CARD -->
+    <form id="add-download-form"
+          class="bg-gray-900 p-4 md:p-6 rounded-2xl border border-gray-800 max-w-lg mx-auto space-y-6">
 
-        <!-- Protocol as radios -->
+        <!-- Protocol -->
         <div>
-            <label class="block text-sm font-bold mb-1">Protocol</label>
-            <div class="flex gap-4">
-                <label class="flex items-center gap-2">
+            <label class="block text-sm font-semibold mb-2">Protocol</label>
+            <div class="flex gap-6">
+                <label class="flex items-center gap-2 text-sm">
                     <input type="radio" name="protocol" value="Usenet" required class="accent-blue-500">
                     Usenet
                 </label>
-                <label class="flex items-center gap-2">
+                <label class="flex items-center gap-2 text-sm">
                     <input type="radio" name="protocol" value="Torrent" required class="accent-blue-500">
                     Torrent
                 </label>
             </div>
         </div>
 
-        <!-- Downloader dropdown -->
+        <!-- Downloader -->
         <div>
-            <label for="downloadType" class="block text-sm font-bold mb-1">Downloader</label>
-            <select id="downloadType" name="downloadType" required class="w-full p-2 bg-gray-800 rounded-lg border border-gray-700 text-gray-100">
-                <option value="">Loading...</option>
+            <label for="downloadType" class="block text-sm font-semibold mb-2">Downloader</label>
+            <select id="downloadType" name="downloadType"
+                class="w-full px-3 py-2.5 bg-gray-800 rounded-lg border border-gray-700 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                <option>Loading...</option>
             </select>
         </div>
 
-        <!-- Category dropdown -->
+        <!-- Category -->
         <div>
-            <label for="category" class="block text-sm font-bold mb-1">Category</label>
-            <select id="category" name="category" required class="w-full p-2 bg-gray-800 rounded-lg border border-gray-700 text-gray-100">
-                <option value="">Loading...</option>
+            <label for="category" class="block text-sm font-semibold mb-2">Category</label>
+            <select id="category" name="category"
+                class="w-full px-3 py-2.5 bg-gray-800 rounded-lg border border-gray-700 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                <option>Loading...</option>
             </select>
         </div>
 
-        <!-- Configured Provider dropdown -->
+        <!-- Provider -->
         <div>
-            <label for="provider" class="block text-sm font-bold mb-1">Provider</label>
-            <select id="provider" name="provider" required class="w-full p-2 bg-gray-800 rounded-lg border border-gray-700 text-gray-100">
-                <option value="">Select Protocol First!</option>
+            <label for="provider" class="block text-sm font-semibold mb-2">Provider</label>
+            <select id="provider" name="provider"
+                class="w-full px-3 py-2.5 bg-gray-800 rounded-lg border border-gray-700 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                <option>Select Protocol First</option>
             </select>
         </div>
 
-        <!-- Input Type (URL/File) -->
+        <!-- Input Type -->
         <div>
-            <label class="block text-sm font-bold mb-1">Input Type</label>
-            <div class="flex gap-4">
-                <label class="flex items-center gap-2">
+            <label class="block text-sm font-semibold mb-2">Input Type</label>
+            <div class="flex gap-6">
+                <label class="flex items-center gap-2 text-sm">
                     <input type="radio" name="inputType" value="url" checked class="accent-blue-500">
                     URL
                 </label>
-                <label class="flex items-center gap-2">
+                <label class="flex items-center gap-2 text-sm">
                     <input type="radio" name="inputType" value="file" class="accent-blue-500">
                     File
                 </label>
             </div>
         </div>
 
-        <!-- URL field (multiline single URL) -->
+        <!-- URL -->
         <div id="url-field">
-            <label for="urlInput" class="block text-sm font-bold mb-1">URL</label>
-            <textarea id="urlInput" name="url" placeholder="Enter the URL" 
-                class="w-full p-2 bg-gray-800 rounded-lg border border-gray-700 text-gray-100 resize-none h-24 break-words"></textarea>
+            <label for="urlInput" class="block text-sm font-semibold mb-2">URL</label>
+            <textarea id="urlInput" name="url"
+                placeholder="Paste URL..."
+                class="w-full px-3 py-2.5 bg-gray-800 rounded-lg border border-gray-700 text-sm resize-none h-28 focus:outline-none focus:ring-1 focus:ring-blue-500"></textarea>
         </div>
 
-        <!-- File field -->
+        <!-- File -->
         <div id="file-field" class="hidden">
-            <label for="fileUpload" class="block text-sm font-bold mb-1">Upload File</label>
-            <input type="file" id="fileUpload" name="fileUpload" class="w-full text-gray-100 bg-gray-800 rounded-lg border border-gray-700 p-2">
+            <label for="fileUpload" class="block text-sm font-semibold mb-2">Upload File</label>
+            <input type="file" id="fileUpload" name="fileUpload"
+                class="w-full text-sm bg-gray-800 border border-gray-700 rounded-lg px-3 py-2">
         </div>
 
-        <button type="submit" class="w-full py-2.5 bg-green-600 hover:bg-green-500 rounded-lg font-semibold transition">
+        <!-- SUBMIT -->
+        <button type="submit"
+            class="w-full py-3 bg-green-600 hover:bg-green-500 rounded-lg text-sm font-semibold transition">
             Add Download
         </button>
+
     </form>
+
 </div>
 
 <script>
-// Load config for downloaders, categories, and providers
 let configData = null;
+
 async function loadConfigData() {
     try {
         const res = await fetch('/internal/api/config');
         if (!res.ok) throw new Error('Failed to fetch config');
         configData = await res.json();
 
-        // Downloaders dropdown
         const downloadTypeSelect = document.getElementById('downloadType');
         downloadTypeSelect.innerHTML = '';
         (configData.supported_downloaders || []).forEach(d => {
-            const option = document.createElement('option');
-            option.value = d.downloader_id;
-            option.textContent = d.downloader_name;
-            downloadTypeSelect.appendChild(option);
+            const opt = document.createElement('option');
+            opt.value = d.downloader_id;
+            opt.textContent = d.downloader_name;
+            downloadTypeSelect.appendChild(opt);
         });
 
-        // Categories dropdown
         const categorySelect = document.getElementById('category');
         categorySelect.innerHTML = '';
         (configData.application_categories || '').split(',').map(c => c.trim()).forEach(cat => {
             if (!cat) return;
-            const option = document.createElement('option');
-            option.value = cat;
-            option.textContent = cat;
-            categorySelect.appendChild(option);
+            const opt = document.createElement('option');
+            opt.value = cat;
+            opt.textContent = cat;
+            categorySelect.appendChild(opt);
         });
 
     } catch (err) {
-        alert('Error loading configuration: ' + err.message);
+        alert('Error loading configuration');
     }
 }
 
-// Toggle URL/File fields
+/* toggle input */
 const inputRadios = document.querySelectorAll('input[name="inputType"]');
 const urlField = document.getElementById('url-field');
 const fileField = document.getElementById('file-field');
-inputRadios.forEach(radio => {
-    radio.addEventListener('change', () => {
-        if (radio.value === 'url' && radio.checked) {
-            urlField.classList.remove('hidden');
-            fileField.classList.add('hidden');
-        } else if (radio.value === 'file' && radio.checked) {
-            fileField.classList.remove('hidden');
-            urlField.classList.add('hidden');
-        }
+
+inputRadios.forEach(r => {
+    r.addEventListener('change', () => {
+        urlField.classList.toggle('hidden', r.value !== 'url' || !r.checked);
+        fileField.classList.toggle('hidden', r.value !== 'file' || !r.checked);
     });
 });
 
-// Update configured providers when protocol changes
+/* provider switch */
 const protocolRadios = document.querySelectorAll('input[name="protocol"]');
 const providerSelect = document.getElementById('provider');
-protocolRadios.forEach(radio => {
-    radio.addEventListener('change', () => {
+
+protocolRadios.forEach(r => {
+    r.addEventListener('change', () => {
         providerSelect.innerHTML = '';
         if (!configData) return;
 
-        if (radio.value === 'Torrent') {
-            (configData.configured_debrid_providers || []).forEach(p => {
-                const option = document.createElement('option');
-                option.value = p.debrid_provider_id;
-                option.textContent = p.debrid_provider_name;
-                providerSelect.appendChild(option);
-            });
-        } else if (radio.value === 'Usenet') {
-            (configData.configured_usenet_providers || []).forEach(p => {
-                const option = document.createElement('option');
-                option.value = p.usenet_provider_id;
-                option.textContent = p.usenet_provider_name;
-                providerSelect.appendChild(option);
-            });
-        }
+        const list = r.value === 'Torrent'
+            ? configData.configured_debrid_providers
+            : configData.configured_usenet_providers;
 
-        if (providerSelect.options.length === 0) {
-            const option = document.createElement('option');
-            option.value = '';
-            option.textContent = 'No configured providers';
-            providerSelect.appendChild(option);
-        }
+        (list || []).forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.debrid_provider_id || p.usenet_provider_id;
+            opt.textContent = p.debrid_provider_name || p.usenet_provider_name;
+            providerSelect.appendChild(opt);
+        });
     });
 });
 
-// Form submission
+/* submit */
 const form = document.getElementById('add-download-form');
+
 form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const formData = new FormData(form);
 
-    // Lowercase protocol
+    const formData = new FormData(form);
     const protocolValue = form.querySelector('input[name="protocol"]:checked').value.toLowerCase();
     formData.set('protocol', protocolValue);
 
     try {
-        const response = await fetch('/internal/api/add', {
+        const res = await fetch('/internal/api/add', {
             method: 'POST',
             body: formData
         });
 
-        const result = await response.json().catch(() => ({}));
-
-        if (response.ok) {
-            // Redirect on success
+        if (res.ok) {
             window.location.href = '/';
         } else {
-            // Show error as popup
-            const errMsg = result.error || 'Failed to add download.';
-            alert('Error: ' + errMsg);
+            const data = await res.json().catch(() => ({}));
+            alert(data.error || "Failed");
         }
+
     } catch (err) {
-        console.error(err);
-        alert('Error occurred while adding download: ' + err.message);
+        alert("Request failed");
     }
 });
 
 loadConfigData();
 </script>
+
 </body>
 </html>
