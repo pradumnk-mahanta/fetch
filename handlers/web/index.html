@@ -43,7 +43,6 @@
                 Settings
             </a>
 
-            <!-- RED LOGOUT -->
             <a href="/logout"
                class="px-3 py-2 bg-red-900/30 text-red-400 hover:bg-red-800/40 hover:text-red-300 rounded-lg text-sm">
                 Logout
@@ -68,6 +67,27 @@ const container = document.getElementById('download-container');
 const timerEl = document.getElementById('timer');
 
 let openCards = new Set();
+
+function getProtocolClass(protocol) {
+    if (!protocol) return "bg-blue-900/40 text-blue-400 border-blue-800/50";
+
+    const p = protocol.toLowerCase();
+    if (p === "torrent") return "bg-green-900/40 text-green-400 border-green-800/50";
+    if (p === "usenet") return "bg-yellow-900/40 text-yellow-400 border-yellow-800/50";
+
+    return "bg-blue-900/40 text-blue-400 border-blue-800/50";
+}
+
+function getCategoryClass(category) {
+    if (!category) return "bg-gray-800 text-gray-400 border-gray-700";
+
+    const c = category.toLowerCase();
+
+    if (c === "sonarr") return "bg-sky-500/20 text-sky-300 border-sky-400/40";
+    if (c === "radarr") return "bg-yellow-500/20 text-yellow-300 border-yellow-400/40";
+
+    return "bg-gray-800 text-gray-400 border-gray-700";
+}
 
 async function fetchData() {
     try {
@@ -124,7 +144,6 @@ function renderUI(downloads) {
             <div onclick="toggleItems('${cardId}')"
                  class="relative p-4 md:p-6 bg-gray-900/50 hover:bg-gray-800/50 cursor-pointer">
 
-                <!-- BIGGER CLICK ZONE -->
                 <button onclick="event.stopPropagation(); openMenu(event, '${dl.id}')"
                     class="absolute top-1/2 right-2 -translate-y-1/2 p-3 rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white text-lg">
                     ⋮
@@ -133,15 +152,27 @@ function renderUI(downloads) {
                 <div class="pr-12">
 
                     <div class="flex flex-wrap items-center gap-2 mb-1">
-                        <span class="px-2 py-0.5 bg-blue-900/40 text-blue-400 text-[10px] rounded border border-blue-800/50">
+
+                        <!-- Protocol -->
+                        <span class="px-2 py-0.5 text-[10px] rounded border ${getProtocolClass(dl.protocol)}">
                             ${dl.protocol}
                         </span>
-                        <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-[10px] rounded border border-gray-700">
+
+                        <!-- Category -->
+                        <span class="px-2 py-0.5 text-[10px] rounded border ${getCategoryClass(dl.category)}">
                             ${dl.category || 'Default'}
                         </span>
+
+                        <!-- Provider -->
                         <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-[10px] rounded border border-gray-700">
                             ${dl.provider || 'Unknown'}
                         </span>
+
+                        <!-- Download Type -->
+                        <span class="px-2 py-0.5 bg-purple-900/30 text-purple-300 text-[10px] rounded border border-purple-700">
+                            ${dl.download_type || 'N/A'}
+                        </span>
+
                     </div>
 
                     <h2 class="text-base md:text-xl font-semibold text-white">${dl.download_name}</h2>
@@ -221,23 +252,77 @@ function openMenu(event, id) {
     const rect = event.target.getBoundingClientRect();
 
     const menu = document.createElement('div');
-    menu.className = "fixed bg-gray-900 border border-gray-800 rounded-xl shadow-xl z-50 w-40";
+    menu.className = "fixed bg-gray-900 border border-gray-800 rounded-xl shadow-xl z-50 w-44";
 
-    menu.style.top = (rect.bottom + 6) + "px";
-    menu.style.left = (rect.right - 160) + "px";
+    menu.style.visibility = "hidden";
+    menu.style.top = "0px";
+    menu.style.left = "0px";
 
     menu.innerHTML = `
-        <button onclick="retryDownload('${id}'); closeMenu()"
-            class="w-full text-left px-4 py-2 text-sm hover:bg-gray-800">
-            Retry
-        </button>
-        <button onclick="deleteDownload('${id}'); closeMenu()"
-            class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-800">
-            Delete
-        </button>
+        <div class="py-1">
+
+            <button onclick="resetDownload('${id}'); closeMenu()"
+                class="w-full text-left px-4 py-2 text-sm hover:bg-gray-800">
+                Restart Download
+            </button>
+
+            <button onclick="downloadItem('${id}'); closeMenu()"
+                class="w-full text-left px-4 py-2 text-sm hover:bg-gray-800">
+                Change Downloader (Internal)
+            </button>
+
+            <button onclick="downloadSymlink('${id}'); closeMenu()"
+                class="w-full text-left px-4 py-2 text-sm hover:bg-gray-800">
+                Change Downloader (Symlink)
+            </button>
+
+            <button onclick="downloadStrm('${id}'); closeMenu()"
+                class="w-full text-left px-4 py-2 text-sm hover:bg-gray-800">
+                Change Downloader (STRM)
+            </button>
+
+            <div class="border-t border-gray-800 my-1"></div>
+
+            <button onclick="deleteDownload('${id}'); closeMenu()"
+                class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-800">
+                Delete
+            </button>
+
+        </div>
     `;
 
     document.body.appendChild(menu);
+
+    requestAnimationFrame(() => {
+
+        const menuWidth = menu.offsetWidth;
+        const menuHeight = menu.offsetHeight;
+
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+
+        let top;
+        let left;
+
+        if (rect.bottom + menuHeight + 10 > viewportHeight) {
+            top = rect.top - menuHeight - 6;
+        } else {
+            top = rect.bottom + 6;
+        }
+
+        left = rect.right - menuWidth;
+
+        if (left < 8) left = 8;
+        if (left + menuWidth > viewportWidth - 8) {
+            left = viewportWidth - menuWidth - 8;
+        }
+
+        menu.style.top = top + "px";
+        menu.style.left = left + "px";
+
+        menu.style.visibility = "visible";
+    });
+
     activeMenu = menu;
 }
 
@@ -251,20 +336,34 @@ function closeMenu() {
 document.addEventListener('click', closeMenu);
 
 /* API */
-async function deleteDownload(id) {
-    if (!confirm("Delete this download?")) return;
-
+async function handleAction(url) {
     try {
-        const res = await fetch(`/internal/api/delete?id=${id}`, { method: 'DELETE' });
-        if (res.ok) fetchData();
-    } catch (err) {}
+        await fetch(url);
+        fetchData();
+    } catch (err) {
+        console.error(err);
+    }
 }
 
-async function retryDownload(id) {
-    try {
-        const res = await fetch(`/internal/api/retry?id=${id}`, { method: 'POST' });
-        if (res.ok) fetchData();
-    } catch (err) {}
+function downloadItem(id) {
+    handleAction(`/internal/api/download?action=download&type=internal&id=${id}`);
+}
+
+function downloadSymlink(id) {
+    handleAction(`/internal/api/download?action=download&type=symlink&id=${id}`);
+}
+
+function downloadStrm(id) {
+    handleAction(`/internal/api/download?action=download&type=strmlink&id=${id}`);
+}
+
+function resetDownload(id) {
+    handleAction(`/internal/api/download?action=reset&id=${id}`);
+}
+
+function deleteDownload(id) {
+    if (!confirm("Delete this download?")) return;
+    handleAction(`/internal/api/download?action=delete&id=${id}`);
 }
 
 /* timer */

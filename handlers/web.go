@@ -136,14 +136,11 @@ func WebProtectedHandler(w http.ResponseWriter, r *http.Request) {
 	case "/internal/api/config/update":
 		HandleConfigUpdate(w, r)
 
-	case "/internal/api/delete":
-		HandleDownloadDelete(w, r)
-
-	case "/internal/api/retry":
-		HandleDownloadRetry(w, r)
-
 	case "/internal/api/add":
 		HandleDownloadAdd(w, r)
+
+	case "/internal/api/download":
+		HandleDownloadAction(w, r)
 
 	case "/internal/api/archive":
 		HandleArchiveDownloadAction(w, r)
@@ -230,52 +227,6 @@ func HandleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status": "success"}`))
-}
-
-func HandleDownloadDelete(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	id := r.URL.Query().Get("id")
-	if id == "" {
-		http.Error(w, "Missing ID", http.StatusBadRequest)
-		return
-	}
-
-	err := DeleteLocalDownload(id)
-	if err != nil {
-		logger.Log.Errorw("Failed to delete download", "id", id, "error", err)
-		http.Error(w, "Deletion failed", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status": "deleted"}`))
-}
-
-func HandleDownloadRetry(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	id := r.URL.Query().Get("id")
-	if id == "" {
-		http.Error(w, "Missing ID", http.StatusBadRequest)
-		return
-	}
-
-	err := RetryLocalDownload(id)
-	if err != nil {
-		logger.Log.Errorw("Failed to update download", "id", id, "error", err)
-		http.Error(w, "Retry Failed", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status": "updated"}`))
 }
 
 func HandleDownloadAdd(w http.ResponseWriter, r *http.Request) {
@@ -438,6 +389,96 @@ func GetCleanName(name string) string {
 		return name
 	}
 	return decodedName
+}
+
+func HandleDownloadAction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	id := r.URL.Query().Get("id")
+	if id == "" {
+		http.Error(w, "Missing ID", http.StatusBadRequest)
+		return
+	}
+
+	action := r.URL.Query().Get("action")
+	if id == "" {
+		http.Error(w, "Missing Action", http.StatusBadRequest)
+		return
+	}
+
+	localDownload := databases.GetLocalDownloadByFilter(databases.LocalDownloadsInstance{
+		ID: databases.GetParsedUint(id),
+	})
+	if localDownload == nil {
+		logger.Log.Errorw("Failed to fetch Local download", "id", id)
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+
+	switch action {
+	case "download":
+		dType := r.URL.Query().Get("type")
+		if dType == "" {
+			http.Error(w, "Missing Download Type", http.StatusBadRequest)
+			return
+		}
+
+		var downloadType string
+		switch dType {
+		case "strmlink":
+			downloadType = config.DOWNLOAD_TYPE_CREATE_STRM
+		case "symlink":
+			downloadType = config.DOWNLOAD_TYPE_CREATE_SYMLINK
+		default:
+			downloadType = config.DOWNLOAD_TYPE_INDIVIDUAL_FILE
+		}
+
+		var localDownloadUpdated databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
+			Protocol:                  localDownload.Protocol,
+			Provider:                  localDownload.Provider,
+			DownloadName:              localDownload.DownloadName,
+			DownloadType:              downloadType,
+			OriginalDownloadUrl:       localDownload.OriginalDownloadUrl,
+			OriginalDownloadFile:      localDownload.OriginalDownloadFile,
+			OriginalDownloadReference: localDownload.OriginalDownloadReference,
+			Category:                  localDownload.Category,
+			Status:                    config.DOWNLOAD_STATUS_CLIENT_ADDED,
+			AddedAt:                   time.Now(),
+			DownloadItems:             []databases.LocalDownloadsInstanceItem{},
+		}
+		localDownloadUpdated.Add()
+		localDownload.Delete()
+
+	case "delete":
+		localDownload.Delete()
+
+	case "reset":
+		var localDownloadUpdated databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
+			Protocol:                  localDownload.Protocol,
+			Provider:                  localDownload.Provider,
+			DownloadName:              localDownload.DownloadName,
+			DownloadType:              localDownload.DownloadType,
+			OriginalDownloadUrl:       localDownload.OriginalDownloadUrl,
+			OriginalDownloadFile:      localDownload.OriginalDownloadFile,
+			OriginalDownloadReference: localDownload.OriginalDownloadReference,
+			Category:                  localDownload.Category,
+			Status:                    config.DOWNLOAD_STATUS_CLIENT_ADDED,
+			AddedAt:                   time.Now(),
+			DownloadItems:             []databases.LocalDownloadsInstanceItem{},
+		}
+		localDownloadUpdated.Add()
+		localDownload.Delete()
+
+	default:
+		http.Error(w, `{"error":"Invalid Action"}`, http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status": "actioned"}`))
 }
 
 func HandleArchiveDownloadAction(w http.ResponseWriter, r *http.Request) {

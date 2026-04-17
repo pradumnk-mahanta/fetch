@@ -138,8 +138,9 @@ function openMenu(event, id) {
     const menu = document.createElement('div');
     menu.className = "fixed bg-gray-900 border border-gray-800 rounded-xl shadow-xl z-50 w-48";
 
-    menu.style.top = (rect.bottom + 6) + "px";
-    menu.style.left = (rect.right - 180) + "px";
+    menu.style.visibility = "hidden";
+    menu.style.top = "0px";
+    menu.style.left = "0px";
 
     menu.innerHTML = `
         <div class="py-1">
@@ -175,6 +176,37 @@ function openMenu(event, id) {
     `;
 
     document.body.appendChild(menu);
+
+    requestAnimationFrame(() => {
+
+        const menuWidth = menu.offsetWidth;
+        const menuHeight = menu.offsetHeight;
+
+        const viewportHeight = window.innerHeight;
+        const viewportWidth = window.innerWidth;
+
+        let top;
+        let left;
+
+        if (rect.bottom + menuHeight + 10 > viewportHeight) {
+            top = rect.top - menuHeight - 6;
+        } else {
+            top = rect.bottom + 6;
+        }
+
+        left = rect.right - menuWidth;
+
+        if (left < 8) left = 8;
+        if (left + menuWidth > viewportWidth - 8) {
+            left = viewportWidth - menuWidth - 8;
+        }
+
+        menu.style.top = top + "px";
+        menu.style.left = left + "px";
+
+        menu.style.visibility = "visible";
+    });
+
     activeMenu = menu;
 }
 
