@@ -7,270 +7,275 @@
     <link rel="icon" href="/favicon.ico">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
+
 <body class="bg-gray-950 text-gray-100 font-sans min-h-screen">
 
-    <div class="container mx-auto px-4 py-8">
-        <header class="flex justify-between items-center mb-10 pb-6 border-b border-gray-800">
-            <div>
-                <h1 class="text-3xl font-extrabold tracking-tight text-white">
-                    <span class="text-blue-500">Fetch</span> Dashboard
-                </h1>
-                <p class="text-gray-500 text-sm mt-1">SABnzbd and qBittorrent Proxy for Debrid Services</p>
+<div class="container mx-auto px-3 md:px-4 py-6 md:py-8">
+
+    <!-- HEADER -->
+    <header class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-8 pb-6 border-b border-gray-800">
+
+        <div>
+            <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
+                <span class="text-blue-500">Fetch</span> Dashboard
+            </h1>
+            <p class="text-gray-500 text-xs md:text-sm mt-1">
+                SABnzbd and qBittorrent Proxy for Debrid Services
+            </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2 md:gap-4">
+
+            <div class="flex items-center gap-2 bg-gray-900 px-3 py-1.5 rounded-lg">
+                <span class="text-[10px] text-gray-500 uppercase tracking-widest">Refresh</span>
+                <span class="text-sm font-mono text-blue-400"><span id="timer">10</span>s</span>
             </div>
-            <div class="flex items-center gap-4">
-                <div class="text-right mr-4">
-                    <p class="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Auto-Refresh</p>
-                    <p class="text-sm font-mono text-blue-400"><span id="timer">10</span>s</p>
-                </div>
 
-                <a href="/add" class="p-2.5 bg-green-700 hover:bg-green-600 text-white rounded-lg transition" title="Add New">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                    </svg>
-                </a>
+            <a href="/add" class="px-3 py-2 bg-green-700 hover:bg-green-600 text-white rounded-lg text-sm">
+                + Add
+            </a>
 
-                <!-- History Button (NEW) -->
-                <a href="/archive" class="p-2.5 bg-blue-800 hover:bg-blue-700 text-blue-300 hover:text-white rounded-lg transition" title="History">
-                    <svg xmlns="http://www.w3.org/2000/svg" 
-                        class="h-5 w-5" 
-                        fill="none" 
-                        viewBox="0 0 24 24" 
-                        stroke="currentColor">
-                        <path stroke-linecap="round" 
-                            stroke-linejoin="round" 
-                            stroke-width="2" 
-                            d="M12 8v4l3 3M12 3a9 9 0 100 18 9 9 0 000-18z" />
-                    </svg>
-                </a>
+            <a href="/archive" class="px-3 py-2 bg-blue-800 hover:bg-blue-700 text-blue-200 hover:text-white rounded-lg text-sm">
+                History
+            </a>
 
-                <a href="/settings" class="p-2.5 bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white rounded-lg transition" title="Settings">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                </a>
+            <a href="/settings" class="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm">
+                Settings
+            </a>
 
-                <a href="/logout" class="px-4 py-2 bg-gray-800 hover:bg-red-900/30 hover:text-red-400 rounded-lg text-sm font-medium transition">
-                    Logout
-                </a>
-            </div>
-        </header>
+            <!-- RED LOGOUT -->
+            <a href="/logout"
+               class="px-3 py-2 bg-red-900/30 text-red-400 hover:bg-red-800/40 hover:text-red-300 rounded-lg text-sm">
+                Logout
+            </a>
 
-        <div id="download-container" class="grid grid-cols-1 gap-6">
-            <div class="flex flex-col items-center justify-center py-20 text-gray-600">
-                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-                <p>Pulling latest data from Go backend...</p>
-            </div>
+        </div>
+    </header>
+
+    <!-- CONTENT -->
+    <div id="download-container" class="grid grid-cols-1 gap-4 md:gap-6">
+        <div class="flex flex-col items-center justify-center py-20 text-gray-600">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+            <p>Pulling latest data...</p>
         </div>
     </div>
 
-    <script>
-        let countdown = 10;
-        const container = document.getElementById('download-container');
-        const timerEl = document.getElementById('timer');
+</div>
 
-        async function fetchData() {
-            try {
-                const response = await fetch('/internal/api/stats');
-                
-                if (response.status === 401) {
-                    window.location.href = '/';
-                    return;
-                }
+<script>
+let countdown = 10;
+const container = document.getElementById('download-container');
+const timerEl = document.getElementById('timer');
 
-                const data = await response.json();
-                renderUI(data);
-                countdown = 10;
-            } catch (err) {
-                console.error("Fetch error:", err);
-            }
+let openCards = new Set();
+
+async function fetchData() {
+    try {
+        const response = await fetch('/internal/api/stats');
+
+        if (response.status === 401) {
+            window.location.href = '/';
+            return;
         }
 
-        let openCards = new Set(); // Global set to track which cards are expanded
+        const data = await response.json();
+        renderUI(data);
+        countdown = 10;
 
-        function renderUI(downloads) {
-            const list = downloads || [];
-            if (list.length === 0) {
-                container.innerHTML = `<div class="text-center py-20 bg-gray-900 rounded-2xl border border-dashed border-gray-800 text-gray-500">No active downloads found.</div>`;
-                return;
-            }
+    } catch (err) {
+        console.error(err);
+    }
+}
 
-            container.innerHTML = list.map(dl => {
-                const totalItems = dl.item_details.length;
-                const completedItems = dl.item_details.filter(i => i.status === "Completed").length;
-                
-                const totalBytes = dl.item_details.reduce((acc, item) => acc + (item.file_size || 0), 0);
-                    
-                const downloadedBytes = dl.item_details.reduce((acc, item) => {
+function renderUI(downloads) {
+
+    const list = downloads || [];
+
+    if (list.length === 0) {
+        container.innerHTML = `<div class="text-center py-20 bg-gray-900 rounded-2xl border border-dashed border-gray-800 text-gray-500">No active downloads found.</div>`;
+        return;
+    }
+
+    container.innerHTML = list.map(dl => {
+
+        const totalItems = dl.item_details.length;
+        const completedItems = dl.item_details.filter(i => i.status === "Completed").length;
+
+        const totalBytes = dl.item_details.reduce((acc, item) => acc + (item.file_size || 0), 0);
+
+        const downloadedBytes = dl.item_details.reduce((acc, item) => {
+            const stats = item.downloader_stats || {};
+            const isFinished = item.status === "Completed" || stats.status === "Completed";
+
+            if (isFinished) return acc + (item.file_size || 0);
+
+            const progress = (stats.percentage || 0) / 100;
+            return acc + ((item.file_size || 0) * progress);
+        }, 0);
+
+        const parentProgress = totalBytes > 0 ? ((downloadedBytes / totalBytes) * 100).toFixed(0) : 0;
+
+        const cardId = `items-${dl.id}`;
+        const isExpanded = openCards.has(cardId);
+
+        return `
+        <div class="bg-gray-900 rounded-2xl border border-gray-800 shadow-xl">
+
+            <div onclick="toggleItems('${cardId}')"
+                 class="relative p-4 md:p-6 bg-gray-900/50 hover:bg-gray-800/50 cursor-pointer">
+
+                <!-- BIGGER CLICK ZONE -->
+                <button onclick="event.stopPropagation(); openMenu(event, '${dl.id}')"
+                    class="absolute top-1/2 right-2 -translate-y-1/2 p-3 rounded-lg hover:bg-gray-800 text-gray-500 hover:text-white text-lg">
+                    ⋮
+                </button>
+
+                <div class="pr-12">
+
+                    <div class="flex flex-wrap items-center gap-2 mb-1">
+                        <span class="px-2 py-0.5 bg-blue-900/40 text-blue-400 text-[10px] rounded border border-blue-800/50">
+                            ${dl.protocol}
+                        </span>
+                        <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-[10px] rounded border border-gray-700">
+                            ${dl.category || 'Default'}
+                        </span>
+                        <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-[10px] rounded border border-gray-700">
+                            ${dl.provider || 'Unknown'}
+                        </span>
+                    </div>
+
+                    <h2 class="text-base md:text-xl font-semibold text-white">${dl.download_name}</h2>
+
+                    <p class="text-xs text-gray-400 mt-1">
+                        ${completedItems} / ${totalItems} files (${parentProgress}%)
+                    </p>
+
+                    <p class="text-xs mt-1 ${dl.status === 'Completed' ? 'text-green-500' : 'text-yellow-500'}">
+                        ${dl.status}
+                    </p>
+
+                </div>
+
+            </div>
+
+            <div id="${cardId}" class="${isExpanded ? '' : 'hidden'} p-3 md:p-4 space-y-3 bg-gray-950/30 border-t border-gray-800">
+
+                ${dl.item_details.map(item => {
+
                     const stats = item.downloader_stats || {};
                     const isFinished = item.status === "Completed" || stats.status === "Completed";
-                    if (isFinished) {
-                        return acc + (item.file_size || 0);
-                }
-                        
-                const itemProgress = (stats.percentage || 0) / 100;
-                    return acc + ((item.file_size || 0) * itemProgress);
-                }, 0);
+                    const progress = isFinished ? "100.00" : (stats.percentage || 0).toFixed(2);
+                    const speed = isFinished ? "Done" : (stats.average_speed ? (stats.average_speed / 1024).toFixed(2) + " MB/s" : "0 MB/s");
 
-                const parentProgress = totalBytes > 0 ? ((downloadedBytes / totalBytes) * 100).toFixed(0) : 0;
+                    return `
+                    <div class="bg-gray-900/80 p-3 md:p-4 rounded-xl border border-gray-800">
 
-                const cardId = `items-${dl.id}`;
-                const isExpanded = openCards.has(cardId);
+                        <p class="text-sm text-gray-200 whitespace-normal break-words leading-snug max-w-full">
+                            ${item.file_name}
+                        </p>
 
-                return `
-                <div class="bg-gray-900 rounded-2xl border border-gray-800 shadow-xl overflow-hidden mb-4">
-                    <div onclick="toggleItems('${cardId}')" class="p-6 bg-gray-900/50 hover:bg-gray-800/50 cursor-pointer flex justify-between items-center transition-colors">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-2 mb-1">
-                                <span class="px-2 py-0.5 bg-blue-900/40 text-blue-400 text-[10px] font-bold rounded uppercase tracking-wider border border-blue-800/50">
-                                    ${dl.protocol}
-                                </span>
-                                <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-[10px] font-bold rounded uppercase tracking-wider border border-gray-700">
-                                    ${dl.category || 'Default Category'}
-                                </span>
-                                <span class="px-2 py-0.5 bg-gray-800 text-gray-400 text-[10px] font-bold rounded uppercase tracking-wider border border-gray-700">
-                                    ${dl.provider || 'Unknown Provider'}
-                                </span>
-                            </div>
-                            <h2 class="text-xl font-bold text-white">${dl.download_name}</h2>
-                            <p class="text-xs text-gray-400 mt-1">${completedItems} of ${totalItems} files finished (${parentProgress}%)</p>
+                        <div class="flex justify-between text-[11px] mt-1 text-gray-500">
+                            <span>${(item.file_size / 1024 / 1024).toFixed(1)} MB</span>
+                            <span>${speed}</span>
                         </div>
-                        
-                        <div class="flex items-center gap-3 flex-shrink-0">
-                            <button onclick="event.stopPropagation(); retryDownload('${dl.id}')"
-                                    class="p-2 text-orange-400 bg-orange-900/20 hover:bg-orange-800/30 hover:text-orange-300 rounded-lg transition"
-                                    title="Reset Download">
 
-                                <svg xmlns="http://www.w3.org/2000/svg" 
-                                    class="h-5 w-5" 
-                                    fill="none" 
-                                    viewBox="0 0 24 24" 
-                                    stroke="currentColor">
-                                    <path stroke-linecap="round" 
-                                        stroke-linejoin="round" 
-                                        stroke-width="2" 
-                                        d="M21 12a9 9 0 11-3-6.7M21 3v6h-6" />
-                                </svg>
-
-                            </button>
-
-                            <button onclick="event.stopPropagation(); deleteDownload('${dl.id}')" 
-                                    class="p-2 text-red-400 bg-red-900/20 hover:bg-red-800/30 hover:text-red-300 rounded-lg transition-all group"
-                                    title="Delete Download">
-                                <svg xmlns="http://www.w3.org/2000/svg" 
-                                    class="h-5 w-5" 
-                                    fill="none" 
-                                    viewBox="0 0 24 24" 
-                                    stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                            </button>
-
-                            <div class="h-8 w-px bg-gray-800"></div>
-
-                            <div class="text-right hidden md:block">
-                                <span class="block text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1">Status</span>
-                                <span class="text-sm font-medium ${dl.status === 'Completed' ? 'text-green-500' : 'text-yellow-500'}">
-                                    ${dl.status}
-                                </span>
+                        <div class="mt-2">
+                            <div class="flex justify-between text-[10px] mb-1 text-gray-500">
+                                <span>${isFinished ? 'Completed' : (item.status || 'Queued')}</span>
+                                <span>${progress}%</span>
                             </div>
 
-                            <svg id="icon-${cardId}" xmlns="http://www.w3.org/2000/svg" 
-                                class="h-6 w-6 text-gray-500 transition-transform duration-300" 
-                                style="transform: ${isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'}"
-                                fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                            </svg>
+                            <div class="w-full bg-gray-800 rounded-full h-1.5">
+                                <div class="bg-blue-600 h-full" style="width:${progress}%"></div>
+                            </div>
                         </div>
-                    </div>
 
-                    <div id="${cardId}" class="${isExpanded ? '' : 'hidden'} p-4 space-y-3 bg-gray-950/30 border-t border-gray-800">
-                        ${dl.item_details.map(item => {
-                            const stats = item.downloader_stats || {};
-                            const isFinished = item.status === "Completed" || stats.status === "Completed";
-                            const progress = isFinished ? "100.00" : (stats.percentage || 0).toFixed(2);
-                            const speed = isFinished ? "Finished" : (stats.average_speed ? (stats.average_speed / 1024).toFixed(2) + " MB/s" : "0.00 MB/s");
+                    </div>`;
+                }).join('')}
 
-                            return `
-                            <div class="bg-gray-900/80 p-4 rounded-xl border border-gray-800 flex flex-col lg:flex-row lg:items-center gap-4">  
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-sm font-semibold text-gray-200 truncate">${item.file_name}</p>
-                                    <div class="flex gap-4 mt-1 text-[11px]">
-                                        <span class="text-gray-500 italic">${(item.file_size / 1024 / 1024).toFixed(1)} MB</span>
-                                        <span class="${isFinished ? 'text-green-400' : 'text-blue-400'} font-bold font-mono">${speed}</span>
-                                    </div>
-                                </div>
-                                <div class="w-full lg:w-64">
-                                    <div class="flex justify-between items-end mb-1.5">
-                                        <span class="text-[10px] uppercase font-bold ${isFinished ? 'text-green-500' : 'text-gray-500'}">
-                                            ${isFinished ? 'Completed' : (item.status || 'Queued')}
-                                        </span>
-                                        <span class="text-xs font-mono text-blue-400">${progress}%</span>
-                                    </div>
-                                    <div class="w-full bg-gray-800 rounded-full h-1.5 overflow-hidden">
-                                        <div class="${isFinished ? 'bg-green-500' : 'bg-blue-600'} h-full rounded-full transition-all duration-700" style="width: ${progress}%"></div>
-                                    </div>
-                                </div>
-                            </div>`;
-                        }).join('')}
-                    </div>
-                </div>
-                `;
-            }).join('');
+            </div>
 
-        }
+        </div>`;
+    }).join('');
+}
 
-        function toggleItems(id) {
-            const element = document.getElementById(id);
-            const icon = document.getElementById('icon-' + id);
-            
-            if (element.classList.contains('hidden')) {
-                element.classList.remove('hidden');
-                icon.style.transform = 'rotate(180deg)';
-                openCards.add(id); // Save state
-            } else {
-                element.classList.add('hidden');
-                icon.style.transform = 'rotate(0deg)';
-                openCards.delete(id); // Remove state
-            }
-        }
+/* toggle */
+function toggleItems(id) {
+    const el = document.getElementById(id);
 
-        async function deleteDownload(id) {
-            if (!confirm("Are you sure you want to delete this download?")) return;
+    if (el.classList.contains('hidden')) {
+        el.classList.remove('hidden');
+        openCards.add(id);
+    } else {
+        el.classList.add('hidden');
+        openCards.delete(id);
+    }
+}
 
-            try {
-                const response = await fetch(`/internal/api/delete?id=${id}`, { method: 'DELETE' });
-                if (response.ok) {
-                    fetchData();
-                } else {
-                    alert("Error: Could not delete from database.");
-                }
-            } catch (err) {
-                console.error("Delete failed:", err);
-            }
-        }
+/* floating menu */
+let activeMenu = null;
 
-        async function retryDownload(id) {
-            try {
-                const response = await fetch(`/internal/api/retry?id=${id}`, {method: 'POST' });
-                if (response.ok) {
-                    fetchData();
-                } else {
-                    alert("Retry failed.");
-                }
-            } catch (err) {
-                console.error("Retry error:", err);
-            }
-        }        
+function openMenu(event, id) {
+    closeMenu();
 
-        setInterval(() => {
-            countdown--;
-            timerEl.innerText = countdown;
-            if (countdown <= 0) fetchData();
-        }, 1000);
+    const rect = event.target.getBoundingClientRect();
 
-        fetchData();
-    </script>
+    const menu = document.createElement('div');
+    menu.className = "fixed bg-gray-900 border border-gray-800 rounded-xl shadow-xl z-50 w-40";
+
+    menu.style.top = (rect.bottom + 6) + "px";
+    menu.style.left = (rect.right - 160) + "px";
+
+    menu.innerHTML = `
+        <button onclick="retryDownload('${id}'); closeMenu()"
+            class="w-full text-left px-4 py-2 text-sm hover:bg-gray-800">
+            Retry
+        </button>
+        <button onclick="deleteDownload('${id}'); closeMenu()"
+            class="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-800">
+            Delete
+        </button>
+    `;
+
+    document.body.appendChild(menu);
+    activeMenu = menu;
+}
+
+function closeMenu() {
+    if (activeMenu) {
+        activeMenu.remove();
+        activeMenu = null;
+    }
+}
+
+document.addEventListener('click', closeMenu);
+
+/* API */
+async function deleteDownload(id) {
+    if (!confirm("Delete this download?")) return;
+
+    try {
+        const res = await fetch(`/internal/api/delete?id=${id}`, { method: 'DELETE' });
+        if (res.ok) fetchData();
+    } catch (err) {}
+}
+
+async function retryDownload(id) {
+    try {
+        const res = await fetch(`/internal/api/retry?id=${id}`, { method: 'POST' });
+        if (res.ok) fetchData();
+    } catch (err) {}
+}
+
+/* timer */
+setInterval(() => {
+    countdown--;
+    timerEl.innerText = countdown;
+    if (countdown <= 0) fetchData();
+}, 1000);
+
+fetchData();
+</script>
+
 </body>
 </html>

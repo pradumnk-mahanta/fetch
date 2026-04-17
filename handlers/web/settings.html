@@ -7,312 +7,274 @@
     <link rel="icon" href="/favicon.ico">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
+
 <body class="bg-gray-950 text-gray-100 font-sans min-h-screen">
 
-    <div class="container mx-auto px-4 py-8">
-        <header class="flex justify-between items-center mb-10 pb-6 border-b border-gray-800">
-            <div>
-                <h1 class="text-3xl font-extrabold tracking-tight text-white">
-                    <span class="text-blue-500">Fetch</span> Settings
-                </h1>
-                <p class="text-gray-500 text-sm mt-1">Version: <span id="ver-tag" class="text-blue-400 font-mono"></span></p>
-            </div>
-            <div class="flex items-center gap-4">
-                <a href="/" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm font-medium transition">Back to Dashboard</a>
-            </div>
-        </header>
+<div class="container mx-auto px-3 md:px-4 py-6 md:py-8">
 
-        <form id="config-form" class="space-y-8">
-            <div class="bg-gray-900 rounded-2xl border border-gray-800 shadow-xl overflow-hidden">
-                <div class="p-6 bg-gray-900/50 border-b border-gray-800">
-                    <h2 class="text-lg font-bold text-white uppercase tracking-wider text-xs">Application Core</h2>
+    <!-- HEADER -->
+    <header class="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-8 pb-6 border-b border-gray-800">
+
+        <div>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-white">
+                <span class="text-blue-500">Fetch</span> Settings
+            </h1>
+            <p class="text-xs text-gray-500 mt-1">
+                Version: <span id="ver-tag" class="text-blue-400 font-mono"></span>
+            </p>
+        </div>
+
+        <a href="/" class="px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm">
+            Back
+        </a>
+
+    </header>
+
+    <form id="config-form" class="space-y-6">
+
+        <!-- APP CORE -->
+        <div class="bg-gray-900 rounded-2xl border border-gray-800 p-4 md:p-6 space-y-4">
+            <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Application Core</h2>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Log Level</label>
+                    <select id="log-level-select" name="application_log_level"
+                        class="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                    </select>
                 </div>
-                <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-2">Log Level</label>
-                        <select name="application_log_level" id="log-level-select" class="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition"></select>
-                    </div>
-                    <div>
-                        <label class="block text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-2">Categories (CSV)</label>
-                        <input type="text" name="application_categories" id="app-categories" class="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition">
-                    </div>
+
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Categories (CSV)</label>
+                    <input id="app-categories" name="application_categories"
+                        class="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none">
                 </div>
             </div>
+        </div>
 
-            <div class="bg-gray-900 rounded-2xl border border-gray-700 shadow-sm p-6">
-                <h3 class="text-sm font-semibold text-gray-300 mb-6 uppercase tracking-wider">
-                    Downloader Core
-                </h3>
+        <!-- DOWNLOADER -->
+        <div class="bg-gray-900 rounded-2xl border border-gray-800 p-4 md:p-6 space-y-4">
+            <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Downloader Core</h2>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="space-y-4">
+
+                <div>
+                    <label class="text-xs text-gray-400 mb-1 block">Active Downloader</label>
+                    <select id="downloader-select" name="configured_downloader_id"
+                        class="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm focus:ring-1 focus:ring-blue-500 outline-none">
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <label class="block text-xs font-medium text-gray-400 mb-2">
-                            Active Downloader
-                        </label>
-                        <select
-                            id="downloader-select"
-                            name="configured_downloader_id"
-                            class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
-                        >
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-xs font-medium text-gray-400 mb-2">
-                            Max Parallel Downloads
-                        </label>
-                        <input
-                            id="downloader_max_downloads_concurrent"
-                            type="number"
-                            min="1"
+                        <label class="text-xs text-gray-400 mb-1 block">Max Parallel</label>
+                        <input type="number" id="downloader_max_downloads_concurrent"
                             name="downloader_max_downloads_concurrent"
-                            class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
-                        />
+                            class="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm">
                     </div>
 
                     <div>
-                        <label class="block text-xs font-medium text-gray-400 mb-2">
-                            Max Retry Per Download
-                        </label>
-                        <input
-                            id="downloader_max_downloads_retry"
-                            type="number"
-                            min="0"
+                        <label class="text-xs text-gray-400 mb-1 block">Max Retry</label>
+                        <input type="number" id="downloader_max_downloads_retry"
                             name="downloader_max_downloads_retry"
-                            class="w-full bg-gray-900 border border-gray-700 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition"
-                        />
-                    </div>
-
-                    <div id="downloader-description"
-                        class="md:col-span-3 mt-3 text-xs text-gray-500 leading-relaxed">
+                            class="w-full px-3 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-sm">
                     </div>
                 </div>
+
+                <div id="downloader-description" class="text-xs text-gray-500"></div>
+
             </div>
+        </div>
 
+        <!-- PROVIDERS -->
+        <section class="space-y-6">
 
-            <section>
-                <div class="flex justify-between items-center mb-4 px-2">
-                    <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Debrid Providers</h2>
+            <!-- Debrid -->
+            <div>
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-xs font-bold text-gray-500 uppercase">Debrid Providers</h2>
                     <div class="flex gap-2">
-                        <select id="supported-debrid-list" class="bg-gray-900 border border-gray-700 text-xs rounded-lg px-3 py-1.5 outline-none"></select>
-                        <button type="button" onclick="addProvider('debrid')" class="text-xs bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded-lg font-bold transition">Add Provider</button>
-                    </div>
-                </div>
-                <div id="debrid-container" class="space-y-4"></div>
-            </section>
-
-            <section>
-                <div class="flex justify-between items-center mb-4 px-2">
-                    <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest">Usenet Providers</h2>
-                    <div class="flex gap-2">
-                        <select id="supported-usenet-list" class="bg-gray-900 border border-gray-700 text-xs rounded-lg px-3 py-1.5 outline-none"></select>
-                        <button type="button" onclick="addProvider('usenet')" class="text-xs bg-blue-600 hover:bg-blue-500 px-4 py-1.5 rounded-lg font-bold transition">Add Provider</button>
-                    </div>
-                </div>
-                <div id="usenet-container" class="space-y-4"></div>
-            </section>
-
-            <div class="flex justify-end pt-6">
-                <button type="submit" class="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg shadow-lg transition transform active:scale-95">
-                    Save Configuration
-                </button>
-            </div>
-        </form>
-    </div>
-
-    <script>
-        let fullConfig = {};
-
-        async function init() {
-            const res = await fetch('/internal/api/config');
-            fullConfig = await res.json();
-            
-            document.getElementById('ver-tag').innerText = fullConfig.version;
-            document.getElementById('app-categories').value = fullConfig.application_categories;
-            
-            const logSelect = document.getElementById('log-level-select');
-            fullConfig.application_supported_log_level.forEach(lvl => {
-                logSelect.innerHTML += `<option value="${lvl}" ${lvl === fullConfig.application_log_level ? 'selected' : ''}>${lvl}</option>`;
-            });
-
-            const downloaderSelect = document.getElementById('downloader-select');
-            fullConfig.supported_downloaders.forEach(d => {
-                downloaderSelect.innerHTML += `
-                    <option value="${d.downloader_id}"
-                        ${d.downloader_id === fullConfig.configured_downloaders?.downloader_id ? 'selected' : ''}>
-                        ${d.downloader_name}
-                    </option>`;
-            });
-
-            if (fullConfig.configured_downloaders?.downloader_id) {
-                downloaderSelect.value = fullConfig.configured_downloaders.downloader_id;
-            }
-
-            function renderDescription() {
-                const descEl = document.getElementById('downloader-description');
-                const selected = fullConfig.supported_downloaders.find(
-                    d => d.downloader_id === downloaderSelect.value
-                );
-                descEl.textContent = selected?.downloader_description || "";
-            }
-            downloaderSelect.addEventListener("change", renderDescription);
-            renderDescription();
-
-            document.getElementById('downloader_max_downloads_concurrent').value = fullConfig.downloader_max_downloads_concurrent;
-            document.getElementById('downloader_max_downloads_retry').value = fullConfig.downloader_max_downloads_retry;
-
-            populateSupported('supported-debrid-list', fullConfig.supported_debrid_providers, 'debrid');
-            populateSupported('supported-usenet-list', fullConfig.supported_usenet_providers, 'usenet');
-
-            renderProviders('debrid', fullConfig.configured_debrid_providers);
-            renderProviders('usenet', fullConfig.configured_usenet_providers);
-        }
-
-        function renderDownloaderDescription() {
-            const downloaderSelect = document.getElementById('downloader-select');
-            const descEl = document.getElementById('downloader-description');
-
-            const selected = fullConfig.supported_downloaders.find(
-                d => d.downloader_id === downloaderSelect.value
-            );
-
-            descEl.textContent = selected?.downloader_description || "";
-        }
-
-        function populateSupported(elId, list, type) {
-            const el = document.getElementById(elId);
-            list.forEach(p => {
-                el.innerHTML += `<option value="${p[`${type}_provider_id`]}">${p[`${type}_provider_name`]}</option>`;
-            });
-        }
-
-        function renderProviders(type, list) {
-            const container = document.getElementById(`${type}-container`);
-            container.innerHTML = list.map((p, i) => `
-                <div class="bg-gray-900 rounded-2xl border border-gray-800 shadow-xl overflow-hidden">
-                    <div class="p-4 bg-gray-900/50 border-b border-gray-800 flex justify-between items-center">
-                        <div class="flex items-center gap-3">
-                            <span class="px-2 py-0.5 bg-blue-900/40 text-blue-400 text-[9px] font-bold rounded uppercase border border-blue-800/50">Active</span>
-                            <span class="text-sm font-bold text-white">${p[`${type}_provider_name`]}</span>
-                        </div>
-                        <button type="button" onclick="removeProvider('${type}', ${i})" class="text-gray-500 hover:text-red-500 transition">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        <select id="supported-debrid-list"
+                            class="bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1"></select>
+                        <button type="button" onclick="addProvider('debrid')"
+                            class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-xs rounded">
+                            Add
                         </button>
                     </div>
-                    <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="md:col-span-2">
-                            <label class="text-[10px] uppercase font-bold text-gray-500 mb-2 block">API Secret Key</label>
-                            <input type="password" name="${type}[${i}].api_key" value="${p[`${type}_provider_api_key`]}" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none transition">
-                            <input type="hidden" name="${type}[${i}].id" value="${p[`${type}_provider_id`]}">
-                            <input type="hidden" name="${type}[${i}].name" value="${p[`${type}_provider_name`]}">
-                            <input type="hidden" name="${type}[${i}].endpoint" value="${p[`${type}_provider_api_endpoint`]}">
-                        </div>
-                        <div>
-                            <label class="text-[10px] uppercase font-bold text-gray-500 mb-2 block">Priority</label>
-                            <input type="number" name="${type}[${i}].priority" value="${p.priority}" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm outline-none">
-                        </div>
-                        <div>
-                            <label class="text-[10px] uppercase font-bold text-gray-500 mb-2 block">Max Parallel</label>
-                            <input type="number" name="${type}[${i}].max" value="${p[`${type}_provider_max_send`]}" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm outline-none">
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="text-[10px] uppercase font-bold text-gray-500 mb-2 block">
-                                Mount Path
-                            </label>
-                            <input type="text"
-                                name="${type}[${i}].mount"
-                                value="${p[`${type}_provider_rclone_mount`] || ''}"
-                                placeholder="/mnt/torbox"
-                                class="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-sm outline-none">
-                        </div>
-                        <div class="md:col-span-2 flex items-center gap-3 mt-4">
-                            <input type="checkbox" id="${type}-${i}-zip" name="${type}[${i}].zipped" value="true" ${p[`${type}_provider_prefer_zipped_folder`] ? 'checked' : ''} class="w-4 h-4 rounded border-gray-700 bg-gray-900 text-blue-600 focus:ring-blue-500">
-                            <label for="${type}-${i}-zip" class="text-xs font-bold text-gray-400 uppercase tracking-widest">Prefer Zipped Folders</label>
-                        </div>
+                </div>
+                <div id="debrid-container" class="space-y-3"></div>
+            </div>
+
+            <!-- Usenet -->
+            <div>
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-xs font-bold text-gray-500 uppercase">Usenet Providers</h2>
+                    <div class="flex gap-2">
+                        <select id="supported-usenet-list"
+                            class="bg-gray-800 border border-gray-700 text-xs rounded px-2 py-1"></select>
+                        <button type="button" onclick="addProvider('usenet')"
+                            class="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-xs rounded">
+                            Add
+                        </button>
                     </div>
                 </div>
-            `).join('');
-        }
+                <div id="usenet-container" class="space-y-3"></div>
+            </div>
 
-        function addProvider(type) {
-            const select = document.getElementById(`supported-${type}-list`);
-            const selectedId = select.value;
-            const sourceList = type === 'debrid' ? fullConfig.supported_debrid_providers : fullConfig.supported_usenet_providers;
-            const template = sourceList.find(p => p[`${type}_provider_id`] === selectedId || p[`usenet_provider_id`] === selectedId);
+        </section>
 
-            const newList = type === 'debrid' ? fullConfig.configured_debrid_providers : fullConfig.configured_usenet_providers;
-            
-            newList.push({
-                priority: newList.length + 1,
-                [`${type}_provider_id`]: template[`${type}_provider_id`] || template[`usenet_provider_id`],
-                [`${type}_provider_name`]: template[`${type}_provider_name`] || template[`usenet_provider_name`],
-                [`${type}_provider_api_endpoint`]: template[`${type}_provider_api_endpoint`] || template[`usenet_provider_api_endpoint`],
-                [`${type}_provider_api_key`]: "",
-                [`${type}_provider_prefer_zipped_folder`]: true,
-                [`${type}_provider_max_send`]: 2,
-                [`${type}_provider_rclone_mount`]: ""
-            });
-            renderProviders(type, newList);
-        }
+        <!-- SAVE -->
+        <div class="pt-4">
+            <button type="submit"
+                class="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm font-semibold">
+                Save Configuration
+            </button>
+        </div>
 
-        function removeProvider(type, index) {
-            const list = type === 'debrid' ? fullConfig.configured_debrid_providers : fullConfig.configured_usenet_providers;
-            list.splice(index, 1);
-            renderProviders(type, list);
-        }
+    </form>
 
-        document.getElementById('config-form').onsubmit = async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const update = { ...fullConfig };
-            update.application_log_level = formData.get('application_log_level');
-            update.application_categories = formData.get('application_categories');
+</div>
 
-            const selectedDownloaderId = formData.get('configured_downloader_id');
-            const downloaderObj = fullConfig.supported_downloaders.find(
-                d => d.downloader_id === selectedDownloaderId
-            );
-            update.configured_downloaders = downloaderObj || null;   
-            
-            update.downloader_max_downloads_concurrent =
-                parseInt(formData.get('downloader_max_downloads_concurrent')) || 1;
+<script>
+let fullConfig = {};
 
-            update.downloader_max_downloads_retry =
-                parseInt(formData.get('downloader_max_downloads_retry')) || 0;
+async function init() {
+    const res = await fetch('/internal/api/config');
+    fullConfig = await res.json();
 
-            update.configured_debrid_providers = mapFormToList(formData, 'debrid');
-            update.configured_usenet_providers = mapFormToList(formData, 'usenet');
+    document.getElementById('ver-tag').innerText = fullConfig.version;
+    document.getElementById('app-categories').value = fullConfig.application_categories;
 
-            const res = await fetch('/internal/api/config/update', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(update)
-            });
-            if (res.ok) {
-                alert("Settings successfully saved.");
-                init();
-            }
-        };
+    const logSelect = document.getElementById('log-level-select');
+    logSelect.innerHTML = '';
+    fullConfig.application_supported_log_level.forEach(lvl => {
+        logSelect.innerHTML += `<option value="${lvl}" ${lvl === fullConfig.application_log_level ? 'selected' : ''}>${lvl}</option>`;
+    });
 
-        function mapFormToList(formData, type) {
-            const list = [];
-            const count = type === 'debrid' ? fullConfig.configured_debrid_providers.length : fullConfig.configured_usenet_providers.length;
-            for (let i = 0; i < count; i++) {
-                list.push({
-                    priority: parseInt(formData.get(`${type}[${i}].priority`)),
-                    [`${type}_provider_id`]: formData.get(`${type}[${i}].id`),
-                    [`${type}_provider_name`]: formData.get(`${type}[${i}].name`),
-                    [`${type}_provider_api_endpoint`]: formData.get(`${type}[${i}].endpoint`),
-                    [`${type}_provider_api_key`]: formData.get(`${type}[${i}].api_key`),
-                    [`${type}_provider_prefer_zipped_folder`]: formData.get(`${type}[${i}].zipped`) === 'true',
-                    [`${type}_provider_max_send`]: parseInt(formData.get(`${type}[${i}].max`)) || 1,
-                    [`${type}_provider_rclone_mount`]: formData.get(`${type}[${i}].mount`) || "",
-                });
-            }
-            return list;
-        }
+    const downloaderSelect = document.getElementById('downloader-select');
+    downloaderSelect.innerHTML = '';
+    fullConfig.supported_downloaders.forEach(d => {
+        downloaderSelect.innerHTML += `<option value="${d.downloader_id}">${d.downloader_name}</option>`;
+    });
 
-        init();
-    </script>
+    downloaderSelect.value = fullConfig.configured_downloaders?.downloader_id;
+
+    document.getElementById('downloader_max_downloads_concurrent').value =
+        fullConfig.downloader_max_downloads_concurrent;
+
+    document.getElementById('downloader_max_downloads_retry').value =
+        fullConfig.downloader_max_downloads_retry;
+
+    populateSupported('supported-debrid-list', fullConfig.supported_debrid_providers, 'debrid');
+    populateSupported('supported-usenet-list', fullConfig.supported_usenet_providers, 'usenet');
+
+    renderProviders('debrid', fullConfig.configured_debrid_providers);
+    renderProviders('usenet', fullConfig.configured_usenet_providers);
+}
+
+function populateSupported(elId, list, type) {
+    const el = document.getElementById(elId);
+    el.innerHTML = '';
+    list.forEach(p => {
+        el.innerHTML += `<option value="${p[`${type}_provider_id`]}">${p[`${type}_provider_name`]}</option>`;
+    });
+}
+
+function renderProviders(type, list) {
+    const container = document.getElementById(`${type}-container`);
+
+    container.innerHTML = list.map((p, i) => `
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
+
+            <div class="flex justify-between items-center">
+                <span class="text-sm font-semibold text-white">${p[`${type}_provider_name`]}</span>
+                <button onclick="removeProvider('${type}', ${i})"
+                    class="text-xs text-red-400 hover:text-red-300">
+                    Remove
+                </button>
+            </div>
+
+            <input type="password" name="${type}[${i}].api_key"
+                value="${p[`${type}_provider_api_key`] || ''}"
+                placeholder="API Key"
+                class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm">
+
+            <div class="grid grid-cols-2 gap-2">
+                <input type="number" name="${type}[${i}].priority"
+                    value="${p.priority}"
+                    placeholder="Priority"
+                    class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm">
+
+                <input type="number" name="${type}[${i}].max"
+                    value="${p[`${type}_provider_max_send`]}"
+                    placeholder="Max"
+                    class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm">
+            </div>
+
+            <input type="text" name="${type}[${i}].mount"
+                value="${p[`${type}_provider_rclone_mount`] || ''}"
+                placeholder="Mount Path"
+                class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm">
+
+        </div>
+    `).join('');
+}
+
+function addProvider(type) {
+    const select = document.getElementById(`supported-${type}-list`);
+    const id = select.value;
+
+    const source = type === 'debrid'
+        ? fullConfig.supported_debrid_providers
+        : fullConfig.supported_usenet_providers;
+
+    const template = source.find(p => p[`${type}_provider_id`] === id);
+
+    const list = type === 'debrid'
+        ? fullConfig.configured_debrid_providers
+        : fullConfig.configured_usenet_providers;
+
+    list.push({
+        priority: list.length + 1,
+        [`${type}_provider_id`]: template[`${type}_provider_id`],
+        [`${type}_provider_name`]: template[`${type}_provider_name`],
+        [`${type}_provider_api_key`]: "",
+        [`${type}_provider_max_send`]: 2,
+        [`${type}_provider_rclone_mount`]: ""
+    });
+
+    renderProviders(type, list);
+}
+
+function removeProvider(type, index) {
+    const list = type === 'debrid'
+        ? fullConfig.configured_debrid_providers
+        : fullConfig.configured_usenet_providers;
+
+    list.splice(index, 1);
+    renderProviders(type, list);
+}
+
+document.getElementById('config-form').onsubmit = async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData(e.target);
+
+    const update = { ...fullConfig };
+    update.application_log_level = formData.get('application_log_level');
+    update.application_categories = formData.get('application_categories');
+
+    await fetch('/internal/api/config/update', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(update)
+    });
+
+    alert("Saved");
+};
+
+init();
+</script>
+
 </body>
 </html>
