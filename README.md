@@ -76,8 +76,18 @@ Example:
 
 http://<host>:9090/
 ```
-
 This ensures proper routing to the correct mock API endpoints. Use the `username` and `password` set during initial setup of fetch.
+
+You can also target specific downlader while adding. This will override the default downloader,
+```
+Example:
+
+http://<host>:9090/intr - Internal Downloader
+http://<host>:9090/syml - Symlink Downloader
+http://<host>:9090/strm - STRM Downloader
+http://<host>:9090/dndl - Do Not Download
+```
+Useful to use the same instance to download using different type.
 
 ## Disclaimer
 This is just a downloader. it does not host or share any files.

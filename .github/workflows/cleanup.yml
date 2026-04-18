@@ -1,0 +1,20 @@
+name: GHCR Cleanup
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   
+  workflow_dispatch:
+
+permissions:
+  packages: write 
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Cleanup GHCR Images
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          delete-untagged: true
