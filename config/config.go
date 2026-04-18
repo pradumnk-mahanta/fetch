@@ -274,3 +274,43 @@ const (
 	DOWNLOAD_TYPE_CREATE_STRM     = "Individual File Create Strm"
 	DOWNLOAD_TYPE_DO_NOT_DOWNLOAD = "Do not Download Files"
 )
+
+func GetDefaultDownloadType(protocol string, downloadTypeFromRequest string) string {
+	var downloadType string
+	var configuredDownloaderId string = AppConfig.ConfiguredDownloaders.ID
+	switch downloadTypeFromRequest {
+	case "intr":
+		configuredDownloaderId = DownloaderIdInternal
+	case "syml":
+		configuredDownloaderId = DownloaderIdSymlink
+	case "strm":
+		configuredDownloaderId = DownloaderIdStrmLink
+	case "dndl":
+		configuredDownloaderId = DownloaderIdDoNotDownload
+	}
+	switch configuredDownloaderId {
+	case DownloaderIdDoNotDownload:
+		downloadType = DOWNLOAD_TYPE_DO_NOT_DOWNLOAD
+	case DownloaderIdSymlink:
+		downloadType = DOWNLOAD_TYPE_CREATE_SYMLINK
+	case DownloaderIdStrmLink:
+		downloadType = DOWNLOAD_TYPE_CREATE_STRM
+	case DownloaderIdInternal:
+		if protocol == ProtocolUsenet {
+			if GetUsenetProvider().PreferZippedFolder {
+				downloadType = DOWNLOAD_TYPE_FULL_ARCHIVE
+			} else {
+				downloadType = DOWNLOAD_TYPE_INDIVIDUAL_FILE
+			}
+		} else {
+			if GetTorrentsProvider().PreferZippedFolder {
+				downloadType = DOWNLOAD_TYPE_FULL_ARCHIVE
+			} else {
+				downloadType = DOWNLOAD_TYPE_INDIVIDUAL_FILE
+			}
+		}
+	default:
+		downloadType = DOWNLOAD_TYPE_DO_NOT_DOWNLOAD
+	}
+	return downloadType
+}

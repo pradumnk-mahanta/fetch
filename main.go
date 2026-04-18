@@ -43,9 +43,17 @@ func main() {
 	})
 
 	http.HandleFunc("/api", handlers.SABNzbdHandler)
+	http.HandleFunc("/intr/api", handlers.SABNzbdHandler)
+	http.HandleFunc("/syml/api", handlers.SABNzbdHandler)
+	http.HandleFunc("/strm/api", handlers.SABNzbdHandler)
+	http.HandleFunc("/dndl/api", handlers.SABNzbdHandler)
+
 	http.HandleFunc("/api/v2/", handlers.QBittorrentHandler)
-	http.HandleFunc("/qbittorrent/api/v2/", handlers.QBittorrentHandler)
-	http.HandleFunc("/sabnzbd/api", handlers.SABNzbdHandler)
+	http.HandleFunc("/intr/api/v2/", handlers.QBittorrentHandler)
+	http.HandleFunc("/syml/api/v2/", handlers.QBittorrentHandler)
+	http.HandleFunc("/strm/api/v2/", handlers.QBittorrentHandler)
+	http.HandleFunc("/dndl/api/v2/", handlers.QBittorrentHandler)
+
 	http.HandleFunc("/fetch/api", handlers.CommonHandler)
 
 	http.HandleFunc("/login", handlers.WebHandlerLogin)

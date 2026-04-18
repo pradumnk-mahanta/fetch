@@ -16,37 +16,12 @@ import (
 )
 
 // Change based on Provider Later. Right now only focus on TB
-func CreateDownload(protocol string, downloadName string, fileBytes []byte, downloadUrl string, reference string, category string) (string, error) {
-	var downloadType string
-	switch config.AppConfig.ConfiguredDownloaders.ID {
-	case config.DownloaderIdDoNotDownload:
-		downloadType = config.DOWNLOAD_TYPE_DO_NOT_DOWNLOAD
-	case config.DownloaderIdSymlink:
-		downloadType = config.DOWNLOAD_TYPE_CREATE_SYMLINK
-	case config.DownloaderIdStrmLink:
-		downloadType = config.DOWNLOAD_TYPE_CREATE_STRM
-	case config.DownloaderIdInternal:
-		if protocol == config.ProtocolUsenet {
-			if config.GetUsenetProvider().PreferZippedFolder {
-				downloadType = config.DOWNLOAD_TYPE_FULL_ARCHIVE
-			} else {
-				downloadType = config.DOWNLOAD_TYPE_INDIVIDUAL_FILE
-			}
-		} else {
-			if config.GetTorrentsProvider().PreferZippedFolder {
-				downloadType = config.DOWNLOAD_TYPE_FULL_ARCHIVE
-			} else {
-				downloadType = config.DOWNLOAD_TYPE_INDIVIDUAL_FILE
-			}
-		}
-	default:
-		downloadType = config.DOWNLOAD_TYPE_DO_NOT_DOWNLOAD
-	}
+func CreateDownload(protocol string, downloadName string, fileBytes []byte, downloadUrl string, reference string, category string, downloadTypeFromRequest string) (string, error) {
 
 	var localDownload databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
 		Protocol:                  protocol,
 		DownloadName:              GetSanitizedPath(strings.TrimSuffix(downloadName, filepath.Ext(downloadName))),
-		DownloadType:              downloadType,
+		DownloadType:              config.GetDefaultDownloadType(protocol, downloadTypeFromRequest),
 		OriginalDownloadFile:      fileBytes,
 		OriginalDownloadUrl:       downloadUrl,
 		OriginalDownloadReference: reference,

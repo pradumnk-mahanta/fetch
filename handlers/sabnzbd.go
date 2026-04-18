@@ -26,13 +26,16 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 	user := request.FormValue("ma_username")
 	pass := request.FormValue("ma_password")
 
-	logger.Log.Debugw("Received Credentials", "user", user, "pass", "Not Logged")
+	logger.Log.Debugw("Received Credentials", "user", user, "pass", "Not Logged!")
 
 	if user != config.AppConfig.ApplicationAuthUsername || pass != config.AppConfig.ApplicationAuthPassword {
 		writer.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(writer).Encode(GetSABNzbdError("Credentials Incorrect!"))
 		return
 	}
+
+	path := strings.TrimSuffix(request.URL.Path, "/")
+	downloaderType := strings.Split(path, "/")[1]
 
 	mode := query.Get("mode")
 	name := query.Get("name")
@@ -45,7 +48,7 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 			category = "default"
 		}
 	}
-	logger.Log.Infow("Received SABNzbd API Request", "mode", mode, "name", name, "nzo_id", nzo_id, "category", category)
+	logger.Log.Infow("Received SABNzbd API Request", "mode", mode, "name", name, "nzo_id", nzo_id, "category", category, "path", path, "downloaderType", downloaderType)
 
 	switch mode {
 	case "queue":
@@ -77,10 +80,10 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 		}
 
 	case "addurl":
-		HandleSabAddUrl(writer, request)
+		HandleSabAddUrl(writer, request, downloaderType)
 
 	case "addfile":
-		HandleSabAddFile(writer, request)
+		HandleSabAddFile(writer, request, downloaderType)
 
 	case "get_config":
 		HandleConfig(writer, request)
@@ -96,7 +99,7 @@ func SABNzbdHandler(writer http.ResponseWriter, request *http.Request) {
 	}
 }
 
-func HandleSabAddFile(writer http.ResponseWriter, request *http.Request) {
+func HandleSabAddFile(writer http.ResponseWriter, request *http.Request, downloaderType string) {
 	query := request.URL.Query()
 	category := query.Get("category")
 
@@ -152,7 +155,7 @@ func HandleSabAddFile(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	id, err := adapters.CreateDownload(config.ProtocolUsenet, adapters.GetSanitizedPath(header.Filename), fileBytes, "", "", category)
+	id, err := adapters.CreateDownload(config.ProtocolUsenet, adapters.GetSanitizedPath(header.Filename), fileBytes, "", "", category, downloaderType)
 	if err != nil {
 		writer.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to create download"))
@@ -162,7 +165,7 @@ func HandleSabAddFile(writer http.ResponseWriter, request *http.Request) {
 	RespondAdd(writer, id)
 }
 
-func HandleSabAddUrl(writer http.ResponseWriter, request *http.Request) {
+func HandleSabAddUrl(writer http.ResponseWriter, request *http.Request, downloaderType string) {
 	query := request.URL.Query()
 	category := query.Get("category")
 
@@ -198,7 +201,7 @@ func HandleSabAddUrl(writer http.ResponseWriter, request *http.Request) {
 		}
 	}
 
-	id, err := adapters.CreateDownload(config.ProtocolUsenet, fileName, fileBytes, "", "", category)
+	id, err := adapters.CreateDownload(config.ProtocolUsenet, fileName, fileBytes, "", "", category, downloaderType)
 	if err != nil {
 		writer.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(writer).Encode(GetSABNzbdError("Failed to create download"))
