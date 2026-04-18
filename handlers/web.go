@@ -453,24 +453,10 @@ func HandleDownloadAction(w http.ResponseWriter, r *http.Request) {
 		localDownload.Delete()
 
 	case "delete":
-		localDownload.Delete()
+		DeleteLocalDownload(id)
 
 	case "reset":
-		var localDownloadUpdated databases.LocalDownloadsInstance = databases.LocalDownloadsInstance{
-			Protocol:                  localDownload.Protocol,
-			Provider:                  localDownload.Provider,
-			DownloadName:              localDownload.DownloadName,
-			DownloadType:              localDownload.DownloadType,
-			OriginalDownloadUrl:       localDownload.OriginalDownloadUrl,
-			OriginalDownloadFile:      localDownload.OriginalDownloadFile,
-			OriginalDownloadReference: localDownload.OriginalDownloadReference,
-			Category:                  localDownload.Category,
-			Status:                    config.DOWNLOAD_STATUS_CLIENT_ADDED,
-			AddedAt:                   time.Now(),
-			DownloadItems:             []databases.LocalDownloadsInstanceItem{},
-		}
-		localDownloadUpdated.Add()
-		localDownload.Delete()
+		RetryLocalDownload(id)
 
 	default:
 		http.Error(w, `{"error":"Invalid Action"}`, http.StatusBadRequest)

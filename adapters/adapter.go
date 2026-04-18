@@ -343,7 +343,7 @@ func ProcessDownloadItemsQueue() {
 	}
 }
 
-func GetLocalDownloadStatusBasedOnItems(localDownloadItems []databases.LocalDownloadsInstanceItem, currentStatus string) string {
+func GetLocalDownloadStatusBasedOnItems(localDownloadItems []databases.LocalDownloadsInstanceItem, defaultStatus string) string {
 	var hasAdded, hasDownloading, hasRetry, hasFailed, hasCompleted, hasProcessing bool
 	for _, item := range localDownloadItems {
 		switch item.Status {
@@ -362,16 +362,18 @@ func GetLocalDownloadStatusBasedOnItems(localDownloadItems []databases.LocalDown
 		}
 	}
 
-	if hasDownloading || hasRetry || hasAdded {
+	if hasDownloading || hasRetry {
 		return config.DOWNLOAD_STATUS_DOWNLOADER_DOWNLOADING
-	} else if hasFailed {
-		return config.DOWNLOAD_STATUS_DOWNLOADER_FAILED
 	} else if hasProcessing {
 		return config.DOWNLOAD_STATUS_DOWNLOADER_PROCESSING
+	} else if hasAdded {
+		return config.DOWNLOAD_STATUS_DOWNLOADER_ADDED
+	} else if hasFailed {
+		return config.DOWNLOAD_STATUS_DOWNLOADER_FAILED
 	} else if hasCompleted {
 		return config.DOWNLOAD_STATUS_DOWNLOADER_COMPLETED
 	} else {
-		return currentStatus
+		return defaultStatus
 	}
 }
 
