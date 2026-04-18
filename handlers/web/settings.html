@@ -170,6 +170,15 @@ async function init() {
 
     renderProviders('debrid', fullConfig.configured_debrid_providers);
     renderProviders('usenet', fullConfig.configured_usenet_providers);
+
+    function updateDownloaderDescription() {
+        const id = document.getElementById('downloader-select').value;
+        const d = fullConfig.supported_downloaders.find(x => x.downloader_id === id);
+        document.getElementById('downloader-description').innerText = d?.downloader_description || '';
+    }
+
+    document.getElementById('downloader-select').onchange = updateDownloaderDescription;
+    updateDownloaderDescription();    
 }
 
 function populateSupported(elId, list, type) {
@@ -180,11 +189,42 @@ function populateSupported(elId, list, type) {
     });
 }
 
+function buildProviders(formData, type) {
+    const providers = [];
+    const map = {};
+
+    for (const [key, value] of formData.entries()) {
+        const match = key.match(new RegExp(`${type}\\[(\\d+)\\]\\.(.+)`));
+        if (!match) continue;
+
+        const index = parseInt(match[1]);
+        const field = match[2];
+
+        if (!map[index]) map[index] = {};
+        map[index][field] = value;
+    }
+
+    Object.keys(map).forEach(i => {
+        const base = fullConfig[`configured_${type}_providers`][i];
+
+        providers.push({
+            ...base,
+            [`${type}_provider_priority`]: parseInt(map[i].priority),
+            [`${type}_provider_api_key`]: map[i].api_key,
+            [`${type}_provider_max_send`]: parseInt(map[i].max),
+            [`${type}_provider_rclone_mount`]: map[i].mount,
+            [`${type}_provider_prefer_zipped_folder`]: formData.has(`${type}[${i}].zipped`)
+        });
+    });
+
+    return providers;
+}
+
 function renderProviders(type, list) {
     const container = document.getElementById(`${type}-container`);
 
     container.innerHTML = list.map((p, i) => `
-        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-4">
 
             <div class="flex justify-between items-center">
                 <span class="text-sm font-semibold text-white">${p[`${type}_provider_name`]}</span>
@@ -194,27 +234,48 @@ function renderProviders(type, list) {
                 </button>
             </div>
 
-            <input type="password" name="${type}[${i}].api_key"
-                value="${p[`${type}_provider_api_key`] || ''}"
-                placeholder="API Key"
-                class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm">
-
-            <div class="grid grid-cols-2 gap-2">
-                <input type="number" name="${type}[${i}].priority"
-                    value="${p.priority}"
-                    placeholder="Priority"
-                    class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm">
-
-                <input type="number" name="${type}[${i}].max"
-                    value="${p[`${type}_provider_max_send`]}"
-                    placeholder="Max"
-                    class="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm">
+            <!-- API KEY -->
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">API Key</label>
+                <input type="password" name="${type}[${i}].api_key"
+                    value="${p[`${type}_provider_api_key`] || ''}"
+                    class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm">
             </div>
 
-            <input type="text" name="${type}[${i}].mount"
-                value="${p[`${type}_provider_rclone_mount`] || ''}"
-                placeholder="Mount Path"
-                class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm">
+            <!-- PRIORITY + MAX -->
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Priority</label>
+                    <input type="number" name="${type}[${i}].priority"
+                        value="${p[`${type}_provider_priority`]}"
+                        class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm">
+                </div>
+
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Max Send</label>
+                    <input type="number" name="${type}[${i}].max"
+                        value="${p[`${type}_provider_max_send`]}"
+                        class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm">
+                </div>
+            </div>
+
+            <!-- ZIP OPTION -->
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Archive Preference</label>
+                <label class="flex items-center gap-2 text-sm text-gray-300">
+                    <input type="checkbox" name="${type}[${i}].zipped"
+                        ${p[`${type}_provider_prefer_zipped_folder`] ? 'checked' : ''}>
+                    Prefer zipped folder
+                </label>
+            </div>
+
+            <!-- MOUNT -->
+            <div>
+                <label class="block text-xs text-gray-400 mb-1">Rclone Mount Path</label>
+                <input type="text" name="${type}[${i}].mount"
+                    value="${p[`${type}_provider_rclone_mount`] || ''}"
+                    class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm">
+            </div>
 
         </div>
     `).join('');
@@ -235,10 +296,12 @@ function addProvider(type) {
         : fullConfig.configured_usenet_providers;
 
     list.push({
-        priority: list.length + 1,
+        [`${type}_provider_priority`]: list.length + 1,
         [`${type}_provider_id`]: template[`${type}_provider_id`],
         [`${type}_provider_name`]: template[`${type}_provider_name`],
+        [`${type}_provider_api_endpoint`]: template[`${type}_provider_api_endpoint`],
         [`${type}_provider_api_key`]: "",
+        [`${type}_provider_prefer_zipped_folder`]: false,
         [`${type}_provider_max_send`]: 2,
         [`${type}_provider_rclone_mount`]: ""
     });
@@ -261,8 +324,22 @@ document.getElementById('config-form').onsubmit = async (e) => {
     const formData = new FormData(e.target);
 
     const update = { ...fullConfig };
+
     update.application_log_level = formData.get('application_log_level');
     update.application_categories = formData.get('application_categories');
+
+    update.downloader_max_downloads_concurrent =
+        parseInt(formData.get('downloader_max_downloads_concurrent'));
+
+    update.downloader_max_downloads_retry =
+        parseInt(formData.get('downloader_max_downloads_retry'));
+
+    const selectedId = formData.get('configured_downloader_id');
+    update.configured_downloaders =
+        fullConfig.supported_downloaders.find(d => d.downloader_id === selectedId);
+
+    update.configured_debrid_providers = buildProviders(formData, 'debrid');
+    update.configured_usenet_providers = buildProviders(formData, 'usenet');
 
     await fetch('/internal/api/config/update', {
         method: 'POST',

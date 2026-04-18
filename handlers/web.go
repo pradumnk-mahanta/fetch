@@ -450,7 +450,7 @@ func HandleDownloadAction(w http.ResponseWriter, r *http.Request) {
 			DownloadItems:             []databases.LocalDownloadsInstanceItem{},
 		}
 		localDownloadUpdated.Add()
-		localDownload.Delete()
+		DeleteLocalDownload(id)
 
 	case "delete":
 		DeleteLocalDownload(id)
