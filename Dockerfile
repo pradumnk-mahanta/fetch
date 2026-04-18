@@ -3,23 +3,6 @@ FROM --platform=$BUILDPLATFORM tonistiigi/xx AS xx
 ARG VERSION=dev
 
 # -------------------------
-# Node / Tailwind Builder
-# -------------------------
-FROM node:20-bookworm AS node-builder
-
-WORKDIR /app
-
-COPY package.json package-lock.json* ./
-RUN npm install
-
-COPY tailwind.config.js ./
-COPY tailwind.css ./
-COPY handlers ./handlers
-
-RUN npx tailwindcss -i ./tailwind.css -o ./static/styles.css --minify
-
-
-# -------------------------
 # Go Builder
 # -------------------------
 FROM --platform=$BUILDPLATFORM golang:1.25-bookworm AS builder
@@ -40,8 +23,6 @@ RUN go mod download
 
 COPY . .
 
-COPY --from=node-builder /app/static /app/static
-
 RUN xx-go build -ldflags="-X fetch/config.version=$VERSION -s -w" -o fetch && xx-verify fetch
 
 
@@ -57,7 +38,7 @@ RUN apt-get update && \
 WORKDIR /app
 
 COPY --from=builder /app/fetch /app/fetch
-COPY --from=builder /app/static /app/static
+COPY static /app/static
 
 RUN mkdir -p /downloads /data
 
