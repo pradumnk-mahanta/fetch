@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fetch | Dashboard</title>
-    <link rel="icon" href="/favicon.ico">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="/static/logo.png">
+    <link rel="stylesheet" href="/static/styles.css">
 </head>
 
 <body class="bg-gray-950 text-gray-100 font-sans min-h-screen">
@@ -27,8 +27,7 @@
         <div class="flex flex-wrap items-center gap-2 md:gap-4">
 
             <div class="flex items-center gap-2 bg-gray-900 px-3 py-1.5 rounded-lg">
-                <span class="text-[10px] text-gray-500 uppercase tracking-widest">Refresh</span>
-                <span class="text-sm font-mono text-blue-400"><span id="timer">10</span>s</span>
+                <span class="text-sm text-blue-400"><span id="timer">10</span>s</span>
             </div>
 
             <a href="/add" class="px-3 py-2 bg-green-700 hover:bg-green-600 text-white rounded-lg text-sm">
@@ -39,12 +38,11 @@
                 History
             </a>
 
-            <a href="/settings" class="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm">
+            <a href="/settings" class="px-3 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-sm">
                 Settings
             </a>
 
-            <a href="/logout"
-               class="px-3 py-2 bg-red-900/30 text-red-400 hover:bg-red-800/40 hover:text-red-300 rounded-lg text-sm">
+            <a href="/logout" class="px-3 py-2 bg-red-800 hover:bg-red-700 text-white-200 rounded-lg text-sm">
                 Logout
             </a>
 

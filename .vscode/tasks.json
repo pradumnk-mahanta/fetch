@@ -1,0 +1,11 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "tailwind:build",
+      "type": "shell",
+      "command": "npx tailwindcss -i ./tailwind.css -o ./static/styles.css",
+      "problemMatcher": []
+    }
+  ]
+}
