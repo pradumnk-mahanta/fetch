@@ -34,7 +34,7 @@ var SupportedDownloaders = []DownloaderInfo{
 	{
 		ID:          DownloaderIdSymlink,
 		Name:        "Symlink",
-		Description: "All the files will be symlinked to the provided mount path. Keep the mountpath in all the applications same. If mounting to /mnt/provoder in fetch, mount at the same location in Emby/Jellyfin/Plex. Please be advised, using this method relies on the media being available on the provider. If it is deleted from the Provider (goes out of cache), links will not resolve to anything. ",
+		Description: "All the files will be symlinked to the provided mount path. Keep the mountpath in all the applications same. If mounting to /mnt/provider in fetch, mount at the same location in Emby/Jellyfin/Plex/Arr. Please be advised, using this method relies on the media being available on the provider. If it is deleted from the Provider (goes out of cache), links will not resolve to anything.",
 	},
 	{
 		ID:          DownloaderIdDoNotDownload,
@@ -44,7 +44,7 @@ var SupportedDownloaders = []DownloaderInfo{
 	{
 		ID:          DownloaderIdStrmLink,
 		Name:        "STRM File",
-		Description: "Strm Files are created for the downloads. Not dependent on mount paths. Please be advised, using this method relies on the media being available on the provider. If it is deleted from the Provider (goes out of cache), links will not resolve to anything. This method relies on your API Key to remain consistent. In case you change your API Keys, you will have to change the api keys in all your strm files untill an automated process is created.",
+		Description: "Strm Files are created for the downloads. Please be advised, using this method relies on the media being available on the provider. If it is deleted from the Provider (goes out of cache), links will not resolve to anything. This method relies on your API Key to remain consistent. In case you change your API Keys, you will have to change the API keys in all your strm files until an automated process is created.",
 	},
 }
 
@@ -97,7 +97,7 @@ type ProviderInfo struct {
 }
 
 type DebridConfig struct {
-	Priority           int    `json:"priority"`
+	Priority           int    `json:"debrid_provider_priority"`
 	ID                 string `json:"debrid_provider_id"`
 	Name               string `json:"debrid_provider_name"`
 	APIEndpoint        string `json:"debrid_provider_api_endpoint"`
@@ -108,7 +108,7 @@ type DebridConfig struct {
 }
 
 type UsenetConfig struct {
-	Priority           int    `json:"priority"`
+	Priority           int    `json:"usenet_provider_priority"`
 	ID                 string `json:"usenet_provider_id"`
 	Name               string `json:"usenet_provider_name"`
 	APIEndpoint        string `json:"usenet_provider_api_endpoint"`
