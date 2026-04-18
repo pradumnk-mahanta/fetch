@@ -25,48 +25,49 @@ import (
 func QBittorrentHandler(w http.ResponseWriter, r *http.Request) {
 
 	path := strings.TrimSuffix(r.URL.Path, "/")
+	downloaderType := strings.Split(path, "/")[1]
 	method := r.Method
 
-	logger.Log.Infow("Received qBittorrent API Request", "method", method, "path", path)
+	logger.Log.Infow("Received qBittorrent API Request", "method", method, "path", path, "downloaderType", downloaderType)
 
-	switch path {
-	case "/qbittorrent/api/v2/auth/login", "/api/v2/auth/login":
+	switch {
+	case strings.Contains(path, "/api/v2/auth/login"):
 		HandleQBLogin(w, r)
 		return
 
-	case "/qbittorrent/api/v2/app/webapiVersion", "/api/v2/app/webapiVersion":
+	case strings.Contains(path, "/api/v2/app/webapiVersion"):
 		HandleQBVersion(w, r)
 		return
 
-	case "/qbittorrent/api/v2/app/preferences", "/api/v2/app/preferences":
+	case strings.Contains(path, "/api/v2/app/preferences"):
 		HandleQBPreferences(w, r)
 		return
 
-	case "/qbittorrent/api/v2/torrents/categories", "/api/v2/torrents/categories":
+	case strings.Contains(path, "/api/v2/torrents/categories"):
 		HandleQBTorrentCategories(w, r)
 		return
 
-	case "/qbittorrent/api/v2/torrents/info", "/api/v2/torrents/info":
+	case strings.Contains(path, "/api/v2/torrents/info"):
 		HandleQBTorrentsInfo(w, r)
 		return
 
-	case "/qbittorrent/api/v2/torrents/files", "/api/v2/torrents/files":
+	case strings.Contains(path, "/api/v2/torrents/files"):
 		HandleQBTorrentFiles(w, r)
 		return
 
-	case "/qbittorrent/api/v2/torrents/properties", "/api/v2/torrents/properties":
+	case strings.Contains(path, "/api/v2/torrents/properties"):
 		HandleQBTorrentProperties(w, r)
 		return
 
-	case "/qbittorrent/api/v2/torrents/add", "/api/v2/torrents/add":
-		HandleQBAddTorrent(w, r)
+	case strings.Contains(path, "/api/v2/torrents/add"):
+		HandleQBAddTorrent(w, r, downloaderType)
 		return
 
-	case "/qbittorrent/api/v2/torrents/delete", "/api/v2/torrents/delete":
+	case strings.Contains(path, "/api/v2/torrents/delete"):
 		HandleQBDelete(w, r)
 		return
 
-	case "/qbittorrent/api/v2/sync/maindata", "/api/v2/sync/maindata":
+	case strings.Contains(path, "/api/v2/sync/maindata"):
 		HandleQBSyncMainData(w, r)
 		return
 
@@ -184,7 +185,7 @@ func HandleQBSyncMainData(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(mainData)
 }
 
-func HandleQBAddTorrent(w http.ResponseWriter, r *http.Request) {
+func HandleQBAddTorrent(w http.ResponseWriter, r *http.Request, downloaderType string) {
 	w.Header().Set("Content-Type", "application/json")
 	if !ValidateQBSession(r) {
 		w.WriteHeader(http.StatusForbidden)
@@ -235,7 +236,7 @@ func HandleQBAddTorrent(w http.ResponseWriter, r *http.Request) {
 			}
 
 			logger.Log.Infow("Received Torrent File", "fileName", fileName, "infoHash", infoHash)
-			ref, err := adapters.CreateDownload(config.ProtocolTorrent, fh.Filename, fileBytes, "", infoHash, category)
+			ref, err := adapters.CreateDownload(config.ProtocolTorrent, fh.Filename, fileBytes, "", infoHash, category, downloaderType)
 			if err != nil {
 				errors = append(errors, fmt.Sprintf("%s: %v", fh.Filename, err))
 				continue
@@ -263,7 +264,7 @@ func HandleQBAddTorrent(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 
-				ref, errCreate := adapters.CreateDownload(config.ProtocolTorrent, fileName, []byte{}, url, infoHash, category)
+				ref, errCreate := adapters.CreateDownload(config.ProtocolTorrent, fileName, []byte{}, url, infoHash, category, downloaderType)
 				if errCreate != nil {
 					errors = append(errors, fmt.Sprintf("%s: %v", url, errCreate))
 					continue
@@ -283,7 +284,7 @@ func HandleQBAddTorrent(w http.ResponseWriter, r *http.Request) {
 					continue
 				}
 
-				ref, err := adapters.CreateDownload(config.ProtocolTorrent, fileName, fileBytes, "", infoHash, category)
+				ref, err := adapters.CreateDownload(config.ProtocolTorrent, fileName, fileBytes, "", infoHash, category, downloaderType)
 				if err != nil {
 					errors = append(errors, fmt.Sprintf("%s: %v", url, err))
 					continue
