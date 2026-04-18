@@ -1,0 +1,7 @@
+{
+  "name": "fetch",
+  "version": "1.0.0",
+  "devDependencies": {
+    "tailwindcss": "^3.4.0"
+  }
+}

@@ -4,6 +4,7 @@
 # Binaries for programs and plugins
 *.exe
 *.exe~
+*.exe*
 *.dll
 *.so
 *.dylib
@@ -32,3 +33,7 @@ go.work.sum
 # .vscode/
 data/
 downloads/
+
+node_modules/
+package-lock.json
+static/styles.css

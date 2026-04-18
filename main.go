@@ -38,9 +38,8 @@ func main() {
 	scheduler.Start(context.Background())
 	logger.Log.Infow("Scheduler Initialized!")
 
-	http.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "/app/logo.png")
-	})
+	fs := http.FileServer(http.Dir("./static"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
 
 	http.HandleFunc("/api", handlers.SABNzbdHandler)
 	http.HandleFunc("/intr/api", handlers.SABNzbdHandler)
@@ -66,7 +65,7 @@ func main() {
 	logger.Log.Infow("Server Starting on", "port", port)
 
 	if err := http.ListenAndServe(port, nil); err != nil {
-		logger.Log.Errorw("Server crashed", "error", err)
+		logger.Log.Errorw("Server Crashed!", "error", err)
 		scheduler.Stop()
 	}
 }
