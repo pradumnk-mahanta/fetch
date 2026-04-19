@@ -11,6 +11,7 @@ import (
 	"fetch/services"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -192,15 +193,20 @@ func HandleQBAddTorrent(w http.ResponseWriter, r *http.Request, downloaderType s
 		return
 	}
 
-	err := r.ParseMultipartForm(100 << 20)
-	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"Failed to parse form: %v"}`, err), http.StatusBadRequest)
-		return
+	var files []multipart.FileHeader = make([]multipart.FileHeader, 0)
+	var urlsField string = ""
+
+	errParseFiles := r.ParseMultipartForm(100 << 20)
+	if errParseFiles != nil {
+		logger.Log.Errorw("Failed to parse form", "error", errParseFiles)
+	} else {
+		torrentFiles := r.MultipartForm.File["torrents"]
+		for _, fh := range torrentFiles {
+			files = append(files, *fh)
+		}
 	}
 
-	files := r.MultipartForm.File["torrents"]
-	urlsField := r.FormValue("urls")
-
+	urlsField = r.FormValue("urls")
 	if len(files) == 0 && strings.TrimSpace(urlsField) == "" {
 		http.Error(w, `{"error":"No torrents or urls provided"}`, http.StatusBadRequest)
 		return
