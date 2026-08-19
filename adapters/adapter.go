@@ -75,6 +75,7 @@ func ProcessDownloadsQueue() {
 			logger.Log.Errorw("Failed to get usenet downloads list from provider", "error", err)
 		}
 		for _, dl := range provDl {
+			dl.Protocol = config.ProtocolUsenet
 			providerDownloads = append(providerDownloads, dl)
 		}
 	}
@@ -85,6 +86,7 @@ func ProcessDownloadsQueue() {
 			logger.Log.Errorw("Failed to get torrents downloads list from provider", "error", err)
 		}
 		for _, dl := range provDl {
+			dl.Protocol = config.ProtocolTorrent
 			providerDownloads = append(providerDownloads, dl)
 		}
 	}
@@ -121,14 +123,7 @@ func ProcessDownloadsQueue() {
 
 		case config.DOWNLOAD_STATUS_PROVIDER_ADDED, config.DOWNLOAD_STATUS_PROVIDER_DOWNLOADING, config.DOWNLOAD_STATUS_PROVIDER_PROCESSING:
 			for _, providerDownload := range providerDownloads {
-				providerDownloadID := strconv.FormatInt(*providerDownload.ID, 10)
-				var protocol string
-				if providerDownload.DownloadID != nil && strings.Contains(*providerDownload.DownloadID, "SABnzbd") {
-					protocol = config.ProtocolUsenet
-				} else {
-					protocol = config.ProtocolTorrent
-				}
-				if providerDownloadID == localDownload.ExternalProviderID && protocol == localDownload.Protocol {
+				if strconv.FormatInt(*providerDownload.ID, 10) == localDownload.ExternalProviderID && providerDownload.Protocol == localDownload.Protocol {
 					provData, provDataErr := providerDownload.ToJSON()
 					if provDataErr != nil {
 						logger.Log.Errorw("Failed to get provider data in json", "error", provDataErr)

@@ -73,6 +73,7 @@ type DAT struct {
 	Private           *bool      `json:"private,omitempty"`
 	UsenetdownloadID  *int64     `json:"usenetdownload_id,omitempty"`
 	TorrentID         *int64     `json:"torrent_id,omitempty"`
+	Protocol          string     `json:"protocol,omitempty"`
 }
 
 type File struct {
